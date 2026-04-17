@@ -6,8 +6,8 @@ The team manager provides the Linear issue ID.
 
 ## Phase 1 — Planning
 
-### 1. Read your issue and assess current status
-Fetch the issue from the project management system. Understand the full requirements, acceptance criteria, and any linked documentation.
+### 1. Read your issue and mark it In Progress
+Fetch the issue from the project management system. Understand the full requirements, acceptance criteria, and any linked documentation. Mark the issue status as **In Progress** in the project management system.
 
 Then assess what work already exists for this issue:
 - Check if a branch or worktree already exists locally (e.g. from a previous attempt or a QA failure fix).

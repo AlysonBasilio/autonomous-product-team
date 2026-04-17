@@ -35,7 +35,7 @@ outcome: approved
 user_feedback: <verbatim user response>
 ```
 
-**Redirect** → do NOT merge. Report:
+**Redirect** → do NOT merge. Mark the issue status as **In Progress** in the project management system. Report:
 
 ```
 type: demo-review-report
