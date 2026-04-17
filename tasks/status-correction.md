@@ -12,7 +12,7 @@ The team manager provides either:
 
 ## Workflow
 
-1. **Fetch the issue(s)** from the project management system.
+1. **Fetch the issue(s)** from the product development management system.
 
 2. **For each issue, verify the status is consistent with reality:**
    - If marked **Done** — confirm that:

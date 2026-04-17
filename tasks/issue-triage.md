@@ -2,11 +2,11 @@
 
 ## Objective
 
-Scan the project in the configured project management system and produce a report of which issues are ready for work.
+Scan the project in the configured product development management system and produce a report of which issues are ready for work.
 
 ## Input
 
-The team manager provides the project management system name and project identifier.
+The team manager provides the product development management system name and project identifier.
 
 ## Definition of Blocked
 
@@ -19,7 +19,7 @@ An issue is **not** blocked solely because its implementation is difficult or un
 
 ## Workflow
 
-1. **Fetch all issues** — Query the project management system for every issue in the project that is not Done.
+1. **Fetch all issues** — Query the product development management system for every issue in the project that is not Done.
 
 2. **Check blockers** — For each issue, check its dependencies. An issue is blocked if any dependency is not Done. An issue is also blocked if it requires an unresolved product or architectural decision.
 
@@ -27,7 +27,7 @@ An issue is **not** blocked solely because its implementation is difficult or un
    - **Ready** — All dependencies are Done (or no dependencies). Can be assigned immediately.
    - **Blocked** — One or more dependencies are not Done, or an external decision is pending. Note what is blocking it.
 
-4. **Rank ready issues** — Sort the ready issues by priority (highest first), using the priority assigned in the project management system. If priorities are equal, prefer the issue with the earliest creation date.
+4. **Rank ready issues** — Sort the ready issues by priority (highest first), using the priority assigned in the product development management system. If priorities are equal, prefer the issue with the earliest creation date.
 
 5. **Report to team manager** using this schema:
 

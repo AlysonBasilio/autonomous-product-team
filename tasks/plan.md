@@ -9,7 +9,7 @@ The team manager provides the issue ID.
 Before doing any planning, assess the actual current state of the issue to determine where work stands.
 
 ### 1. Fetch the issue
-Read the issue from the project management system. Understand the requirements and acceptance criteria.
+Read the issue from the product development management system. Understand the requirements and acceptance criteria.
 
 ### 2. Check for existing work
 - Check if a branch for this issue already exists locally (e.g. `git branch --list "*<issue-id>*"` or check `../worktrees/`).
@@ -40,7 +40,7 @@ If `next_task` is `test` or `demo-review`, skip Phase 1 entirely and go straight
 Only run this phase when `next_task` is an implementation task.
 
 ### 1. Mark the issue In Progress
-Update the issue status to **In Progress** in the project management system.
+Update the issue status to **In Progress** in the product development management system.
 
 ### 2. Set up an isolated workspace
 If no worktree or branch exists yet, create one:

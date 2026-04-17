@@ -10,7 +10,7 @@ You will receive `issue_id` and `pr_url` from the implementation task-complete r
 
 ### 1. Fetch the issue
 
-Fetch the issue from the project management system to understand the acceptance criteria. Do NOT read the implementation code or PR diff — test blind as a user would.
+Fetch the issue from the product development management system to understand the acceptance criteria. Do NOT read the implementation code or PR diff — test blind as a user would.
 
 ### 2. Check out the branch
 

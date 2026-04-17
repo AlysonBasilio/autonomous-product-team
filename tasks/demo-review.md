@@ -10,7 +10,7 @@ You will receive `issue_id` and `pr_url` from the test-report.
 
 ### 1. Fetch the issue
 
-Fetch the issue from the project management system: title, description, acceptance criteria.
+Fetch the issue from the product development management system: title, description, acceptance criteria.
 
 ### 2. Fetch PR details
 
@@ -26,7 +26,7 @@ Use `AskUserQuestion` to present:
 
 ### 4. Act on the response
 
-**Approved** → merge the PR into `main` (squash merge preferred). Mark the issue as Done in the project management system. Report:
+**Approved** → merge the PR into `main` (squash merge preferred). Mark the issue as Done in the product development management system. Report:
 
 ```
 type: demo-review-report
@@ -35,7 +35,7 @@ outcome: approved
 user_feedback: <verbatim user response>
 ```
 
-**Redirect** → do NOT merge. Mark the issue status as **In Progress** in the project management system. Report:
+**Redirect** → do NOT merge. Mark the issue status as **In Progress** in the product development management system. Report:
 
 ```
 type: demo-review-report
@@ -52,4 +52,4 @@ Report delivered. If approved, PR is merged and issue is marked Done. If redirec
 
 - Do not merge until the user explicitly approves.
 - Record the user's feedback verbatim in the report.
-- If approved, mark the issue as Done in the project management system before reporting.
+- If approved, mark the issue as Done in the product development management system before reporting.
