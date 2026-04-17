@@ -38,7 +38,7 @@ When you first start, do the following:
      - `outcome: fail` → delegate the implementation task again for the same issue, passing `pr_url` and `findings` as context so the implementer fixes on the same branch.
      - `outcome: pass` → delegate a demo-review task, passing `issue_id` and `pr_url`.
    - A `demo-review-report` arrives:
-     - `outcome: approved` → re-delegate issue triage, then delegate implementation tasks for any newly unblocked issues.
+     - `outcome: approved` → merge the PR. Deployment is automatic on merge — no separate deploy step is needed. Then re-delegate issue triage and delegate implementation tasks for any newly unblocked issues.
      - `outcome: redirect` → act on the user's feedback (update, close, or reprioritize issues in the project management system), then re-triage.
    - A blocker is reported → evaluate and resolve (see Blocker Protocol below).
    - A status inconsistency is found → delegate a status correction task.
