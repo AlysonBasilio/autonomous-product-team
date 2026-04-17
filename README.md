@@ -6,11 +6,11 @@ This document specifies how an autonomous product team should work.
 
 ### Team
 
-The team which will be responsible for handleing a product.
+The team which will be responsible for handling a product.
 
 ### Team Manager
 
-The persona that is responsible by manage team members and delegates tasks.
+The persona that is responsible for managing team members and delegates tasks.
 
 ### Team Member
 
@@ -22,6 +22,6 @@ The definition of how to do a specific activity to reach a specific goal.
 
 ## Premises
 
-1. Each team have one team manager
+1. Each team has one team manager
 2. The team works on **one issue at a time** — the highest-priority unblocked issue. Multiple team members may work in parallel only on independent tasks within that single issue (e.g. backend and frontend simultaneously). No two team members ever work on different issues concurrently.
 3. Team Manager do not execute tasks. They will always delegate tasks for team members.

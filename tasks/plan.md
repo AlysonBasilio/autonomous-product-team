@@ -58,7 +58,7 @@ git worktree add ../worktrees/<branch-name> <branch-name>
 
 All subsequent reads, edits, and commits must happen inside the worktree — never in the main checkout.
 
-### 2. Build the plan
+### 3. Build the plan
 - Read the relevant files and understand existing patterns, conventions, and architecture.
 - Identify which files need to be created, modified, or deleted.
 - Identify dependencies between changes (what needs to happen first).
