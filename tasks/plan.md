@@ -39,4 +39,14 @@ Before writing any code, build a plan for how you will tackle the issue:
 
 ---
 
-When a clear written plan exists, proceed to `implement.md` to carry out the implementation.
+When the plan is complete, report back to `team-manager`:
+
+```
+type: task-complete
+task: tasks/plan.md
+issue_id: <issue ID>
+branch: <branch name created in step 2>
+worktree: <absolute path to the worktree>
+plan: |
+  <the full ordered implementation checklist>
+```

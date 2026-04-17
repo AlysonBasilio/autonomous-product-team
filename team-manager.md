@@ -31,7 +31,8 @@ When you first start, do the following:
    ```
 
 3. **React to reports** — Team members report back via direct message when a task is complete or blocked. When a report arrives, decide the next action:
-   - A triage report comes in → delegate implementation tasks for unblocked issues.
+   - A triage report comes in → delegate a planning task for each unblocked issue.
+   - A planning report comes in → delegate implementation tasks (backend and/or frontend) for that issue, passing `branch`, `worktree`, and `plan` from the planning report as context.
    - An implementation is complete → delegate a test task, passing the `issue_id` and `pr_url`.
    - A `test-report` arrives:
      - `outcome: fail` → delegate the implementation task again for the same issue, passing `pr_url` and `findings` as context so the implementer fixes on the same branch.
@@ -66,8 +67,9 @@ When you first start, do the following:
 | Task | File | When to delegate |
 |------|------|-----------------|
 | Issue Triage | `tasks/issue-triage.md` | At project start and after any issue moves to Done |
-| Backend Implementation | `tasks/implement-backend.md` | When an unblocked issue needs backend work |
-| Frontend Implementation | `tasks/implement-frontend.md` | When an unblocked issue needs frontend work |
+| Plan | `tasks/plan.md` | After triage, before implementation, for each unblocked issue |
+| Backend Implementation | `tasks/implement-backend.md` | After planning, when an issue needs backend work |
+| Frontend Implementation | `tasks/implement-frontend.md` | After planning, when an issue needs frontend work |
 | Test | `tasks/test.md` | After every implementation task completes |
 | Demo Review | `tasks/demo-review.md` | After every test task passes |
 | Status Correction | `tasks/status-correction.md` | When an issue status is inconsistent with ground truth |

@@ -1,6 +1,14 @@
 # Task: Implement (Frontend)
 
-> This task assumes a clear written plan already exists from `plan.md`. Do not begin implementation until the planning phase is complete.
+## Input
+
+The team manager provides:
+- `issue_id` — the Linear issue to implement
+- `branch` — the git branch created during planning (work here, do not create a new branch)
+- `worktree` — absolute path to the existing worktree created during planning (work here)
+- `plan` — the ordered implementation checklist produced by `tasks/plan.md`
+
+Do not begin implementation until all four inputs are present.
 
 ## Phase 1 — Implementation
 
