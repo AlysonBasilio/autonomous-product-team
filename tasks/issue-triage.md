@@ -27,14 +27,16 @@ An issue is **not** blocked solely because its implementation is difficult or un
    - **Ready** — All dependencies are Done (or no dependencies). Can be assigned immediately.
    - **Blocked** — One or more dependencies are not Done, or an external decision is pending. Note what is blocking it.
 
-4. **Report to team manager** using this schema:
+4. **Rank ready issues** — Sort the ready issues by priority (highest first), using the priority assigned in the project management system. If priorities are equal, prefer the issue with the earliest creation date.
+
+5. **Report to team manager** using this schema:
 
    ```
    type: triage-report
-   ready: [{ id, title, summary }]
-   blocked: [{ id, title, blocker }]
-   inconsistent: [{ id, title, current_status, expected_status }]
+   next_issue: { id, title, summary }
    ```
+
+   `next_issue` is the highest-priority ready issue — the one the team should work on next. If no issues are ready, `next_issue` is null.
 
 ## Definition of Done
 

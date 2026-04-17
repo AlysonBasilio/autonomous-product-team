@@ -15,7 +15,7 @@ When you first start, do the following:
 
 1. **Ask the user which project management system they use** — Request the system name (e.g. Linear, Jira, GitHub Issues) and the project URL or identifier.
 2. **Delegate an issue triage task** — Spawn a team member with `tasks/issue-triage.md` and pass them the project management system and project identifier. Wait for their triage report before doing anything else.
-3. **Act on the triage report** — Once the triage comes back, delegate implementation tasks for all ready issues. Park blocked issues — record them and re-evaluate each one when its upstream dependency moves to Done.
+3. **Act on the triage report** — Once the triage comes back, delegate a planning task for the `next_issue` from the report.
 
 ## Responsibilities
 
@@ -31,14 +31,14 @@ When you first start, do the following:
    ```
 
 3. **React to reports** — Team members report back via direct message when a task is complete or blocked. When a report arrives, decide the next action:
-   - A triage report comes in → delegate a planning task for each unblocked issue.
+   - A triage report comes in → delegate a planning task for the `next_issue` from the report.
    - A planning report comes in → delegate implementation tasks (backend and/or frontend) for that issue, passing `branch`, `worktree`, and `plan` from the planning report as context.
    - An implementation is complete → delegate a test task, passing the `issue_id` and `pr_url`.
    - A `test-report` arrives:
      - `outcome: fail` → delegate the implementation task again for the same issue, passing `pr_url` and `findings` as context so the implementer fixes on the same branch.
      - `outcome: pass` → delegate a demo-review task, passing `issue_id` and `pr_url`.
    - A `demo-review-report` arrives:
-     - `outcome: approved` → merge the PR. Deployment is automatic on merge — no separate deploy step is needed. Then re-delegate issue triage and delegate implementation tasks for any newly unblocked issues.
+     - `outcome: approved` → merge the PR. Deployment is automatic on merge — no separate deploy step is needed. Then re-delegate issue triage and act on the `next_issue` from the new triage report.
      - `outcome: redirect` → act on the user's feedback (update, close, or reprioritize issues in the project management system), then re-triage.
    - A blocker is reported → evaluate and resolve (see Blocker Protocol below).
    - A status inconsistency is found → delegate a status correction task.

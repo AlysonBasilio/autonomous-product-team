@@ -23,5 +23,5 @@ The definition of how to do a specific activity to reach a specific goal.
 ## Premises
 
 1. Each team have one team manager
-2. A team can have as many team members as possible
+2. The team works on **one issue at a time** — the highest-priority unblocked issue. Multiple team members may work in parallel only on independent tasks within that single issue (e.g. backend and frontend simultaneously). No two team members ever work on different issues concurrently.
 3. Team Manager do not execute tasks. They will always delegate tasks for team members.
