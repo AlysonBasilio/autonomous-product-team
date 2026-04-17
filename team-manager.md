@@ -32,7 +32,12 @@ When you first start, do the following:
 
 3. **React to reports** — Team members report back via direct message when a task is complete or blocked. When a report arrives, decide the next action:
    - A triage report comes in → delegate a planning task for the `next_issue` from the report.
-   - A planning report comes in → delegate implementation tasks (backend and/or frontend) for that issue, passing `branch`, `worktree`, and `plan` from the planning report as context.
+   - A `plan-report` comes in → route based on `next_task`:
+     - `implement-backend` → delegate backend implementation, passing `branch`, `worktree`, `plan`, and `findings` (if present).
+     - `implement-frontend` → delegate frontend implementation, passing `branch`, `worktree`, `plan`, and `findings` (if present).
+     - `implement-both` → delegate backend and frontend implementation in parallel, passing `branch`, `worktree`, and `plan`.
+     - `test` → delegate a test task, passing `issue_id` and `pr_url`.
+     - `demo-review` → delegate a demo-review task, passing `issue_id` and `pr_url`.
    - An implementation is complete → delegate a test task, passing the `issue_id` and `pr_url`.
    - A `test-report` arrives:
      - `outcome: fail` → delegate the implementation task again for the same issue, passing `pr_url` and `findings` as context so the implementer fixes on the same branch.
@@ -67,7 +72,7 @@ When you first start, do the following:
 | Task | File | When to delegate |
 |------|------|-----------------|
 | Issue Triage | `tasks/issue-triage.md` | At project start and after any issue moves to Done |
-| Plan | `tasks/plan.md` | After triage, before implementation, for each unblocked issue |
+| Assess and Plan | `tasks/plan.md` | After triage, to assess current issue state and determine the exact next task needed |
 | Backend Implementation | `tasks/implement-backend.md` | After planning, when an issue needs backend work |
 | Frontend Implementation | `tasks/implement-frontend.md` | After planning, when an issue needs frontend work |
 | Test | `tasks/test.md` | After every implementation task completes |

@@ -1,37 +1,65 @@
-# Task: Plan
+# Task: Assess and Plan
 
 ## Input
 
-The team manager provides the Linear issue ID.
+The team manager provides the issue ID.
+
+## Phase 0 — State Assessment
+
+Before doing any planning, assess the actual current state of the issue to determine where work stands.
+
+### 1. Fetch the issue
+Read the issue from the project management system. Understand the requirements and acceptance criteria.
+
+### 2. Check for existing work
+- Check if a branch for this issue already exists locally (e.g. `git branch --list "*<issue-id>*"` or check `../worktrees/`).
+- Check if a PR is already open on the remote: `gh pr list --search "<issue-id>" --state open`.
+
+### 3. If a PR exists, inspect it further
+- Check CI status: `gh pr checks <pr_url>`.
+- Look for a prior test report in PR comments: `gh pr view <pr_url> --comments`. Search for `type: test-report`.
+- Look for a prior demo-review signal: search comments for `type: demo-review-report`.
+
+### 4. Determine the next task
+
+| Observed state | `next_task` |
+|---|---|
+| No branch, no PR | `implement-backend`, `implement-frontend`, or `implement-both` — proceed to Phase 1 to build a plan |
+| Branch exists, no PR | `implement-backend`, `implement-frontend`, or `implement-both` — proceed to Phase 1 to build a plan, reusing the existing branch |
+| PR exists, CI failing | `implement-backend` or `implement-frontend` — fix CI on the existing branch; proceed to Phase 1 |
+| PR exists, CI green, no test report | `test` — skip Phase 1, report immediately |
+| PR exists, test report `outcome: fail` | `implement-backend` or `implement-frontend` — fix findings on the existing branch; proceed to Phase 1 |
+| PR exists, test report `outcome: pass` | `demo-review` — skip Phase 1, report immediately |
+
+If `next_task` is `test` or `demo-review`, skip Phase 1 entirely and go straight to reporting.
+
+---
 
 ## Phase 1 — Planning
 
-### 1. Read your issue and mark it In Progress
-Fetch the issue from the project management system. Understand the full requirements, acceptance criteria, and any linked documentation. Mark the issue status as **In Progress** in the project management system.
+Only run this phase when `next_task` is an implementation task.
 
-Then assess what work already exists for this issue:
-- Check if a branch or worktree already exists locally (e.g. from a previous attempt or a QA failure fix).
-- Check if a PR is already open on the remote.
-- If prior work exists, pick up where it left off instead of starting from scratch.
-- If no prior work exists, proceed to step 2.
+### 1. Mark the issue In Progress
+Update the issue status to **In Progress** in the project management system.
 
-### 2. Continue or create an isolated workspace
-Before touching any code, create a dedicated git worktree for your branch. This keeps your changes fully isolated from other team members working in parallel.
+### 2. Set up an isolated workspace
+If no worktree or branch exists yet, create one:
 
 ```bash
 # From the repo root
 git worktree add ../worktrees/<branch-name> -b <branch-name>
 ```
 
-All subsequent reads, edits, and commits must happen inside the worktree directory — never in the main checkout. After the issue is Done, clean up:
+If a branch already exists, create a worktree pointing to it:
 
 ```bash
-git worktree remove ../worktrees/<branch-name>
+git worktree add ../worktrees/<branch-name> <branch-name>
 ```
 
-### 3. Plan
-Before writing any code, build a plan for how you will tackle the issue:
-- Read the relevant files and understand existing patterns, conventions, and architecture in the areas your issue touches.
+All subsequent reads, edits, and commits must happen inside the worktree — never in the main checkout.
+
+### 2. Build the plan
+- Read the relevant files and understand existing patterns, conventions, and architecture.
 - Identify which files need to be created, modified, or deleted.
 - Identify dependencies between changes (what needs to happen first).
 - Anticipate edge cases and how the acceptance criteria map to concrete code changes.
@@ -39,14 +67,20 @@ Before writing any code, build a plan for how you will tackle the issue:
 
 ---
 
-When the plan is complete, report back to `team-manager`:
+## Report
+
+Report back to `team-manager`:
 
 ```
-type: task-complete
-task: tasks/plan.md
+type: plan-report
 issue_id: <issue ID>
-branch: <branch name created in step 2>
-worktree: <absolute path to the worktree>
+next_task: implement-backend | implement-frontend | implement-both | test | demo-review
+branch: <branch name, if applicable>
+worktree: <absolute path to worktree, if applicable>
+pr_url: <PR URL, if applicable>
 plan: |
-  <the full ordered implementation checklist>
+  <ordered implementation checklist — only when next_task is implement-*>
+findings: <prior test findings — only when next_task is implement-* due to a failed test report>
 ```
+
+Fields that do not apply to the current state should be omitted.
