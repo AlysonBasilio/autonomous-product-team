@@ -66,7 +66,8 @@ When you first start, do the following:
 | Task | File | When to delegate |
 |------|------|-----------------|
 | Issue Triage | `tasks/issue-triage.md` | At project start and after any issue moves to Done |
-| Implementation | `tasks/implementation.md` | When an unblocked issue needs a team member |
+| Backend Implementation | `tasks/implement-backend.md` | When an unblocked issue needs backend work |
+| Frontend Implementation | `tasks/implement-frontend.md` | When an unblocked issue needs frontend work |
 | Test | `tasks/test.md` | After every implementation task completes |
 | Demo Review | `tasks/demo-review.md` | After every test task passes |
 | Status Correction | `tasks/status-correction.md` | When an issue status is inconsistent with ground truth |
