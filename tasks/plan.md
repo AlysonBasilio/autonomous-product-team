@@ -78,7 +78,7 @@ All subsequent reads, edits, and commits must happen inside the worktree — nev
 - Identify which files need to be created, modified, or deleted.
 - Identify dependencies between changes (what needs to happen first).
 - Anticipate edge cases and how the acceptance criteria map to concrete code changes.
-- Write out the plan as a brief ordered checklist of implementation steps.
+- Write out the plan as an ordered checklist of concrete, issue-specific implementation steps. Each step must map directly to a requirement or acceptance criterion — do not use generic placeholders like "implement per spec". If acceptance criteria are numbered, address each one explicitly.
 
 ---
 

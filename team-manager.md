@@ -46,7 +46,7 @@ When you first start, do the following:
      - `outcome: pass` → delegate a demo-review task, passing `issue_id` and `pr_url`.
    - A `demo-review-report` arrives:
      - `outcome: approved` → merge the PR. Deployment is automatic on merge — no separate deploy step is needed. Then re-delegate issue triage and act on the `next_issue` from the new triage report.
-     - `outcome: redirect` → act on the user's feedback (update, close, or reprioritize issues in the product development management system), then re-triage.
+     - `outcome: redirect` → act on the user's feedback (update, close, or reprioritize issues in the product development management system), then re-delegate issue triage (`tasks/issue-triage.md`). Do not skip triage and jump straight to planning or implementation.
    - A `status-correction-report` arrives → if `now_unblocked` is non-empty, re-delegate issue triage to get an updated priority-ordered ready list, then act on the `next_issue` from that report.
    - A blocker is reported → evaluate and resolve (see Blocker Protocol below).
    - A status inconsistency is found → delegate a status correction task.

@@ -1,6 +1,6 @@
 # Autonomous Product Team
 
-This document specifies how an autonomous product team should work.
+This project specifies how an autonomous product team should work in the age of AI. The goal is to apply this using https://code.claude.com/docs/en/agent-teams feature.
 
 ## Definitions
 
@@ -28,3 +28,41 @@ The definition of how to do a specific activity to reach a specific goal.
 4. Each task has its own completion status, tracked as structured comments on the PM issue — separate from the issue's overall lifecycle status (In Progress, Done, Blocked).
 5. Tasks must be idempotent. Before starting work, the plan task checks PM issue comment history to determine which tasks have already been completed and routes only to what is still needed.
 6. Every task posts a structured completion comment to the PM issue when it finishes. These comments are the authoritative record for re-entry after a restart or re-execution.
+
+## Contributing
+
+### Making changes
+
+When modifying role files (`team-manager.md`, `team-member.md`) or task definitions (`tasks/*.md`), run the eval suite to verify nothing is broken:
+
+```bash
+/run-evals
+```
+
+Or run directly:
+
+```bash
+# Fast structural checks (no API key required)
+evals/.venv/bin/python -m pytest evals/test_static.py -v
+
+# Full suite including LLM-as-judge evals (requires OPENROUTER_API_KEY in evals/.env)
+evals/.venv/bin/python -m pytest evals/ -v
+```
+
+### Setup
+
+```bash
+python3 -m venv evals/.venv && evals/.venv/bin/pip install -r evals/requirements.txt
+echo "OPENROUTER_API_KEY=sk-or-..." > evals/.env
+```
+
+### Adding evals
+
+| File | What to add |
+|---|---|
+| `evals/test_static.py` | Structural checks — new fields, new task references, new report types |
+| `evals/test_triage.py` | New triage edge cases (blocker definitions, priority rules) |
+| `evals/test_plan_routing.py` | New routing table rows or state combinations |
+| `evals/test_manager_routing.py` | New inbound message types or delegation rules |
+
+Each LLM eval is a scenario dict with `name`, `description`, `mock_context`, and `rubric` — see any existing scenario in those files for the pattern.
