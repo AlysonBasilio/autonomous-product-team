@@ -25,7 +25,7 @@ When you first start, do the following:
 
 1. **Decide what to do next** — Assess the current state of the project: which issues are done, which are in progress, which are blocked, and which are ready for work. Use this to determine which tasks need to be delegated.
 
-2. **Delegate tasks** — Spawn a team member and use the `message` tool to explicitly assign them a task. Always assign directly — never leave tasks on the shared list for team members to self-claim. Before spawning, read the task file and extract the `model:` value from its YAML frontmatter; use that model when spawning the teammate. Use this schema:
+2. **Delegate tasks** — Spawn a team member and use the `message` tool to explicitly assign them a task. Always assign directly — never leave tasks on the shared list for team members to self-claim. Before spawning, read the task file and extract the `model:` value from its YAML frontmatter; use that model when spawning the teammate. Always use `subagent_type: "general-purpose"` when calling the Agent tool — never `"team-member"` or any other value. Use this schema:
 
    ```
    type: task-assignment

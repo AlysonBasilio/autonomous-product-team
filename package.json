@@ -1,6 +1,6 @@
 {
   "name": "@alysonbasilio/autonomous-product-team",
-  "version": "0.0.0",
+  "version": "2.0.1",
   "description": "Autonomous AI product team system for Claude Code",
   "keywords": ["claude", "claude-code", "ai-agents", "autonomous"],
   "license": "MIT",

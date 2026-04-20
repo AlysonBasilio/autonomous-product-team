@@ -292,6 +292,7 @@ You are about to spawn a team member and delegate this task to them.
 
 1. Which task file would you assign?
 2. What model would you specify when spawning the team member, and how did you determine it?
+3. What subagent_type would you pass to the Agent tool, and why?
 
 Be specific. Output ONLY your response — no preamble.
 """
@@ -345,6 +346,21 @@ plan: |
             "assigns tasks/implement-backend.md for the implementation task",
             "specifies claude-opus-4-7 as the model for the spawned teammate",
             "states or implies the model was read from the task file's YAML frontmatter",
+        ],
+    ),
+    build_spawn_model_scenario(
+        name="spawn_uses_general_purpose_subagent_type",
+        description="When spawning a team member, manager must use subagent_type general-purpose, not team-member",
+        task_file="tasks/issue-triage.md",
+        message="""\
+type: triage-report
+next_issue:
+  id: PROJ-101
+  title: Fix login redirect bug
+  summary: Users are not redirected after successful login.""",
+        rubric=[
+            "uses subagent_type 'general-purpose' when spawning the team member",
+            "does NOT use subagent_type 'team-member' or any other non-standard value",
         ],
     ),
 ]
