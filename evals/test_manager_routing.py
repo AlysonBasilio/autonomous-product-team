@@ -94,12 +94,12 @@ Context: All issues in the project are now Done. There are no remaining non-Done
         ],
     ),
     build_scenario(
-        name="plan_report_implement_backend_delegates_backend",
-        description="plan-report implement-backend → delegate backend implementation only",
+        name="plan_report_code_delegates_implementation",
+        description="plan-report code → delegate code task",
         message="""\
 type: plan-report
 issue_id: PROJ-401
-next_task: implement-backend
+next_task: code
 branch: feature/PROJ-401-payment-webhooks
 worktree: /Users/dev/worktrees/feature/PROJ-401-payment-webhooks
 plan: |
@@ -109,53 +109,8 @@ plan: |
   4. Process payment.succeeded and payment.failed events
   5. Add integration tests""",
         rubric=[
-            "delegates tasks/implement-backend.md to a team member",
+            "delegates tasks/code.md to a team member",
             "task-assignment includes branch, worktree, and plan",
-            "does NOT also delegate implement-frontend simultaneously",
-        ],
-    ),
-    build_scenario(
-        name="plan_report_implement_frontend_delegates_frontend",
-        description="plan-report implement-frontend → delegate frontend implementation only",
-        message="""\
-type: plan-report
-issue_id: PROJ-402
-next_task: implement-frontend
-branch: feature/PROJ-402-onboarding-wizard
-worktree: /Users/dev/worktrees/feature/PROJ-402-onboarding-wizard
-plan: |
-  1. Create OnboardingWizard component (3-step)
-  2. Add step routing and progress indicator
-  3. Wire to existing /api/onboarding endpoint
-  4. Add unit tests for each step""",
-        rubric=[
-            "delegates tasks/implement-frontend.md to a team member",
-            "task-assignment includes branch, worktree, and plan",
-            "does NOT also delegate implement-backend",
-        ],
-    ),
-    build_scenario(
-        name="plan_report_implement_both_delegates_in_parallel",
-        description="plan-report implement-both → delegate backend AND frontend in parallel",
-        message="""\
-type: plan-report
-issue_id: PROJ-403
-next_task: implement-both
-branch: feature/PROJ-403-notifications
-worktree: /Users/dev/worktrees/feature/PROJ-403-notifications
-plan: |
-  Backend:
-  1. Add Notification model and migrations
-  2. Create GET /notifications and PATCH /notifications/:id endpoints
-  3. Add background job for email delivery
-  Frontend:
-  1. Add notification bell to nav
-  2. Build notification dropdown component
-  3. Integrate with backend API""",
-        rubric=[
-            "delegates BOTH tasks/implement-backend.md AND tasks/implement-frontend.md",
-            "both tasks are delegated in parallel (not one after the other)",
-            "both task-assignments reference the same branch and worktree",
         ],
     ),
     build_scenario(
@@ -177,7 +132,7 @@ pr_url: https://github.com/org/repo/pull/112""",
         description="task-complete → delegate test task with issue_id and pr_url",
         message="""\
 type: task-complete
-task: tasks/implement-backend.md
+task: tasks/code.md
 issue_id: PROJ-501
 pr_url: https://github.com/org/repo/pull/120
 summary: Implemented Stripe webhook handling with signature validation and idempotency.""",
@@ -201,7 +156,7 @@ findings:
   - description: "Duplicate webhook events not deduplicated — payment processed twice"
     severity: critical""",
         rubric=[
-            "re-delegates an implementation task (implement-backend or implement-frontend)",
+            "re-delegates tasks/code.md to fix the findings",
             "task-assignment includes the test findings so the implementer knows what to fix",
             "task-assignment includes pr_url so the implementer works on the same branch",
             "does NOT route to demo-review after a failed test",
@@ -330,12 +285,12 @@ next_issue:
     ),
     build_spawn_model_scenario(
         name="spawn_model_heavy_task_uses_opus",
-        description="After a plan-report routing to backend, manager reads tasks/implement-backend.md frontmatter and spawns with claude-opus-4-7",
-        task_file="tasks/implement-backend.md",
+        description="After a plan-report routing to code, manager reads tasks/code.md frontmatter and spawns with claude-opus-4-7",
+        task_file="tasks/code.md",
         message="""\
 type: plan-report
 issue_id: PROJ-401
-next_task: implement-backend
+next_task: code
 branch: feature/PROJ-401-payment-webhooks
 worktree: /Users/dev/worktrees/feature/PROJ-401-payment-webhooks
 plan: |
@@ -343,7 +298,7 @@ plan: |
   2. Create POST /webhooks/stripe endpoint
   3. Validate Stripe signature header""",
         rubric=[
-            "assigns tasks/implement-backend.md for the implementation task",
+            "assigns tasks/code.md for the implementation task",
             "specifies claude-opus-4-7 as the model for the spawned teammate",
             "states or implies the model was read from the task file's YAML frontmatter",
         ],

@@ -36,17 +36,17 @@ Use the most recent comment of each type from Step 2, combined with git/PR state
 | PM issue comment history | Git/PR state | `next_task` |
 |---|---|---|
 | `demo-review-complete outcome: approved` | PR merged | Nothing to do — issue is Done; report immediately with no `next_task` |
-| `demo-review-complete outcome: redirect`, no newer `task-complete` | any | `implement-backend` or `implement-frontend` — user redirected; run Phase 1 with `user_feedback` as `findings` |
+| `demo-review-complete outcome: redirect`, no newer `task-complete` | any | `code` — user redirected; run Phase 1 with `user_feedback` as `findings` |
 | `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green | `test` — implementation was updated after redirect; skip Phase 1 |
 | `test-complete outcome: pass`, not stale | PR open, CI green | `demo-review` — skip Phase 1 |
-| `test-complete outcome: pass`, **stale** | PR open | `implement-backend` or `implement-frontend` — issue updated since test; re-plan in Phase 1 |
-| `test-complete outcome: fail` | PR open | `implement-backend` or `implement-frontend` — fix findings on the existing branch; run Phase 1 with `findings` |
+| `test-complete outcome: pass`, **stale** | PR open | `code` — issue updated since test; re-plan in Phase 1 |
+| `test-complete outcome: fail` | PR open | `code` — fix findings on the existing branch; run Phase 1 with `findings` |
 | `task-complete` exists | PR open, CI green | `test` — skip Phase 1 |
-| `task-complete` exists | No open PR, or PR CI failing | `implement-backend` or `implement-frontend` — lost artifact or broken CI; re-plan in Phase 1 |
-| No `task-complete` | Branch exists, no PR | `implement-backend`, `implement-frontend`, or `implement-both` — proceed to Phase 1, reusing the existing branch |
-| No `task-complete` | No branch, no PR | `implement-backend`, `implement-frontend`, or `implement-both` — proceed to Phase 1 |
+| `task-complete` exists | No open PR, or PR CI failing | `code` — lost artifact or broken CI; re-plan in Phase 1 |
+| No `task-complete` | Branch exists, no PR | `code` — proceed to Phase 1, reusing the existing branch |
+| No `task-complete` | No branch, no PR | `code` — proceed to Phase 1 |
 
-When routing to `implement-*`, populate `findings` in the plan-report:
+When routing to `code`, populate `findings` in the plan-report:
 - From `test-complete` findings when re-running after a test failure
 - From `demo-review-complete user_feedback` when re-running after a redirect
 
@@ -56,7 +56,7 @@ If `next_task` is `test` or `demo-review`, skip Phase 1 entirely and go straight
 
 ## Phase 1 — Planning
 
-Only run this phase when `next_task` is an implementation task.
+Only run this phase when `next_task` is `code`.
 
 ### 1. Mark the issue In Progress
 Update the issue status to **In Progress** in the product development management system.
@@ -93,7 +93,7 @@ Report back to `team-manager`:
 ```
 type: plan-report
 issue_id: <issue ID>
-next_task: implement-backend | implement-frontend | implement-both | test | demo-review
+next_task: code | test | demo-review
 branch: <branch name, if applicable>
 worktree: <absolute path to worktree, if applicable>
 pr_url: <PR URL, if applicable>

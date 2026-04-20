@@ -38,9 +38,7 @@ When you first start, do the following:
    - A triage report comes in with a valid `next_issue` → delegate a planning task for that issue.
    - A triage report comes in with `next_issue: null` → check whether any non-Done issues remain. If all issues are Done, proceed to Shutdown. If blocked issues remain, report to the user that all remaining work is blocked, list each blocked issue and its blocker, and wait for direction before doing anything else.
    - A `plan-report` comes in → route based on `next_task`:
-     - `implement-backend` → delegate backend implementation, passing `branch`, `worktree`, `plan`, and `findings` (if present).
-     - `implement-frontend` → delegate frontend implementation, passing `branch`, `worktree`, `plan`, and `findings` (if present).
-     - `implement-both` → delegate backend and frontend implementation in parallel, passing `branch`, `worktree`, and `plan`.
+     - `code` → delegate implementation, passing `branch`, `worktree`, `plan`, and `findings` (if present).
      - `test` → delegate a test task, passing `issue_id` and `pr_url`.
      - `demo-review` → delegate a demo-review task, passing `issue_id` and `pr_url`.
    - An implementation (`task-complete`) arrives → delegate a test task, passing the `issue_id` and `pr_url`.
@@ -80,8 +78,7 @@ When you first start, do the following:
 |------|------|-----------------|
 | Issue Triage | `tasks/issue-triage.md` | At project start and after any issue moves to Done |
 | Assess and Plan | `tasks/plan.md` | After triage, to assess current issue state and determine the exact next task needed |
-| Backend Implementation | `tasks/implement-backend.md` | After planning, when an issue needs backend work |
-| Frontend Implementation | `tasks/implement-frontend.md` | After planning, when an issue needs frontend work |
+| Code | `tasks/code.md` | After planning, when an issue needs implementation work |
 | Test | `tasks/test.md` | After every implementation task completes |
 | Demo Review | `tasks/demo-review.md` | After every test task passes |
 | Status Correction | `tasks/status-correction.md` | When an issue status is inconsistent with ground truth |

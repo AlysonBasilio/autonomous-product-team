@@ -48,8 +48,8 @@ class TestTaskFileExistence:
         for path in task_paths:
             assert (REPO_ROOT / path).exists(), f"Task file referenced but missing: {path}"
 
-    def test_implement_frontend_exists(self):
-        assert (REPO_ROOT / "tasks/implement-frontend.md").exists()
+    def test_code_exists(self):
+        assert (REPO_ROOT / "tasks/code.md").exists()
 
     def test_status_correction_exists(self):
         assert (REPO_ROOT / "tasks/status-correction.md").exists()
@@ -118,7 +118,7 @@ class TestPlanRoutingTable:
 
     def test_plan_defines_next_task_values(self):
         content = load_file("tasks/plan.md")
-        for value in ["implement-backend", "implement-frontend", "implement-both", "test", "demo-review"]:
+        for value in ["code", "test", "demo-review"]:
             assert value in content, f"plan.md must document next_task value: {value}"
 
 
@@ -130,20 +130,18 @@ class TestInputOutputChain:
 
     def test_plan_outputs_branch_consumed_by_implement(self):
         assert "branch" in load_file("tasks/plan.md")
-        assert "branch" in load_file("tasks/implement-backend.md")
-        assert "branch" in load_file("tasks/implement-frontend.md")
+        assert "branch" in load_file("tasks/code.md")
 
     def test_plan_outputs_worktree_consumed_by_implement(self):
         assert "worktree" in load_file("tasks/plan.md")
-        assert "worktree" in load_file("tasks/implement-backend.md")
-        assert "worktree" in load_file("tasks/implement-frontend.md")
+        assert "worktree" in load_file("tasks/code.md")
 
     def test_plan_outputs_findings_consumed_by_implement(self):
         assert "findings" in load_file("tasks/plan.md")
-        assert "findings" in load_file("tasks/implement-backend.md")
+        assert "findings" in load_file("tasks/code.md")
 
     def test_implement_outputs_pr_url_consumed_by_test(self):
-        assert "pr_url" in load_file("tasks/implement-backend.md")
+        assert "pr_url" in load_file("tasks/code.md")
         assert "pr_url" in load_file("tasks/test.md")
 
     def test_test_outputs_findings_consumed_by_manager_routing(self):
@@ -157,7 +155,7 @@ class TestInputOutputChain:
 
     def test_demo_review_outputs_user_feedback_consumed_by_implement(self):
         assert "user_feedback" in load_file("tasks/demo-review.md")
-        assert "user_feedback" in load_file("tasks/implement-backend.md")
+        assert "user_feedback" in load_file("tasks/code.md")
 
     def test_triage_outputs_next_issue_referenced_by_manager(self):
         assert "next_issue" in load_file("tasks/issue-triage.md")
@@ -178,14 +176,14 @@ class TestReportSchemas:
         assert "next_task" in content
         assert "issue_id" in content
 
-    def test_implement_backend_defines_task_complete(self):
-        content = load_file("tasks/implement-backend.md")
+    def test_code_defines_task_complete(self):
+        content = load_file("tasks/code.md")
         assert "task-complete" in content
         assert "pr_url" in content
         assert "summary" in content
 
-    def test_implement_backend_defines_task_failed(self):
-        content = load_file("tasks/implement-backend.md")
+    def test_code_defines_task_failed(self):
+        content = load_file("tasks/code.md")
         assert "task-failed" in content
         assert "failure" in content
 

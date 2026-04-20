@@ -50,7 +50,7 @@ Status: Done
 Last updated: 2026-04-15 10:00 UTC
 
 PM issue comments (most recent of each type):
-- type: task-complete, task: tasks/implement-frontend.md, pr_url: https://github.com/org/repo/pull/42 (2026-04-14 09:00 UTC)
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/42 (2026-04-14 09:00 UTC)
 - type: test-complete, outcome: pass, findings: [], pr_url: https://github.com/org/repo/pull/42 (2026-04-14 14:00 UTC)
 - type: demo-review-complete, outcome: approved, user_feedback: "Perfect.", pr_url: https://github.com/org/repo/pull/42 (2026-04-15 09:00 UTC)
 
@@ -71,7 +71,7 @@ Status: In Progress
 Last updated: 2026-04-18 08:00 UTC
 
 PM issue comments (most recent of each type):
-- type: task-complete, task: tasks/implement-frontend.md, pr_url: https://github.com/org/repo/pull/55 (2026-04-16 10:00 UTC)
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/55 (2026-04-16 10:00 UTC)
 - type: test-complete, outcome: pass, findings: [], pr_url: https://github.com/org/repo/pull/55 (2026-04-16 15:00 UTC)
 - type: demo-review-complete, outcome: redirect, pr_url: https://github.com/org/repo/pull/55, \
 user_feedback: "The toggle should remember the user's preference across sessions. Currently resets on page refresh." \
@@ -82,7 +82,7 @@ There is NO task-complete comment newer than the demo-review-complete.
 Git state: branch feature/PROJ-101-dark-mode exists. PR #55: OPEN. CI: green.""",
         "rubric": [
             "report type is 'plan-report'",
-            "next_task is an implement task (implement-backend, implement-frontend, or implement-both)",
+            "next_task is 'code'",
             "findings includes the user_feedback from the demo-review-complete comment",
             "does NOT route to test or demo-review",
         ],
@@ -99,7 +99,7 @@ Last updated: 2026-04-18 08:00 UTC
 PM issue comments (most recent of each type):
 - type: demo-review-complete, outcome: redirect, pr_url: https://github.com/org/repo/pull/60, \
 user_feedback: "Include column headers in the CSV output." (2026-04-16 14:00 UTC)
-- type: task-complete, task: tasks/implement-backend.md, pr_url: https://github.com/org/repo/pull/60 \
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/60 \
 (2026-04-18 09:00 UTC)  ← NEWER than demo-review-complete
 
 Git state: branch feature/PROJ-102-csv-export exists. PR #60: OPEN. CI: green.""",
@@ -119,7 +119,7 @@ Status: In Progress
 Last updated: 2026-04-14 09:00 UTC
 
 PM issue comments (most recent of each type):
-- type: task-complete, task: tasks/implement-backend.md, pr_url: https://github.com/org/repo/pull/71 (2026-04-15 10:00 UTC)
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/71 (2026-04-15 10:00 UTC)
 - type: test-complete, outcome: pass, findings: [], pr_url: https://github.com/org/repo/pull/71 (2026-04-16 14:00 UTC)
 
 Stale check: Issue last updated 2026-04-14 09:00 UTC. test-complete posted 2026-04-16 14:00 UTC.
@@ -142,7 +142,7 @@ Status: In Progress
 Last updated: 2026-04-18 11:00 UTC
 
 PM issue comments (most recent of each type):
-- type: task-complete, task: tasks/implement-frontend.md, pr_url: https://github.com/org/repo/pull/80 (2026-04-16 09:00 UTC)
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/80 (2026-04-16 09:00 UTC)
 - type: test-complete, outcome: pass, findings: [], pr_url: https://github.com/org/repo/pull/80 (2026-04-16 15:00 UTC)
 
 Stale check: Issue last updated 2026-04-18 11:00 UTC. test-complete posted 2026-04-16 15:00 UTC.
@@ -151,7 +151,7 @@ The acceptance criteria appear to have been edited after the test was posted —
 Git state: branch feature/PROJ-104-search-autocomplete exists. PR #80: OPEN. CI: green.""",
         "rubric": [
             "report type is 'plan-report'",
-            "next_task is an implement task (implement-backend, implement-frontend, or implement-both)",
+            "next_task is 'code'",
             "report notes the stale condition (issue was updated after the test passed)",
             "does NOT route to demo-review",
         ],
@@ -166,7 +166,7 @@ Status: In Progress
 Last updated: 2026-04-15 10:00 UTC
 
 PM issue comments (most recent of each type):
-- type: task-complete, task: tasks/implement-backend.md, pr_url: https://github.com/org/repo/pull/85 (2026-04-16 11:00 UTC)
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/85 (2026-04-16 11:00 UTC)
 - type: test-complete, outcome: fail, pr_url: https://github.com/org/repo/pull/85, findings: [
     {"description": "SMS code not sent when phone number includes country code (+1)", "severity": "critical"},
     {"description": "Rate limiting not applied — unlimited codes can be requested", "severity": "critical"}
@@ -175,7 +175,7 @@ PM issue comments (most recent of each type):
 Git state: branch feature/PROJ-105-2fa exists. PR #85: OPEN. CI: green.""",
         "rubric": [
             "report type is 'plan-report'",
-            "next_task is an implement task (implement-backend, implement-frontend, or implement-both)",
+            "next_task is 'code'",
             "findings in the report includes the two test failure descriptions",
             "does NOT route to test or demo-review",
         ],
@@ -190,7 +190,7 @@ Status: In Progress
 Last updated: 2026-04-15 09:00 UTC
 
 PM issue comments (most recent of each type):
-- type: task-complete, task: tasks/implement-backend.md, pr_url: https://github.com/org/repo/pull/90 (2026-04-16 10:00 UTC)
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/90 (2026-04-16 10:00 UTC)
 No test-complete comment. No demo-review-complete comment.
 
 Git state: branch feature/PROJ-106-invoice-download exists. PR #90: OPEN. CI: all checks green.""",
@@ -210,14 +210,14 @@ Status: In Progress
 Last updated: 2026-04-15 09:00 UTC
 
 PM issue comments (most recent of each type):
-- type: task-complete, task: tasks/implement-backend.md, pr_url: https://github.com/org/repo/pull/95 (2026-04-16 10:00 UTC)
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/95 (2026-04-16 10:00 UTC)
 No test-complete comment. No demo-review-complete comment.
 
 Git state: branch feature/PROJ-107-webhook-retry exists. PR #95: OPEN.
 CI: FAILING — 3 test failures in webhook_retry_test.go (TestRetryExponentialBackoff, TestRetryMaxAttempts, TestRetryDeadLetter)""",
         "rubric": [
             "report type is 'plan-report'",
-            "next_task is an implement task (implement-backend, implement-frontend, or implement-both)",
+            "next_task is 'code'",
             "findings field includes context about the CI failure (e.g. names of failing tests or a description of what is broken)",
         ],
     },
@@ -237,7 +237,7 @@ Git state:
 - No open PR for this issue found via: gh pr list --search "PROJ-108" --state open (0 results)""",
         "rubric": [
             "report type is 'plan-report'",
-            "next_task is an implement task (implement-backend, implement-frontend, or implement-both)",
+            "next_task is 'code'",
             "branch field references the existing branch feature/PROJ-108-oauth-login (reuses it, does not create a new one)",
         ],
     },
@@ -261,7 +261,7 @@ Git state:
 - No open PR found via: gh pr list --search "PROJ-109" --state open (0 results)""",
         "rubric": [
             "report type is 'plan-report'",
-            "next_task is an implement task (implement-backend, implement-frontend, or implement-both)",
+            "next_task is 'code'",
             "plan field is present in the report (any content is acceptable — this eval focuses on routing, not plan quality)",
             "branch field is non-empty and contains a branch name that includes the issue ID 'PROJ-109'",
         ],
