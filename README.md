@@ -4,9 +4,10 @@ This project specifies how an autonomous product team should work in the age of 
 
 ## Usage
 
-First, authenticate with GitHub Packages by adding this to your `~/.npmrc`:
+First, add this to your `~/.npmrc` to authenticate with GitHub Packages:
 
 ```
+@alysonbasilio:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
 ```
 
