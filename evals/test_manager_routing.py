@@ -271,6 +271,104 @@ decision_needed: What notification types should users be able to toggle? (e.g. e
 ]
 
 
+SPAWN_MODEL_PROMPT = """\
+You are the Team Manager. Read your role definition carefully and apply it.
+
+## Your Role Definition
+{role_content}
+
+## Task File Contents
+You have read the following task file from disk:
+
+{task_file_content}
+
+## Situation
+
+You have just received the following message from a team member:
+
+{message}
+
+You are about to spawn a team member and delegate this task to them.
+
+1. Which task file would you assign?
+2. What model would you specify when spawning the team member, and how did you determine it?
+
+Be specific. Output ONLY your response — no preamble.
+"""
+
+
+def build_spawn_model_scenario(name, description, task_file, message, rubric):
+    task_file_content = load_task(task_file)
+    return {
+        "name": name,
+        "description": description,
+        "mock_context": f"Task file ({task_file}):\n{task_file_content}\n\nInbound message:\n{message}",
+        "message": message,
+        "task_file": task_file,
+        "task_file_content": task_file_content,
+        "rubric": rubric,
+    }
+
+
+SPAWN_MODEL_SCENARIOS = [
+    build_spawn_model_scenario(
+        name="spawn_model_lightweight_task_uses_sonnet",
+        description="After a triage report, manager reads tasks/plan.md frontmatter and spawns with claude-sonnet-4-6",
+        task_file="tasks/plan.md",
+        message="""\
+type: triage-report
+next_issue:
+  id: PROJ-201
+  title: Add user profile editing
+  summary: Users need to edit their name, email, and avatar from the profile page.""",
+        rubric=[
+            "assigns tasks/plan.md for the planning task",
+            "specifies claude-sonnet-4-6 as the model for the spawned teammate",
+            "states or implies the model was read from the task file's YAML frontmatter",
+        ],
+    ),
+    build_spawn_model_scenario(
+        name="spawn_model_heavy_task_uses_opus",
+        description="After a plan-report routing to backend, manager reads tasks/implement-backend.md frontmatter and spawns with claude-opus-4-7",
+        task_file="tasks/implement-backend.md",
+        message="""\
+type: plan-report
+issue_id: PROJ-401
+next_task: implement-backend
+branch: feature/PROJ-401-payment-webhooks
+worktree: /Users/dev/worktrees/feature/PROJ-401-payment-webhooks
+plan: |
+  1. Add WebhookEvent model
+  2. Create POST /webhooks/stripe endpoint
+  3. Validate Stripe signature header""",
+        rubric=[
+            "assigns tasks/implement-backend.md for the implementation task",
+            "specifies claude-opus-4-7 as the model for the spawned teammate",
+            "states or implies the model was read from the task file's YAML frontmatter",
+        ],
+    ),
+]
+
+
+@pytest.mark.parametrize("scenario", SPAWN_MODEL_SCENARIOS, ids=[s["name"] for s in SPAWN_MODEL_SCENARIOS])
+def test_manager_spawn_model_scenario(client, scenario):
+    role_content = load_task(ROLE_FILE)
+    prompt = SPAWN_MODEL_PROMPT.format(
+        role_content=role_content,
+        task_file_content=scenario["task_file_content"],
+        message=scenario["message"],
+    )
+    response = client.chat.completions.create(
+        model=ROLE_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+        max_tokens=512,
+    )
+    agent_output = response.choices[0].message.content
+    result = grade(client, scenario, agent_output, role_content)
+    assert result.passed, "\n".join(result.failure_reasons)
+
+
 @pytest.mark.parametrize("scenario", SCENARIOS, ids=[s["name"] for s in SCENARIOS])
 def test_manager_routing_scenario(client, scenario):
     role_content = load_task(ROLE_FILE)
