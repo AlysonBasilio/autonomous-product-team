@@ -28,6 +28,24 @@ Read all comments on the PM issue using the product development management syste
 - Check if a branch for this issue already exists locally (e.g. `git branch --list "*<issue-id>*"` or check `../worktrees/`).
 - Check if a PR is already open on the remote: `gh pr list --search "<issue-id>" --state open`.
 - If a PR exists, check CI status: `gh pr checks <pr_url>`.
+- If a PR exists, count unresolved review threads and collect their bodies:
+
+```bash
+gh api graphql -f query='{
+  repository(owner: "OWNER", name: "REPO") {
+    pullRequest(number: NUMBER) {
+      reviewThreads(first: 100) {
+        nodes {
+          isResolved
+          comments(first: 1) { nodes { body } }
+        }
+      }
+    }
+  }
+}' | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)]'
+```
+
+Note the count and the body of each unresolved thread — used in the routing table below.
 
 ### 4. Determine the next task
 
@@ -37,10 +55,13 @@ Use the most recent comment of each type from Step 2, combined with git/PR state
 |---|---|---|
 | `demo-review-complete outcome: approved` | PR merged | Nothing to do — issue is Done; report immediately with no `next_task` |
 | `demo-review-complete outcome: redirect`, no newer `task-complete` | any | `code` — user redirected; run Phase 1 with `user_feedback` as `findings` |
+| `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green, **unresolved review threads** | `code` — resolve review threads first; run Phase 1 with thread bodies as `findings` |
 | `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green | `test` — implementation was updated after redirect; skip Phase 1 |
+| `test-complete outcome: pass`, not stale | PR open, CI green, **unresolved review threads** | `code` — resolve review threads first; run Phase 1 with thread bodies as `findings` |
 | `test-complete outcome: pass`, not stale | PR open, CI green | `demo-review` — skip Phase 1 |
 | `test-complete outcome: pass`, **stale** | PR open | `code` — issue updated since test; re-plan in Phase 1 |
 | `test-complete outcome: fail` | PR open | `code` — fix findings on the existing branch; run Phase 1 with `findings` |
+| `task-complete` exists | PR open, CI green, **unresolved review threads** | `code` — resolve review threads first; run Phase 1 with thread bodies as `findings` |
 | `task-complete` exists | PR open, CI green | `test` — skip Phase 1 |
 | `task-complete` exists | No open PR, or PR CI failing | `code` — lost artifact or broken CI; re-plan in Phase 1 |
 | No `task-complete` | Branch exists, no PR | `code` — proceed to Phase 1, reusing the existing branch |

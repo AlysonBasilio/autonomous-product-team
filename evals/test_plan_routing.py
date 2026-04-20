@@ -241,6 +241,85 @@ Git state:
             "branch field references the existing branch feature/PROJ-108-oauth-login (reuses it, does not create a new one)",
         ],
     },
+    # Row 3a: demo-review redirect + newer task-complete + unresolved threads → implement
+    {
+        "name": "demo_redirect_newer_task_complete_unresolved_threads",
+        "description": "Row 3a: demo-review redirect + newer task-complete + unresolved threads → code",
+        "mock_context": """\
+Issue: PROJ-112 "Add CSV export"
+Status: In Progress
+Last updated: 2026-04-18 08:00 UTC
+
+PM issue comments (most recent of each type):
+- type: demo-review-complete, outcome: redirect, pr_url: https://github.com/org/repo/pull/60, \
+user_feedback: "Include column headers in the CSV output." (2026-04-16 14:00 UTC)
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/60 \
+(2026-04-18 09:00 UTC)  ← NEWER than demo-review-complete
+
+Git state: branch feature/PROJ-112-csv-export exists. PR #60: OPEN. CI: green.
+Unresolved review threads (2):
+1. "You're not closing the file handle after writing — this will leak on large exports."
+2. "Missing test for empty dataset case."
+""",
+        "rubric": [
+            "report type is 'plan-report'",
+            "next_task is 'code'",
+            "findings includes the unresolved review thread bodies (file handle leak and/or missing test)",
+            "does NOT route to test or demo-review",
+        ],
+    },
+    # Row 4a: test-complete pass + not stale + unresolved threads → implement
+    {
+        "name": "test_passed_not_stale_unresolved_threads",
+        "description": "Row 4a: test-complete pass + not stale + unresolved review threads → code",
+        "mock_context": """\
+Issue: PROJ-113 "Add password reset flow"
+Status: In Progress
+Last updated: 2026-04-14 09:00 UTC
+
+PM issue comments (most recent of each type):
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/71 (2026-04-15 10:00 UTC)
+- type: test-complete, outcome: pass, findings: [], pr_url: https://github.com/org/repo/pull/71 (2026-04-16 14:00 UTC)
+
+Stale check: Issue last updated 2026-04-14 09:00 UTC. test-complete posted 2026-04-16 14:00 UTC.
+The issue was NOT updated after the test — NOT stale.
+
+Git state: branch feature/PROJ-113-password-reset exists. PR #71: OPEN. CI: green.
+Unresolved review threads (1):
+1. "The reset token expiry is hardcoded to 1 hour — should be configurable via env var."
+""",
+        "rubric": [
+            "report type is 'plan-report'",
+            "next_task is 'code'",
+            "findings includes the unresolved review thread body about the hardcoded expiry",
+            "does NOT route to demo-review",
+        ],
+    },
+    # Row 7a: task-complete + PR open + CI green + unresolved threads → implement
+    {
+        "name": "task_complete_pr_open_ci_green_unresolved_threads",
+        "description": "Row 7a: task-complete + PR open + CI green + unresolved review threads → code",
+        "mock_context": """\
+Issue: PROJ-114 "Add invoice download"
+Status: In Progress
+Last updated: 2026-04-15 09:00 UTC
+
+PM issue comments (most recent of each type):
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/90 (2026-04-16 10:00 UTC)
+No test-complete comment. No demo-review-complete comment.
+
+Git state: branch feature/PROJ-114-invoice-download exists. PR #90: OPEN. CI: all checks green.
+Unresolved review threads (2):
+1. "PDF generation is synchronous — this will block the request thread for large invoices. Move to a background job."
+2. "No access control check — any authenticated user can download any invoice by ID."
+""",
+        "rubric": [
+            "report type is 'plan-report'",
+            "next_task is 'code'",
+            "findings includes the unresolved review thread bodies (background job and/or access control)",
+            "does NOT route to test or demo-review",
+        ],
+    },
     # Row 10: no task-complete, no branch, no PR → fresh implementation
     {
         "name": "no_work_done_start_fresh",
