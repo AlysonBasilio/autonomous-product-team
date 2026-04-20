@@ -20,14 +20,14 @@ npx @alysonbasilio/autonomous-product-team init
 ```
 
 This installs the agent team files into your project:
-- `.claude/agents/team-manager.md` — orchestration agent
-- `.claude/agents/team-member.md` — executor agent
+- `.claude/skills/team-manager/SKILL.md` — orchestration agent
+- `.claude/skills/team-member/SKILL.md` — executor agent
 - `.claude/product-team/tasks/` — 7 task definitions
 
 Then open Claude Code in your project and ask:
-> "Use the team-manager agent to start working on my product"
+> "Use the team-manager skill to start working on my product"
 
-Or run `/agents` inside Claude Code to see available agents.
+Or run `/team-manager` inside Claude Code to invoke the agent directly.
 
 To update to the latest version:
 

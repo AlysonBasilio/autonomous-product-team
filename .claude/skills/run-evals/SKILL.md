@@ -1,3 +1,8 @@
+---
+name: run-evals
+description: Run the eval test suite for the autonomous product team project
+---
+
 Run the eval test suite for the autonomous product team project.
 
 ## Steps
