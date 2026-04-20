@@ -8,6 +8,8 @@
         "**/CVS": true,
         "**/.ruby-lsp": true,
         "**/*tsconfig.json": true,
-        ".cache": true
+        ".cache": true,
+        "**/.retool_types/**": true,
+        "retool.config.json": true
     }
 }

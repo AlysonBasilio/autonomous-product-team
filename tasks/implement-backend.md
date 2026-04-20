@@ -3,12 +3,14 @@
 ## Input
 
 The team manager provides:
-- `issue_id` — the Linear issue to implement
+- `issue_id` — the issue to implement
 - `branch` — the git branch created during planning (work here, do not create a new branch)
 - `worktree` — absolute path to the existing worktree created during planning (work here)
 - `plan` — the ordered implementation checklist produced by `tasks/plan.md`
+- `findings` (optional) — test findings from a prior failed test; present when this is a re-run to fix QA failures
+- `user_feedback` (optional) — verbatim user feedback from a demo-review redirect; present when this is a re-run based on user direction
 
-Do not begin implementation until all four inputs are present.
+Do not begin implementation until the first four inputs are present.
 
 ## Phase 1 — Implementation
 
@@ -39,7 +41,19 @@ All CI checks must pass before merging.
 
 ### 8. Report
 
-Once CI is green, your branch is rebased, and all review feedback is resolved, report to `team-manager`:
+Once CI is green, your branch is rebased, and all review feedback is resolved:
+
+First, post a comment to the PM issue using the product development management system tool:
+
+```
+type: task-complete
+task: tasks/implement-backend.md
+pr_url: <PR URL>
+```
+
+This is the authoritative completion record for this task. If re-running after findings, this comment supersedes any prior one.
+
+Then report to `team-manager`:
 
 ```
 type: task-complete

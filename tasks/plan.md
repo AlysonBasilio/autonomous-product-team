@@ -9,27 +9,42 @@ The team manager provides the issue ID.
 Before doing any planning, assess the actual current state of the issue to determine where work stands.
 
 ### 1. Fetch the issue
-Read the issue from the product development management system. Understand the requirements and acceptance criteria.
+Read the issue from the product development management system. Understand the requirements and acceptance criteria. Note the issue's last-updated timestamp for use in the stale-implementation check below.
 
-### 2. Check for existing work
+### 2. Read PM issue task history
+Read all comments on the PM issue using the product development management system tool. Collect the most recent comment of each of these types:
+
+- `type: task-complete` — implementation was completed; note the `pr_url` and timestamp
+- `type: test-complete` — a test run completed; note the `outcome`, `findings`, and timestamp
+- `type: demo-review-complete` — a demo review completed; note the `outcome`, `user_feedback`, and timestamp
+
+**Stale-implementation check**: If a `test-complete` comment with `outcome: pass` exists, compare its timestamp against the issue's last-updated timestamp. If the issue description or acceptance criteria appear to have been edited after the `test-complete` was posted, flag the implementation as **stale**.
+
+### 3. Check git/PR state
 - Check if a branch for this issue already exists locally (e.g. `git branch --list "*<issue-id>*"` or check `../worktrees/`).
 - Check if a PR is already open on the remote: `gh pr list --search "<issue-id>" --state open`.
-
-### 3. If a PR exists, inspect it further
-- Check CI status: `gh pr checks <pr_url>`.
-- Look for a prior test report in PR comments: `gh pr view <pr_url> --comments`. Search for `type: test-report`.
-- Look for a prior demo-review signal: search comments for `type: demo-review-report`.
+- If a PR exists, check CI status: `gh pr checks <pr_url>`.
 
 ### 4. Determine the next task
 
-| Observed state | `next_task` |
-|---|---|
-| No branch, no PR | `implement-backend`, `implement-frontend`, or `implement-both` — proceed to Phase 1 to build a plan |
-| Branch exists, no PR | `implement-backend`, `implement-frontend`, or `implement-both` — proceed to Phase 1 to build a plan, reusing the existing branch |
-| PR exists, CI failing | `implement-backend` or `implement-frontend` — fix CI on the existing branch; proceed to Phase 1 |
-| PR exists, CI green, no test report | `test` — skip Phase 1, report immediately |
-| PR exists, test report `outcome: fail` | `implement-backend` or `implement-frontend` — fix findings on the existing branch; proceed to Phase 1 |
-| PR exists, test report `outcome: pass` | `demo-review` — skip Phase 1, report immediately |
+Use the most recent comment of each type from Step 2, combined with git/PR state. Evaluate rows top to bottom and stop at the first match:
+
+| PM issue comment history | Git/PR state | `next_task` |
+|---|---|---|
+| `demo-review-complete outcome: approved` | PR merged | Nothing to do — issue is Done; report immediately with no `next_task` |
+| `demo-review-complete outcome: redirect`, no newer `task-complete` | any | `implement-backend` or `implement-frontend` — user redirected; run Phase 1 with `user_feedback` as `findings` |
+| `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green | `test` — implementation was updated after redirect; skip Phase 1 |
+| `test-complete outcome: pass`, not stale | PR open, CI green | `demo-review` — skip Phase 1 |
+| `test-complete outcome: pass`, **stale** | PR open | `implement-backend` or `implement-frontend` — issue updated since test; re-plan in Phase 1 |
+| `test-complete outcome: fail` | PR open | `implement-backend` or `implement-frontend` — fix findings on the existing branch; run Phase 1 with `findings` |
+| `task-complete` exists | PR open, CI green | `test` — skip Phase 1 |
+| `task-complete` exists | No open PR, or PR CI failing | `implement-backend` or `implement-frontend` — lost artifact or broken CI; re-plan in Phase 1 |
+| No `task-complete` | Branch exists, no PR | `implement-backend`, `implement-frontend`, or `implement-both` — proceed to Phase 1, reusing the existing branch |
+| No `task-complete` | No branch, no PR | `implement-backend`, `implement-frontend`, or `implement-both` — proceed to Phase 1 |
+
+When routing to `implement-*`, populate `findings` in the plan-report:
+- From `test-complete` findings when re-running after a test failure
+- From `demo-review-complete user_feedback` when re-running after a redirect
 
 If `next_task` is `test` or `demo-review`, skip Phase 1 entirely and go straight to reporting.
 
@@ -80,7 +95,7 @@ worktree: <absolute path to worktree, if applicable>
 pr_url: <PR URL, if applicable>
 plan: |
   <ordered implementation checklist — only when next_task is implement-*>
-findings: <prior test findings — only when next_task is implement-* due to a failed test report>
+findings: <context for the implementer — test findings on failure, or user_feedback on demo-review redirect; only when next_task is implement-*>
 ```
 
 Fields that do not apply to the current state should be omitted.

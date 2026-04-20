@@ -34,7 +34,18 @@ Start the application from the branch and confirm it is running.
 
 ### 5. Report
 
-Report to `team-manager`:
+First, post a comment to the PM issue using the product development management system tool:
+
+```
+type: test-complete
+pr_url: <PR URL>
+outcome: pass | fail
+findings: [{ description, severity: critical | minor }]
+```
+
+This is the authoritative test completion record for this issue. If re-running, this comment supersedes any prior test-complete comment.
+
+Then report to `team-manager`:
 
 ```
 type: test-report

@@ -26,21 +26,27 @@ Use `AskUserQuestion` to present:
 
 ### 4. Act on the response
 
-**Approved** → merge the PR into `main` (squash merge preferred). Mark the issue as Done in the product development management system. Report:
+**Approved** → merge the PR into `main` (squash merge preferred). Mark the issue as Done in the product development management system.
+
+**Redirect** → do NOT merge. Mark the issue status as **In Progress** in the product development management system.
+
+In both cases, post a comment to the PM issue using the product development management system tool:
 
 ```
-type: demo-review-report
-issue_id: <issue ID>
-outcome: approved
+type: demo-review-complete
+pr_url: <PR URL>
+outcome: approved | redirect
 user_feedback: <verbatim user response>
 ```
 
-**Redirect** → do NOT merge. Mark the issue status as **In Progress** in the product development management system. Report:
+This is the authoritative demo-review completion record. If re-running, this comment supersedes any prior demo-review-complete comment.
+
+Then report to `team-manager`:
 
 ```
 type: demo-review-report
 issue_id: <issue ID>
-outcome: redirect
+outcome: approved | redirect
 user_feedback: <verbatim user response>
 ```
 
