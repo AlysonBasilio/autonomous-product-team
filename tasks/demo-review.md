@@ -20,17 +20,27 @@ Fetch the issue from the product development management system: title, descripti
 
 Fetch the PR title and description from the PR URL.
 
-### 3. Verify all review threads are resolved
+### 3. Verify all review threads are resolved and check for new comments
 
-Before presenting to the user, check that no unresolved review threads remain:
+Before presenting to the user, run both checks:
+
+**3a. Unresolved review threads:**
 
 ```bash
-gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRequest(number: <n>) { reviewThreads(first: 100) { nodes { isResolved comments(first: 1) { nodes { body } } } } } } }' | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length'
+gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRequest(number: <n>) { reviewThreads(first: 100) { nodes { isResolved comments(first: 1) { nodes { body } } } } } } }' | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)]'
 ```
 
-If the count is **greater than 0**: do NOT proceed to user presentation. Post a demo-review-complete comment and report to `team-manager` with `outcome: redirect` and `user_feedback` listing the unresolved thread bodies. Stop here.
+**3b. Regular PR comments** (issue-style comments at the bottom of the PR):
 
-If the count is **0**: continue to the next step.
+```bash
+gh api /repos/<owner>/<repo>/issues/<n>/comments | jq '[.[] | {id, user: .user.login, body, created_at}]'
+```
+
+Read all comments returned. If any comment appears to be requesting changes, raising a concern, or asking a question that has not been addressed — treat it as blocking feedback.
+
+If **either** check finds unresolved threads or unaddressed comments: do NOT proceed to user presentation. Post a demo-review-complete comment and report to `team-manager` with `outcome: redirect` and `user_feedback` summarising the blocking items. Stop here.
+
+If both checks are clear: continue to the next step.
 
 ### 4. Present to the user
 
