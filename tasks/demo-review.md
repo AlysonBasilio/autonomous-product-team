@@ -1,3 +1,7 @@
+---
+model: claude-haiku-4-5
+---
+
 # Task: Demo Review
 
 Customer collaboration touchpoint. Only reached after the tester passes. On approval, this task merges the PR.

@@ -10,11 +10,11 @@ The team which will be responsible for handling a product.
 
 ### Team Manager
 
-The persona that is responsible for managing team members and delegates tasks.
+The role that is responsible for managing team members and delegates tasks.
 
 ### Team Member
 
-The persona that executes tasks.
+The role that executes tasks.
 
 ### Tasks
 
@@ -33,7 +33,7 @@ The definition of how to do a specific activity to reach a specific goal.
 
 ### Making changes
 
-When modifying role files (`team-manager.md`, `team-member.md`) or task definitions (`tasks/*.md`), run the eval suite to verify nothing is broken:
+When modifying role files (`roles/*.md`) or task definitions (`tasks/*.md`), run the eval suite to verify nothing is broken:
 
 ```bash
 /run-evals

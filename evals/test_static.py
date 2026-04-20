@@ -7,22 +7,42 @@ These tests verify that the task definition files are internally consistent:
 - Input/output fields chain correctly between tasks
 - Every task defines an output report schema
 - The team manager handles every report type any task can produce
+- Every task and role specifies the correct model in its frontmatter
 """
 import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
 
+VALID_MODELS = {"claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5"}
+
+ROLE_AND_TASK_FILES = [
+    *[p.relative_to(REPO_ROOT) for p in sorted(REPO_ROOT.glob("roles/*.md"))],
+    *[p.relative_to(REPO_ROOT) for p in sorted(REPO_ROOT.glob("tasks/*.md"))],
+]
+
 
 def load_file(path: str) -> str:
     return (REPO_ROOT / path).read_text()
+
+
+def parse_frontmatter_model(path: str) -> str | None:
+    content = load_file(path)
+    if not content.startswith("---"):
+        return None
+    end = content.find("\n---", 3)
+    if end == -1:
+        return None
+    frontmatter = content[3:end]
+    match = re.search(r"^model:\s*(\S+)", frontmatter, re.MULTILINE)
+    return match.group(1) if match else None
 
 
 class TestTaskFileExistence:
     """All task files referenced in team-manager.md must exist on disk."""
 
     def test_all_referenced_tasks_exist(self):
-        manager_content = load_file("team-manager.md")
+        manager_content = load_file("roles/team-manager.md")
         task_paths = re.findall(r"`(tasks/[\w\-]+\.md)`", manager_content)
         assert task_paths, "No task paths found in team-manager.md Available Tasks table"
         for path in task_paths:
@@ -129,7 +149,7 @@ class TestInputOutputChain:
     def test_test_outputs_findings_consumed_by_manager_routing(self):
         # Manager must pass findings back to implementer on failure
         assert "findings" in load_file("tasks/test.md")
-        assert "findings" in load_file("team-manager.md")
+        assert "findings" in load_file("roles/team-manager.md")
 
     def test_test_outputs_issue_id_consumed_by_demo_review(self):
         assert "issue_id" in load_file("tasks/test.md")
@@ -141,7 +161,7 @@ class TestInputOutputChain:
 
     def test_triage_outputs_next_issue_referenced_by_manager(self):
         assert "next_issue" in load_file("tasks/issue-triage.md")
-        assert "next_issue" in load_file("team-manager.md")
+        assert "next_issue" in load_file("roles/team-manager.md")
 
 
 class TestReportSchemas:
@@ -182,7 +202,7 @@ class TestReportSchemas:
         assert "user_feedback" in content
 
     def test_team_member_defines_blocked_schema(self):
-        content = load_file("team-member.md")
+        content = load_file("roles/team-member.md")
         assert "blocked" in content
         assert "what_is_blocked" in content
         assert "decision_needed" in content
@@ -193,33 +213,49 @@ class TestManagerHandlesAllReports:
     """Team Manager must handle every report type any task can produce."""
 
     def test_manager_handles_triage_report(self):
-        content = load_file("team-manager.md")
+        content = load_file("roles/team-manager.md")
         assert "triage report" in content.lower() or "triage-report" in content
 
     def test_manager_handles_plan_report(self):
-        content = load_file("team-manager.md")
+        content = load_file("roles/team-manager.md")
         assert "plan-report" in content
 
     def test_manager_handles_task_complete(self):
-        content = load_file("team-manager.md")
+        content = load_file("roles/team-manager.md")
         assert "task-complete" in content
 
     def test_manager_handles_task_failed(self):
-        content = load_file("team-manager.md")
+        content = load_file("roles/team-manager.md")
         assert "task-failed" in content
 
     def test_manager_handles_test_report(self):
-        content = load_file("team-manager.md")
+        content = load_file("roles/team-manager.md")
         assert "test-report" in content
 
     def test_manager_handles_demo_review_report(self):
-        content = load_file("team-manager.md")
+        content = load_file("roles/team-manager.md")
         assert "demo-review-report" in content
 
     def test_manager_handles_blocked(self):
-        content = load_file("team-manager.md")
+        content = load_file("roles/team-manager.md")
         assert "blocker" in content.lower() or "blocked" in content.lower()
 
     def test_manager_handles_status_correction_report(self):
-        content = load_file("team-manager.md")
+        content = load_file("roles/team-manager.md")
         assert "status-correction-report" in content
+
+
+class TestModelSpecification:
+    """Every task and role must specify a valid model in YAML frontmatter."""
+
+    def test_all_files_have_frontmatter_model(self):
+        for path in ROLE_AND_TASK_FILES:
+            model = parse_frontmatter_model(path)
+            assert model is not None, f"{path} is missing a 'model:' field in YAML frontmatter"
+
+    def test_all_models_are_valid(self):
+        for path in ROLE_AND_TASK_FILES:
+            model = parse_frontmatter_model(path)
+            assert model in VALID_MODELS, (
+                f"{path} specifies unknown model '{model}'; must be one of {sorted(VALID_MODELS)}"
+            )

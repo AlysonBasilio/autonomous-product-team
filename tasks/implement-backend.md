@@ -1,3 +1,7 @@
+---
+model: claude-opus-4-7
+---
+
 # Task: Implement (Backend)
 
 ## Input

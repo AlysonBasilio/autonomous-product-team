@@ -10,10 +10,11 @@ Requires OPENROUTER_API_KEY.
 """
 import pytest
 
-from conftest import load_task
+from conftest import load_task, parse_frontmatter_model
 from judge import grade
 
 TASK_FILE = "tasks/plan.md"
+TASK_MODEL = parse_frontmatter_model(TASK_FILE)
 
 EVAL_PROMPT = """\
 You are a team member executing the Assess and Plan task. Read the task definition carefully.
@@ -276,7 +277,7 @@ def test_plan_routing_scenario(client, scenario):
         mock_context=scenario["mock_context"],
     )
     response = client.chat.completions.create(
-        model="anthropic/claude-sonnet-4-6",
+        model=TASK_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0,
         max_tokens=768,

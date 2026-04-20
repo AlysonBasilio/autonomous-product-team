@@ -8,10 +8,11 @@ Requires OPENROUTER_API_KEY.
 """
 import pytest
 
-from conftest import load_task
+from conftest import load_task, parse_frontmatter_model
 from judge import grade
 
-ROLE_FILE = "team-manager.md"
+ROLE_FILE = "roles/team-manager.md"
+ROLE_MODEL = parse_frontmatter_model(ROLE_FILE)
 
 EVAL_PROMPT = """\
 You are the Team Manager. Read your role definition carefully and apply it.
@@ -278,7 +279,7 @@ def test_manager_routing_scenario(client, scenario):
         message=scenario["message"],
     )
     response = client.chat.completions.create(
-        model="anthropic/claude-sonnet-4-6",
+        model=ROLE_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0,
         max_tokens=768,

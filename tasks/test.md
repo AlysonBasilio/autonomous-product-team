@@ -1,3 +1,7 @@
+---
+model: claude-sonnet-4-6
+---
+
 # Task: Test
 
 Adversarial QA from the branch, before any merge. You are testing as a user — do not read the implementation code or PR diff.
