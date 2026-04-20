@@ -1,0 +1,27 @@
+{
+  "name": "@alysonbasilio/autonomous-product-team",
+  "version": "0.0.0",
+  "description": "Autonomous AI product team system for Claude Code",
+  "keywords": ["claude", "claude-code", "ai-agents", "autonomous"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alysonbasilio/autonomous-product-team.git"
+  },
+  "bin": {
+    "autonomous-product-team": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "roles/",
+    "tasks/",
+    "README.md"
+  ],
+  "publishConfig": {
+    "@alysonbasilio:registry": "https://npm.pkg.github.com"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

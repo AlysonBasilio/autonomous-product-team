@@ -2,6 +2,44 @@
 
 This project specifies how an autonomous product team should work in the age of AI. The goal is to apply this using https://code.claude.com/docs/en/agent-teams feature.
 
+## Usage
+
+First, authenticate with GitHub Packages by adding this to your `~/.npmrc`:
+
+```
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+```
+
+You can create a token at https://github.com/settings/tokens with `read:packages` scope.
+
+Then, from your project directory, run:
+
+```bash
+npx @alysonbasilio/autonomous-product-team init
+```
+
+This installs the agent team files into your project:
+- `.claude/agents/team-manager.md` — orchestration agent
+- `.claude/agents/team-member.md` — executor agent
+- `.claude/product-team/tasks/` — 7 task definitions
+
+Then open Claude Code in your project and ask:
+> "Use the team-manager agent to start working on my product"
+
+Or run `/agents` inside Claude Code to see available agents.
+
+To update to the latest version:
+
+```bash
+npx @alysonbasilio/autonomous-product-team update
+```
+
+To check what's installed:
+
+```bash
+npx @alysonbasilio/autonomous-product-team status
+```
+
 ## Definitions
 
 ### Team
