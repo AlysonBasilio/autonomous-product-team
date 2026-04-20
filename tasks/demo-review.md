@@ -20,7 +20,19 @@ Fetch the issue from the product development management system: title, descripti
 
 Fetch the PR title and description from the PR URL.
 
-### 3. Present to the user
+### 3. Verify all review threads are resolved
+
+Before presenting to the user, check that no unresolved review threads remain:
+
+```bash
+gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRequest(number: <n>) { reviewThreads(first: 100) { nodes { isResolved comments(first: 1) { nodes { body } } } } } } }' | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length'
+```
+
+If the count is **greater than 0**: do NOT proceed to user presentation. Post a demo-review-complete comment and report to `team-manager` with `outcome: redirect` and `user_feedback` listing the unresolved thread bodies. Stop here.
+
+If the count is **0**: continue to the next step.
+
+### 4. Present to the user
 
 Use `AskUserQuestion` to present:
 - The issue title and what it was supposed to do
@@ -28,7 +40,7 @@ Use `AskUserQuestion` to present:
 - The PR link
 - Question: "Does this meet your expectations? Any feedback or direction changes before we merge?"
 
-### 4. Act on the response
+### 5. Act on the response
 
 **Approved** → merge the PR into `main` (squash merge preferred). Mark the issue as Done in the product development management system.
 
