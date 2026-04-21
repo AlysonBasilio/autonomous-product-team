@@ -134,6 +134,54 @@ No issue data was returned.""",
         ],
     },
     {
+        "name": "explicit_body_reference_blocks",
+        "description": "Issue body contains 'Depends on #B' where B is not Done — A must be Blocked",
+        "mock_context": """\
+PM system returned 2 non-Done issues:
+
+- PROJ-601 "Build onboarding flow" — Status: Todo — Priority: High
+  Dependencies (PM system links): none
+  Issue body: "This work depends on #602 being completed first. We need the user auth \
+system before we can build onboarding."
+
+- PROJ-602 "Implement user auth system" — Status: Todo — Priority: High
+  Dependencies (PM system links): none
+  Issue body: "Set up authentication with OAuth2 and JWT tokens."
+
+PROJ-602 has no dependencies and no unresolved decisions.
+PROJ-601 has no formal PM-system dependency links, but its body text says "depends on #602".""",
+        "rubric": [
+            "report type is 'triage-report'",
+            "next_issue is PROJ-602 (PROJ-601 is blocked by its body reference to #602 which is not Done, so PROJ-602 is the only ready issue)",
+            "PROJ-601 is NOT selected as next_issue (it is blocked because its body says 'depends on #602' and #602 is not Done)",
+        ],
+    },
+    {
+        "name": "semantic_dependency_blocks",
+        "description": "One issue describes running a capability another issue creates — the 'run' issue is Blocked, the 'create' issue is Ready",
+        "mock_context": """\
+PM system returned 2 non-Done issues:
+
+- PROJ-701 "Run a discovery on claude code hooks" — Status: Todo — Priority: Medium
+  Dependencies (PM system links): none
+  Issue body: "Run a product discovery to explore how teams use claude code hooks. \
+Interview users, gather data, and synthesize findings."
+
+- PROJ-702 "Create a discovery task type" — Status: Todo — Priority: Medium
+  Dependencies (PM system links): none
+  Issue body: "Add a new 'discovery' task type to our product development process. \
+Define the template, inputs, outputs, and workflow for running discoveries."
+
+Neither issue has formal PM-system dependency links. No unresolved decisions exist.
+Note: PROJ-701 describes *running* a discovery, which requires the discovery task type \
+that PROJ-702 would create. There are no explicit cross-references between them.""",
+        "rubric": [
+            "report type is 'triage-report'",
+            "next_issue is PROJ-702 (it creates the capability that PROJ-701 needs, making it the ready issue)",
+            "PROJ-701 is NOT selected as next_issue (it semantically depends on the discovery task type that PROJ-702 will create)",
+        ],
+    },
+    {
         "name": "implementation_difficulty_is_not_a_blocker",
         "description": "Hard issue with no external blockers must be classified Ready, not Blocked",
         "mock_context": """\
