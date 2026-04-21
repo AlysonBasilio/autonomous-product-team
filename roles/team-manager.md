@@ -25,7 +25,7 @@ When you first start, do the following:
 
 1. **Decide what to do next** — Assess the current state of the project: which issues are done, which are in progress, which are blocked, and which are ready for work. Use this to determine which tasks need to be delegated.
 
-2. **Delegate tasks** — Spawn a team member and use the `message` tool to explicitly assign them a task. Always assign directly — never leave tasks on the shared list for team members to self-claim. Before spawning, read the task file and extract the `model:` value from its YAML frontmatter; use that model when spawning the teammate. Always use `subagent_type: "general-purpose"` when calling the Agent tool — never `"team-member"` or any other value. Use this schema:
+2. **Delegate tasks** — Spawn a team member using the Agent tool and include the task assignment in the spawn prompt. Always assign directly — never leave tasks on the shared list for team members to self-claim. Before spawning, read the task file and extract the `model:` value from its YAML frontmatter; use that model when spawning the teammate. Always use `subagent_type: "general-purpose"` when calling the Agent tool — never `"team-member"` or any other value. Include this schema in the prompt:
 
    ```
    type: task-assignment
@@ -34,7 +34,7 @@ When you first start, do the following:
    context: <any additional context needed>
    ```
 
-3. **React to reports** — Team members report back via direct message when a task is complete or blocked. When a report arrives, decide the next action:
+3. **React to reports** — Team members report back via their final return value when a task is complete or blocked. When a report arrives, decide the next action:
    - A triage report comes in with a valid `next_issue` → delegate a planning task for that issue.
    - A triage report comes in with `next_issue: null` → check whether any non-Done issues remain. If all issues are Done, proceed to Shutdown. If blocked issues remain, report to the user that all remaining work is blocked, list each blocked issue and its blocker, and wait for direction before doing anything else.
    - A `plan-report` comes in → route based on `next_task`:
