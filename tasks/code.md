@@ -57,7 +57,11 @@ Then run the full test suite, linting, and build on your rebased branch. If anyt
 ### 7. Ensure CI is green
 All CI checks must pass before merging.
 
-### 8. Report
+### 8. Identify follow-up issues
+
+Review the diff for any TODO comments added during this implementation. For each one, note the title (the TODO text) and description (file path and a brief explanation of what is deferred and why). Do not remove the TODO comments — they will be tracked as separate issues.
+
+### 9. Report
 
 Once CI is green, your branch is rebased, and all review threads are resolved (verified via the GraphQL check above — must return `0`):
 
@@ -79,6 +83,9 @@ task: tasks/code.md
 issue_id: <issue ID>
 pr_url: <PR URL>
 summary: <one sentence>
+follow_up_issues:  # include only if TODOs were added; omit this field entirely if none
+  - title: <TODO text>
+    description: <file path — brief context on what is deferred and why>
 ```
 
 If implementation hits a blocker that cannot be resolved, report:

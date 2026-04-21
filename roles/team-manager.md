@@ -41,14 +41,17 @@ When you first start, do the following:
      - `code` → delegate implementation, passing `branch`, `worktree`, `plan`, and `findings` (if present).
      - `test` → delegate a test task, passing `issue_id` and `pr_url`.
      - `demo-review` → delegate a demo-review task, passing `issue_id` and `pr_url`.
-   - An implementation (`task-complete`) arrives → delegate a test task, passing the `issue_id` and `pr_url`.
+   - An implementation (`task-complete`) arrives:
+     - If `follow_up_issues` is present → delegate a `create-issue` task AND a test task **in parallel**, passing `source_issue_id` and `issues` to the former and `issue_id` and `pr_url` to the latter.
+     - If `follow_up_issues` is absent → delegate a test task, passing the `issue_id` and `pr_url`.
+   - A `create-issue-complete` arrives → no further action needed (the test task was already delegated in parallel).
    - A `task-failed` arrives → mark the issue as Blocked in the product development management system. Escalate to the user with the `issue_id`, the exact `failure` details, and a specific question about what decision or change is needed to unblock it. Do not delegate any further work on this issue until the user responds.
    - A `test-report` arrives:
      - `outcome: fail` → delegate the implementation task again for the same issue, passing `pr_url` and `findings` as context so the implementer fixes on the same branch.
      - `outcome: pass` → delegate a demo-review task, passing `issue_id` and `pr_url`.
    - A `demo-review-report` arrives:
-     - `outcome: approved` → merge the PR. Deployment is automatic on merge — no separate deploy step is needed. Then re-delegate issue triage and act on the `next_issue` from the new triage report.
-     - `outcome: redirect` → act on the user's feedback (update, close, or reprioritize issues in the product development management system), then re-delegate issue triage (`tasks/issue-triage.md`). Do not skip triage and jump straight to planning or implementation.
+     - `outcome: approved` → merge the PR. Deployment is automatic on merge — no separate deploy step is needed. If `follow_up_issues` is present, delegate a `create-issue` task in parallel with re-triaging. Then re-delegate issue triage and act on the `next_issue` from the new triage report.
+     - `outcome: redirect` → act on the user's feedback (update, close, or reprioritize issues in the product development management system). If `follow_up_issues` is present, delegate a `create-issue` task in parallel with re-triaging. Then re-delegate issue triage (`tasks/issue-triage.md`). Do not skip triage and jump straight to planning or implementation.
    - A `status-correction-report` arrives → if `now_unblocked` is non-empty, re-delegate issue triage to get an updated priority-ordered ready list, then act on the `next_issue` from that report.
    - A blocker is reported → evaluate and resolve (see Blocker Protocol below).
    - A status inconsistency is found → delegate a status correction task.
@@ -82,3 +85,4 @@ When you first start, do the following:
 | Test | `tasks/test.md` | After every implementation task completes |
 | Demo Review | `tasks/demo-review.md` | After every test task passes |
 | Status Correction | `tasks/status-correction.md` | When an issue status is inconsistent with ground truth |
+| Create Issue | `tasks/create-issue.md` | When any task reports `follow_up_issues` |

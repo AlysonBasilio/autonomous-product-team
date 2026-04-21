@@ -209,6 +209,65 @@ Note: The demo reviewer has NOT merged the PR.""",
         ],
     ),
     build_scenario(
+        name="task_complete_with_followups_delegates_create_issue_and_test",
+        description="task-complete with follow_up_issues → delegate create-issue AND test in parallel",
+        message="""\
+type: task-complete
+task: tasks/code.md
+issue_id: PROJ-1101
+pr_url: https://github.com/org/repo/pull/155
+summary: Implemented CSV export with streaming for large datasets.
+follow_up_issues:
+  - title: Add progress indicator for long-running exports
+    description: src/export/csv.ts:42 — deferred UI feedback while export streams
+  - title: Support XLSX format in addition to CSV
+    description: src/export/csv.ts:10 — format abstraction not yet in scope""",
+        rubric=[
+            "delegates tasks/create-issue.md with source_issue_id PROJ-1101 and both follow-up issues",
+            "delegates tasks/test.md with issue_id PROJ-1101 and pr_url",
+            "delegates BOTH tasks (create-issue and test) — does not skip either",
+            "does NOT wait for create-issue to complete before delegating test",
+        ],
+    ),
+    build_scenario(
+        name="create_issue_complete_no_further_routing",
+        description="create-issue-complete → no further routing needed (test was already delegated in parallel)",
+        message="""\
+type: create-issue-complete
+source_issue_id: PROJ-1101
+created_issues:
+  - id: PROJ-1201
+    title: Add progress indicator for long-running exports
+  - id: PROJ-1202
+    title: Support XLSX format in addition to CSV""",
+        rubric=[
+            "does NOT delegate any new task",
+            "does NOT re-delegate test (it was already delegated when task-complete arrived)",
+            "does NOT re-triage or start on a different issue",
+            "acknowledges the created issues without taking further action",
+        ],
+    ),
+    build_scenario(
+        name="demo_review_approved_with_followups_creates_issues_and_retriage",
+        description="demo-review-report approved with follow_up_issues → create-issue and re-triage in parallel",
+        message="""\
+type: demo-review-report
+issue_id: PROJ-801
+outcome: approved
+user_feedback: "Looks great! Could you also create a ticket to add keyboard shortcuts for the export actions?"
+follow_up_issues:
+  - title: Add keyboard shortcuts for export actions
+    description: User requested during demo review — shortcuts not in original scope
+
+Note: The demo reviewer has already merged the PR and marked the issue Done.""",
+        rubric=[
+            "delegates tasks/create-issue.md with the follow-up issue",
+            "re-delegates issue triage (tasks/issue-triage.md)",
+            "delegates BOTH tasks (create-issue and triage) — does not skip either",
+            "does NOT wait for create-issue to complete before re-triaging",
+        ],
+    ),
+    build_scenario(
         name="blocked_report_escalates_product_decision_to_user",
         description="blocked report requiring product decision → escalate to user, do not resolve unilaterally",
         message="""\

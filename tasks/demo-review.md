@@ -52,6 +52,8 @@ Use `AskUserQuestion` to present:
 
 ### 5. Act on the response
 
+If the user's response mentions creating issues, tracking follow-ups, or requests that new work be recorded (e.g., "create an issue for X", "track this as a follow-up", "make a ticket for Y"): extract each request as a follow-up issue with a title and description derived from the user's wording.
+
 **Approved** → merge the PR into `main` (squash merge preferred). Mark the issue as Done in the product development management system.
 
 **Redirect** → do NOT merge. Mark the issue status as **In Progress** in the product development management system.
@@ -63,6 +65,9 @@ type: demo-review-complete
 pr_url: <PR URL>
 outcome: approved | redirect
 user_feedback: <verbatim user response>
+follow_up_issues:  # include only if user requested issue creation; omit this field entirely if none
+  - title: <title>
+    description: <description>
 ```
 
 This is the authoritative demo-review completion record. If re-running, this comment supersedes any prior demo-review-complete comment.
@@ -74,6 +79,9 @@ type: demo-review-report
 issue_id: <issue ID>
 outcome: approved | redirect
 user_feedback: <verbatim user response>
+follow_up_issues:  # include only if user requested issue creation; omit this field entirely if none
+  - title: <title>
+    description: <description>
 ```
 
 ## Definition of Done
