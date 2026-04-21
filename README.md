@@ -24,6 +24,12 @@ This installs the agent team files into your project:
 - `.claude/skills/team-member/SKILL.md` — executor agent
 - `.claude/product-team/tasks/` — 7 task definitions
 
+This also installs Claude Code hooks into `.claude/hooks/` and registers them in `.claude/settings.json`:
+- **guard-destructive-git.sh** — blocks dangerous git commands (`push --force`, `reset --hard`, `clean -f`, `branch -D`)
+- **guard-worktree-discipline.sh** — prevents agents from writing files in the main checkout when they should be in a worktree
+- **load-session-context.sh** — loads project config on session start so agents do not re-ask for repo/PM details
+- **log-agent-event.sh** — logs subagent lifecycle events to `.claude/product-team/agent.log` for observability
+
 Then open Claude Code in your project and ask:
 > "Use the team-manager skill to start working on my product"
 

@@ -249,6 +249,45 @@ class TestManagerHandlesAllReports:
         assert "status-correction-report" in content
 
 
+class TestHooksExistence:
+    """Hook scripts must exist on disk and be referenced in the installer."""
+
+    HOOK_SCRIPTS = [
+        "hooks/guard-destructive-git.sh",
+        "hooks/guard-worktree-discipline.sh",
+        "hooks/load-session-context.sh",
+        "hooks/log-agent-event.sh",
+    ]
+
+    def test_all_hook_scripts_exist(self):
+        for script in self.HOOK_SCRIPTS:
+            assert (REPO_ROOT / script).exists(), f"Hook script missing: {script}"
+
+    def test_hook_scripts_are_executable(self):
+        import os
+        for script in self.HOOK_SCRIPTS:
+            filepath = REPO_ROOT / script
+            assert os.access(filepath, os.X_OK), f"Hook script not executable: {script}"
+
+    def test_hooks_in_install_manifest(self):
+        content = load_file("lib/install.js")
+        for script in self.HOOK_SCRIPTS:
+            assert script in content, f"Hook script not in MANIFEST: {script}"
+
+    def test_hooks_config_in_required_settings(self):
+        content = load_file("lib/install.js")
+        assert "'hooks'" in content or '"hooks"' in content or "hooks:" in content, (
+            "REQUIRED_SETTINGS must include a hooks configuration"
+        )
+        # Verify specific hook events are configured
+        for event in ["PreToolUse", "SessionStart", "SubagentStart", "SubagentStop"]:
+            assert event in content, f"REQUIRED_SETTINGS hooks must include {event}"
+
+    def test_hooks_in_package_files(self):
+        content = load_file("package.json")
+        assert "hooks/" in content, "package.json files must include hooks/"
+
+
 class TestModelSpecification:
     """Every task and role must specify a valid model in YAML frontmatter."""
 
