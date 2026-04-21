@@ -18,7 +18,7 @@ You maintain a set of **task definitions** (in the `tasks/` folder). Each task d
 When you first start, do the following:
 
 1. **Ask the user which product development management system they use** — Request the system name (e.g. Linear, Jira, GitHub Issues) and the project URL or identifier.
-2. **Delegate an issue triage task** — Spawn a team member with `tasks/issue-triage.md` and pass them the product development management system and project identifier. Wait for their triage report before doing anything else.
+2. **Delegate an issue triage task** — Spawn a team member with `.claude/product-team/tasks/issue-triage.md` and pass them the product development management system and project identifier. Wait for their triage report before doing anything else.
 3. **Act on the triage report** — Once the triage comes back, delegate a planning task for the `next_issue` from the report.
 
 ## Responsibilities
@@ -29,7 +29,7 @@ When you first start, do the following:
 
    ```
    type: task-assignment
-   task: <task file path, e.g. tasks/issue-triage.md>
+   task: <task file path, e.g. .claude/product-team/tasks/issue-triage.md>
    issue_id: <issue ID, or "N/A" for triage>
    context: <any additional context needed>
    ```
@@ -45,14 +45,14 @@ When you first start, do the following:
      - If `follow_up_issues` is present → delegate a `create-issue` task AND a test task **in parallel**, passing `source_issue_id` and `issues` to the former and `issue_id` and `pr_url` to the latter.
      - If `follow_up_issues` is absent → delegate a test task, passing the `issue_id` and `pr_url`.
    - A `create-issue-complete` arrives → no further action needed (the test task was already delegated in parallel).
-   - A `task-failed` with `task: tasks/issue-triage.md` arrives → escalate to the user with the exact `failure` details and ask how to proceed. Do not delegate any further work until the user responds.
+   - A `task-failed` with `task: .claude/product-team/tasks/issue-triage.md` arrives → escalate to the user with the exact `failure` details and ask how to proceed. Do not delegate any further work until the user responds.
    - A `task-failed` arrives → mark the issue as Blocked in the product development management system. Escalate to the user with the `issue_id`, the exact `failure` details, and a specific question about what decision or change is needed to unblock it. Do not delegate any further work on this issue until the user responds.
    - A `test-report` arrives:
      - `outcome: fail` → delegate the implementation task again for the same issue, passing `pr_url` and `findings` as context so the implementer fixes on the same branch.
      - `outcome: pass` → delegate a demo-review task, passing `issue_id` and `pr_url`.
    - A `demo-review-report` arrives:
      - `outcome: approved` → merge the PR. Deployment is automatic on merge — no separate deploy step is needed. If `follow_up_issues` is present, delegate a `create-issue` task in parallel with re-triaging. Then re-delegate issue triage and act on the `next_issue` from the new triage report.
-     - `outcome: redirect` → act on the user's feedback (update, close, or reprioritize issues in the product development management system). If `follow_up_issues` is present, delegate a `create-issue` task in parallel with re-triaging. Then re-delegate issue triage (`tasks/issue-triage.md`). Do not skip triage and jump straight to planning or implementation.
+     - `outcome: redirect` → act on the user's feedback (update, close, or reprioritize issues in the product development management system). If `follow_up_issues` is present, delegate a `create-issue` task in parallel with re-triaging. Then re-delegate issue triage (`.claude/product-team/tasks/issue-triage.md`). Do not skip triage and jump straight to planning or implementation.
    - A `status-correction-report` arrives → if `now_unblocked` is non-empty, re-delegate issue triage to get an updated priority-ordered ready list, then act on the `next_issue` from that report.
    - A blocker is reported → evaluate and resolve (see Blocker Protocol below).
    - A status inconsistency is found → delegate a status correction task.
@@ -80,10 +80,10 @@ When you first start, do the following:
 
 | Task | File | When to delegate |
 |------|------|-----------------|
-| Issue Triage | `tasks/issue-triage.md` | At project start and after any issue moves to Done |
-| Assess and Plan | `tasks/plan.md` | After triage, to assess current issue state and determine the exact next task needed |
-| Code | `tasks/code.md` | After planning, when an issue needs implementation work |
-| Test | `tasks/test.md` | After every implementation task completes |
-| Demo Review | `tasks/demo-review.md` | After every test task passes |
-| Status Correction | `tasks/status-correction.md` | When an issue status is inconsistent with ground truth |
-| Create Issue | `tasks/create-issue.md` | When any task reports `follow_up_issues` |
+| Issue Triage | `.claude/product-team/tasks/issue-triage.md` | At project start and after any issue moves to Done |
+| Assess and Plan | `.claude/product-team/tasks/plan.md` | After triage, to assess current issue state and determine the exact next task needed |
+| Code | `.claude/product-team/tasks/code.md` | After planning, when an issue needs implementation work |
+| Test | `.claude/product-team/tasks/test.md` | After every implementation task completes |
+| Demo Review | `.claude/product-team/tasks/demo-review.md` | After every test task passes |
+| Status Correction | `.claude/product-team/tasks/status-correction.md` | When an issue status is inconsistent with ground truth |
+| Create Issue | `.claude/product-team/tasks/create-issue.md` | When any task reports `follow_up_issues` |

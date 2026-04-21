@@ -109,7 +109,7 @@ All subsequent reads, edits, and commits must happen inside the worktree — nev
 
 ## Report
 
-Report back to `team-manager`:
+Use the `message` tool to message `team-manager`:
 
 ```
 type: plan-report

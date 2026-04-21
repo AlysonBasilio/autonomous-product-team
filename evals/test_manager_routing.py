@@ -306,7 +306,7 @@ You are about to spawn a team member and delegate this task to them.
 
 1. Which task file would you assign?
 2. What model would you specify when spawning the team member, and how did you determine it?
-3. What subagent_type would you pass to the Agent tool, and why?
+3. What tool would you use to spawn the team member, and how would you assign them the task?
 
 Be specific. Output ONLY your response — no preamble.
 """
@@ -363,8 +363,8 @@ plan: |
         ],
     ),
     build_spawn_model_scenario(
-        name="spawn_uses_general_purpose_subagent_type",
-        description="When spawning a team member, manager must use subagent_type general-purpose, not team-member",
+        name="spawn_uses_team_create_and_send_message",
+        description="When spawning a team member, manager must use TeamCreate tool and then SendMessage to assign the task",
         task_file="tasks/issue-triage.md",
         message="""\
 type: triage-report
@@ -373,8 +373,9 @@ next_issue:
   title: Fix login redirect bug
   summary: Users are not redirected after successful login.""",
         rubric=[
-            "uses subagent_type 'general-purpose' when spawning the team member",
-            "does NOT use subagent_type 'team-member' or any other non-standard value",
+            "uses the TeamCreate tool to spawn the team member",
+            "uses the message tool (SendMessage) to assign the task after spawning",
+            "does NOT use the Agent tool or subagent_type to spawn the team member",
         ],
     ),
 ]

@@ -62,7 +62,7 @@ created_issues:
     title: <title>
 ```
 
-Then report to `team-manager` with the same content.
+Then use the `message` tool to message `team-manager` with the same content.
 
 ## Definition of Done
 

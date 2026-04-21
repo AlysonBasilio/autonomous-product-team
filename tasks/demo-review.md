@@ -38,7 +38,7 @@ gh api /repos/<owner>/<repo>/issues/<n>/comments | jq '[.[] | {id, user: .user.l
 
 Read all comments returned. If any comment appears to be requesting changes, raising a concern, or asking a question that has not been addressed — treat it as blocking feedback.
 
-If **either** check finds unresolved threads or unaddressed comments: do NOT proceed to user presentation. Post a demo-review-complete comment and report to `team-manager` with `outcome: redirect` and `user_feedback` summarising the blocking items. Stop here.
+If **either** check finds unresolved threads or unaddressed comments: do NOT proceed to user presentation. Post a demo-review-complete comment and use the `message` tool to message `team-manager` with `outcome: redirect` and `user_feedback` summarising the blocking items. Stop here.
 
 If both checks are clear: continue to the next step.
 
@@ -72,7 +72,7 @@ follow_up_issues:  # include only if user requested issue creation; omit this fi
 
 This is the authoritative demo-review completion record. If re-running, this comment supersedes any prior demo-review-complete comment.
 
-Then report to `team-manager`:
+Then use the `message` tool to message `team-manager`:
 
 ```
 type: demo-review-report
