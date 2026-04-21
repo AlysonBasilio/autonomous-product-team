@@ -49,7 +49,7 @@ findings: [{ description, severity: critical | minor }]
 
 This is the authoritative test completion record for this issue. If re-running, this comment supersedes any prior test-complete comment.
 
-Then report to `team-manager`:
+Then use the `message` tool to message `team-manager`:
 
 ```
 type: test-report

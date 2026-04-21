@@ -33,7 +33,7 @@ An issue is **not** blocked solely because its implementation is difficult or un
 
 4. **Rank ready issues** — Sort the ready issues by priority (highest first), using the priority assigned in the product development management system. If priorities are equal, prefer the issue with the earliest creation date.
 
-5. **Report to team manager** using this schema:
+5. **Report** — Use the `message` tool to message `team-manager` using this schema:
 
    ```
    type: triage-report
@@ -42,7 +42,7 @@ An issue is **not** blocked solely because its implementation is difficult or un
 
    `next_issue` is the highest-priority ready issue — the one the team should work on next. If no issues are ready, `next_issue` is null.
 
-   If the product development management system returns an error at any step, stop and report:
+   If the product development management system returns an error at any step, stop and use the `message` tool to message `team-manager`:
 
    ```
    type: task-failed

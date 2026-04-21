@@ -29,7 +29,7 @@ The team manager provides either:
 
 3. **Correct any inconsistencies** — Update the issue status to match ground truth. Add a comment on the issue noting what was corrected and why.
 
-4. **Report to team manager** using this schema:
+4. **Report** — Use the `message` tool to message `team-manager` using this schema:
 
    ```
    type: status-correction-report
