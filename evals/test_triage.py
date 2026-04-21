@@ -120,6 +120,20 @@ PROJ-401 cannot start until PROJ-400 reaches Done.""",
         ],
     },
     {
+        "name": "pm_api_error_produces_task_failed",
+        "description": "PM system returns an error — agent must report task-failed, not triage-report",
+        "mock_context": """\
+Attempt to fetch non-Done issues from the PM system failed with error:
+"The query is too complex"
+
+No issue data was returned.""",
+        "rubric": [
+            "report type is 'task-failed' (not 'triage-report')",
+            "task field is 'tasks/issue-triage.md'",
+            "failure field describes the PM API error",
+        ],
+    },
+    {
         "name": "implementation_difficulty_is_not_a_blocker",
         "description": "Hard issue with no external blockers must be classified Ready, not Blocked",
         "mock_context": """\

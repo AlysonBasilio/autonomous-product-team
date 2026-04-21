@@ -45,6 +45,7 @@ When you first start, do the following:
      - If `follow_up_issues` is present → delegate a `create-issue` task AND a test task **in parallel**, passing `source_issue_id` and `issues` to the former and `issue_id` and `pr_url` to the latter.
      - If `follow_up_issues` is absent → delegate a test task, passing the `issue_id` and `pr_url`.
    - A `create-issue-complete` arrives → no further action needed (the test task was already delegated in parallel).
+   - A `task-failed` with `task: tasks/issue-triage.md` arrives → escalate to the user with the exact `failure` details and ask how to proceed. Do not delegate any further work until the user responds.
    - A `task-failed` arrives → mark the issue as Blocked in the product development management system. Escalate to the user with the `issue_id`, the exact `failure` details, and a specific question about what decision or change is needed to unblock it. Do not delegate any further work on this issue until the user responds.
    - A `test-report` arrives:
      - `outcome: fail` → delegate the implementation task again for the same issue, passing `pr_url` and `findings` as context so the implementer fixes on the same branch.
@@ -63,7 +64,7 @@ When you first start, do the following:
 ### Blocker Protocol
 
 1. **Team member reports** the blocker with:
-   - The Linear issue ID
+   - The issue ID
    - A one-sentence description of what is blocked
    - What was already attempted or checked
    - The specific decision or information needed to unblock

@@ -6,7 +6,7 @@ model: claude-haiku-4-5
 
 ## Objective
 
-Audit a set of Linear issues and correct any status that is inconsistent with ground truth.
+Audit a set of issues in the product development management system and correct any status that is inconsistent with ground truth.
 
 ## Input
 
@@ -40,4 +40,4 @@ The team manager provides either:
 
 ## Definition of Done
 
-This task is complete when all audited issues have accurate statuses in Linear and the correction report has been delivered to the team manager.
+This task is complete when all audited issues have accurate statuses in the product development management system and the correction report has been delivered to the team manager.

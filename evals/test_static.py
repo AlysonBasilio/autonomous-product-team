@@ -193,6 +193,11 @@ class TestReportSchemas:
         assert "outcome" in content
         assert "findings" in content
 
+    def test_triage_defines_task_failed(self):
+        content = load_file("tasks/issue-triage.md")
+        assert "task-failed" in content
+        assert "failure" in content
+
     def test_demo_review_defines_demo_review_report(self):
         content = load_file("tasks/demo-review.md")
         assert "demo-review-report" in content

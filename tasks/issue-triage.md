@@ -23,7 +23,7 @@ An issue is **not** blocked solely because its implementation is difficult or un
 
 ## Workflow
 
-1. **Fetch all issues** — Query the product development management system for every issue in the project that is not Done.
+1. **Fetch all issues** — Query the product development management system for every issue in the project that is not Done. Fetch issues with basic fields first (id, title, status, priority). Then check each issue's dependencies individually with a separate lookup per issue — do not attempt to fetch all issues and all their relations in a single query.
 
 2. **Check blockers** — For each issue, check its dependencies. An issue is blocked if any dependency is not Done. An issue is also blocked if it requires an unresolved product or architectural decision.
 
@@ -41,6 +41,14 @@ An issue is **not** blocked solely because its implementation is difficult or un
    ```
 
    `next_issue` is the highest-priority ready issue — the one the team should work on next. If no issues are ready, `next_issue` is null.
+
+   If the product development management system returns an error at any step, stop and report:
+
+   ```
+   type: task-failed
+   task: tasks/issue-triage.md
+   failure: <exact error message and which step failed>
+   ```
 
 ## Definition of Done
 
