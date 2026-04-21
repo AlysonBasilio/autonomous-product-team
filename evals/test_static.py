@@ -8,6 +8,7 @@ These tests verify that the task definition files are internally consistent:
 - Every task defines an output report schema
 - The team manager handles every report type any task can produce
 - Every task and role specifies the correct model in its frontmatter
+- The installer configures the TeammateIdle hook to stop idle teammates
 """
 import re
 from pathlib import Path
@@ -262,3 +263,32 @@ class TestModelSpecification:
             assert model in VALID_MODELS, (
                 f"{path} specifies unknown model '{model}'; must be one of {sorted(VALID_MODELS)}"
             )
+
+
+def _load_required_settings():
+    """Parse REQUIRED_SETTINGS from lib/install.js using AST-free text extraction."""
+    install_js = (REPO_ROOT / "lib" / "install.js").read_text()
+    return install_js
+
+
+class TestIdleTeammateHook:
+    """The installer must configure TeammateIdle so idle teammates are stopped automatically."""
+
+    def test_required_settings_includes_teammate_idle_hook(self):
+        install_js = _load_required_settings()
+        assert "TeammateIdle" in install_js, (
+            "lib/install.js REQUIRED_SETTINGS must include a TeammateIdle hook "
+            "to automatically stop idle team members"
+        )
+
+    def test_idle_hook_stops_teammate(self):
+        install_js = _load_required_settings()
+        assert re.search(r'"continue"\s*:\s*false', install_js), (
+            'lib/install.js TeammateIdle hook must output {"continue": false} to stop idle teammates'
+        )
+
+    def test_team_manager_role_mentions_idle_hook(self):
+        content = load_file("roles/team-manager.md")
+        assert "TeammateIdle" in content or "idle" in content.lower(), (
+            "roles/team-manager.md must document that idle team members are removed after reporting"
+        )
