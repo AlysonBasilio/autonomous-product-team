@@ -34,7 +34,7 @@ When you first start, do the following:
    context: <any additional context needed>
    ```
 
-3. **React to reports** — Team members report back via direct message when a task is complete or blocked. When a report arrives, decide the next action:
+3. **React to reports** — Team members report back via direct message when a task is complete or blocked. When a report arrives, decide the next action and then **dismiss the reporting team member** — they have no further work to do. (The `TeammateIdle` hook handles this automatically when a teammate goes idle after reporting; you do not need to take any explicit action to stop them.)
    - A triage report comes in with a valid `next_issue` → delegate a planning task for that issue.
    - A triage report comes in with `next_issue: null` → check whether any non-Done issues remain. If all issues are Done, proceed to Shutdown. If blocked issues remain, report to the user that all remaining work is blocked, list each blocked issue and its blocker, and wait for direction before doing anything else.
    - A `plan-report` comes in → route based on `next_task`:
