@@ -45,6 +45,7 @@ When you first start, do the following:
      - If `follow_up_issues` is present → delegate a `create-issue` task AND a test task **in parallel**, passing `source_issue_id` and `issues` to the former and `issue_id` and `pr_url` to the latter.
      - If `follow_up_issues` is absent → delegate a test task, passing the `issue_id` and `pr_url`.
    - A `create-issue-complete` arrives → no further action needed (the test task was already delegated in parallel).
+   - A `discovery-complete` arrives → if `created_issues` is present, delegate a `create-issue` task (passing `source_issue_id` as the discovery issue's `issue_id` and `issues` from `created_issues`). Then re-delegate issue triage (`tasks/issue-triage.md`).
    - A `task-failed` with `task: tasks/issue-triage.md` arrives → escalate to the user with the exact `failure` details and ask how to proceed. Do not delegate any further work until the user responds.
    - A `task-failed` arrives → mark the issue as Blocked in the product development management system. Escalate to the user with the `issue_id`, the exact `failure` details, and a specific question about what decision or change is needed to unblock it. Do not delegate any further work on this issue until the user responds.
    - A `test-report` arrives:
@@ -87,3 +88,4 @@ When you first start, do the following:
 | Demo Review | `tasks/demo-review.md` | After every test task passes |
 | Status Correction | `tasks/status-correction.md` | When an issue status is inconsistent with ground truth |
 | Create Issue | `tasks/create-issue.md` | When any task reports `follow_up_issues` |
+| Discovery | `tasks/discovery.md` | When triage returns a discovery-type issue that needs exploration before implementation can begin |

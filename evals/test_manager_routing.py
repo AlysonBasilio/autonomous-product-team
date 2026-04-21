@@ -268,6 +268,45 @@ Note: The demo reviewer has already merged the PR and marked the issue Done.""",
         ],
     ),
     build_scenario(
+        name="discovery_complete_retriggers_triage",
+        description="discovery-complete report arrives → manager re-triages",
+        message="""\
+type: discovery-complete
+issue_id: PROJ-1301
+summary: Explored notification system requirements and broke them into concrete implementation tasks.
+created_issues:
+  - id: PROJ-1302
+    title: Define notification types and delivery channels
+  - id: PROJ-1303
+    title: Build notification service backend""",
+        rubric=[
+            "re-delegates issue triage (tasks/issue-triage.md)",
+            "does NOT skip triage and start on a specific next issue without re-triaging first",
+            "delegates tasks/create-issue.md since created_issues is present",
+        ],
+    ),
+    build_scenario(
+        name="discovery_complete_with_issues_delegates_create_issue_and_retriage",
+        description="discovery-complete with created_issues → delegate create-issue and re-triage",
+        message="""\
+type: discovery-complete
+issue_id: PROJ-1401
+summary: Investigated bulk CSV import feature and identified three pieces of follow-up work.
+created_issues:
+  - id: PROJ-1402
+    title: Add CSV parsing and validation for product import
+  - id: PROJ-1403
+    title: Create background job for bulk product import processing
+  - id: PROJ-1404
+    title: Add CSV import API endpoint and UI upload flow""",
+        rubric=[
+            "delegates tasks/create-issue.md with the created issues",
+            "re-delegates issue triage (tasks/issue-triage.md)",
+            "delegates BOTH tasks (create-issue and triage) — does not skip either",
+            "does NOT attempt to implement any of the created issues directly",
+        ],
+    ),
+    build_scenario(
         name="blocked_report_escalates_product_decision_to_user",
         description="blocked report requiring product decision → escalate to user, do not resolve unilaterally",
         message="""\
