@@ -22,13 +22,16 @@ Read all comments on the PM issue using the product development management syste
 - `type: test-complete` — a test run completed; note the `outcome`, `findings`, and timestamp
 - `type: demo-review-complete` — a demo review completed; note the `outcome`, `user_feedback`, and timestamp
 
+**Multi-PR tracking**: An issue may have multiple associated PRs. Collect the `pr_url` values from ALL `task-complete` comments (not just the most recent one) to build the complete set of associated PRs for the issue.
+
 **Stale-implementation check**: If a `test-complete` comment with `outcome: pass` exists, compare its timestamp against the issue's last-updated timestamp. If the issue description or acceptance criteria appear to have been edited after the `test-complete` was posted, flag the implementation as **stale**.
 
 ### 3. Check git/PR state
 - Check if a branch for this issue already exists locally (e.g. `git branch --list "*<issue-id>*"` or check `../worktrees/`).
 - Check if a PR is already open on the remote: `gh pr list --search "<issue-id>" --state open`.
-- If a PR exists, check CI status: `gh pr checks <pr_url>`.
-- If a PR exists, check for merge conflicts:
+- For each associated PR in the multi-PR set (from Step 2), check its state individually: `gh pr view <pr_url> --json state` to determine if it is open, merged, or closed. Build a summary: count how many are merged/closed vs. still open. All associated PRs must be merged or closed for the issue to be considered fully complete.
+- If a PR exists and is open, check CI status: `gh pr checks <pr_url>`.
+- If a PR exists and is open, check for merge conflicts:
 
 ```bash
 gh pr view <pr_url> --json mergeable,mergeStateStatus
@@ -36,7 +39,7 @@ gh pr view <pr_url> --json mergeable,mergeStateStatus
 
 Note whether `mergeable` is `CONFLICTING` (or `mergeStateStatus` is `DIRTY`) — used in the routing table below.
 
-- If a PR exists, count unresolved review threads and collect their bodies:
+- If a PR exists and is open, count unresolved review threads and collect their bodies:
 
 ```bash
 gh api graphql -f query='{
@@ -61,7 +64,8 @@ Use the most recent comment of each type from Step 2, combined with git/PR state
 
 | PM issue comment history | Git/PR state | `next_task` |
 |---|---|---|
-| `demo-review-complete outcome: approved` | PR merged | Nothing to do — issue is Done; report immediately with no `next_task` |
+| `demo-review-complete outcome: approved` | All associated PRs merged or closed | Nothing to do — issue is Done; report immediately with no `next_task` |
+| `demo-review-complete outcome: approved` for current PR | Other associated PRs still open | `test` or `demo-review` — route to the next open PR (check its CI/review state to decide); include the open PR's `pr_url` in the report |
 | `demo-review-complete outcome: redirect`, no newer `task-complete` | any | `code` — user redirected; run Phase 1 with `user_feedback` as `findings` |
 | `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green, **unresolved review threads** | `code` — resolve review threads first; run Phase 1 with thread bodies as `findings` |
 | `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green | `test` — implementation was updated after redirect; skip Phase 1 |
