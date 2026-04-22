@@ -47,11 +47,15 @@ Ensure the PR is reviewed (automated and/or human). For every review comment:
    ```
    This must return `0` before proceeding.
 
-### 6. Rebase from main and verify before merge
+### 6. Rebase from main and resolve conflicts before merge
 Before merging, rebase your branch onto the latest main to catch integration issues early:
 ```bash
 git fetch origin main && git rebase origin/main
 ```
+If the rebase encounters merge conflicts, resolve each conflict manually, then stage the resolved files and continue the rebase (`git add <file> && git rebase --continue`). After resolving all conflicts, push the updated branch with `git push --force-with-lease`.
+
+If conflicts cannot be resolved (e.g. the conflicting change is incompatible with the issue's requirements and the correct resolution is unclear), report `task-failed` immediately — do not guess at a resolution or push a branch with unresolved conflict markers.
+
 Then run the full test suite, linting, and build on your rebased branch. If anything fails, fix it before proceeding. Do not merge a branch that has not been verified against the latest main.
 
 ### 7. Ensure CI is green
