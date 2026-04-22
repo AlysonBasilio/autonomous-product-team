@@ -342,6 +342,33 @@ PR mergeability check: mergeable=CONFLICTING, mergeStateStatus=DIRTY — the bra
             "does NOT route to test or demo-review while conflicts exist",
         ],
     },
+    # Multi-PR: demo-review approved for one PR, but another associated PR is still open
+    {
+        "name": "multi_pr_approved_but_another_open",
+        "description": "demo-review-complete approved for PR #42, but a second task-complete references a different open PR #50 with CI green → route to test or demo-review for PR #50",
+        "mock_context": """\
+Issue: PROJ-116 "Implement multi-step onboarding"
+Status: In Progress
+Last updated: 2026-04-20 10:00 UTC
+
+PM issue comments (all comments, chronological):
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/42 (2026-04-17 09:00 UTC)
+- type: test-complete, outcome: pass, findings: [], pr_url: https://github.com/org/repo/pull/42 (2026-04-17 14:00 UTC)
+- type: demo-review-complete, outcome: approved, user_feedback: "Step 1 looks great.", pr_url: https://github.com/org/repo/pull/42 (2026-04-18 09:00 UTC)
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/50 (2026-04-19 11:00 UTC)
+
+Associated PRs (from all task-complete comments):
+- https://github.com/org/repo/pull/42 → MERGED
+- https://github.com/org/repo/pull/50 → OPEN
+
+Git state: PR #42: MERGED. PR #50: OPEN. CI for PR #50: all checks green. No unresolved review threads on PR #50.""",
+        "rubric": [
+            "report type is 'plan-report'",
+            "next_task is 'test' or 'demo-review' (NOT 'nothing to do' or absent/null)",
+            "the report references PR #50 (https://github.com/org/repo/pull/50) — the still-open PR",
+            "does NOT declare the issue Done or report that there is nothing to do",
+        ],
+    },
     # Row 10: no task-complete, no branch, no PR → fresh implementation
     {
         "name": "no_work_done_start_fresh",

@@ -331,6 +331,37 @@ class TestHooksExistence:
         assert "hooks/" in content, "package.json files must include hooks/"
 
 
+class TestMultiPRHandling:
+    """
+    Verify that multi-PR tracking is documented across the relevant files:
+    plan.md, demo-review.md, and team-manager.md.
+    """
+
+    def test_plan_mentions_multi_pr_handling(self):
+        content = load_file("tasks/plan.md")
+        assert re.search(r"all.*PR|associated PR|multi-PR", content, re.IGNORECASE), (
+            "tasks/plan.md must mention multi-PR handling (e.g., 'all PRs', 'associated PRs', or 'multi-PR')"
+        )
+
+    def test_plan_mentions_all_prs_merged_or_closed(self):
+        content = load_file("tasks/plan.md")
+        assert re.search(r"all.*(?:PRs|associated).*(?:merged|closed)", content, re.IGNORECASE), (
+            "tasks/plan.md routing table must require all associated PRs to be merged or closed"
+        )
+
+    def test_demo_review_references_remaining_open_prs(self):
+        content = load_file("tasks/demo-review.md")
+        assert "remaining_open_prs" in content, (
+            "tasks/demo-review.md must reference remaining_open_prs for multi-PR tracking"
+        )
+
+    def test_team_manager_handles_remaining_open_prs(self):
+        content = load_file("roles/team-manager.md")
+        assert "remaining_open_prs" in content, (
+            "roles/team-manager.md must handle remaining_open_prs from demo-review-report"
+        )
+
+
 class TestModelSpecification:
     """Every task and role must specify a valid model in YAML frontmatter."""
 

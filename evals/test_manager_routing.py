@@ -322,6 +322,25 @@ created_issues:
         ],
     ),
     build_scenario(
+        name="demo_review_approved_with_remaining_open_prs",
+        description="demo-review-report approved with remaining_open_prs → delegate test task for remaining PR, do not immediately re-triage",
+        message="""\
+type: demo-review-report
+issue_id: PROJ-1501
+outcome: approved
+user_feedback: "This part looks great, ship it."
+remaining_open_prs:
+  - https://github.com/org/repo/pull/50
+
+Note: The demo reviewer has already merged the current PR. However, other associated PRs remain open.""",
+        rubric=[
+            "delegates tasks/test.md for the remaining open PR (https://github.com/org/repo/pull/50)",
+            "task-assignment includes issue_id PROJ-1501 and the remaining pr_url",
+            "does NOT immediately re-triage or mark the issue as fully Done",
+            "does NOT skip the remaining open PR",
+        ],
+    ),
+    build_scenario(
         name="blocked_report_escalates_product_decision_to_user",
         description="blocked report requiring product decision → escalate to user, do not resolve unilaterally",
         message="""\

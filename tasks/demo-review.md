@@ -62,7 +62,7 @@ gh pr view <pr_url> --json mergeable,mergeStateStatus
 
 If `mergeable` is `CONFLICTING` or `mergeStateStatus` is `DIRTY`, do **not** attempt to merge. Instead, post a `demo-review-complete` comment with `outcome: redirect` and `user_feedback: "PR has merge conflicts and cannot be merged. The branch must be rebased onto main and conflicts resolved before merging."`, then report to `team-manager` with the same outcome and user_feedback. Stop here.
 
-If the PR is mergeable, proceed to merge it into `main` (squash merge preferred). Mark the issue as Done in the product development management system.
+If the PR is mergeable, proceed to merge it into `main` (squash merge preferred). Then look up all `pr_url` values from ALL `task-complete` comments on the PM issue to determine the full set of associated PRs. Check the state (open/merged/closed) of each associated PR. Build the list of `remaining_open_prs` — any associated PRs that are still open (not yet merged or closed). Mark the issue as Done in the product development management system **only when `remaining_open_prs` is empty** (all associated PRs are merged or closed). If `remaining_open_prs` is non-empty, do NOT mark the issue as Done yet.
 
 **Redirect** → do NOT merge. Mark the issue status as **In Progress** in the product development management system.
 
@@ -87,6 +87,8 @@ type: demo-review-report
 issue_id: <issue ID>
 outcome: approved | redirect
 user_feedback: <verbatim user response>
+remaining_open_prs:  # include only when outcome is approved and other associated PRs are still open; omit if empty or not applicable
+  - <pr_url>
 follow_up_issues:  # include only if user requested issue creation; omit this field entirely if none
   - title: <title>
     description: <description>
@@ -94,10 +96,11 @@ follow_up_issues:  # include only if user requested issue creation; omit this fi
 
 ## Definition of Done
 
-Report delivered. If approved, PR is merged and issue is marked Done. If redirect, no merge has occurred.
+Report delivered. If approved, PR is merged. Issue is marked Done only when all associated PRs are merged or closed (i.e., `remaining_open_prs` is empty). If redirect, no merge has occurred.
 
 ## Rules
 
 - Do not merge until the user explicitly approves.
 - Record the user's feedback verbatim in the report.
-- If approved, mark the issue as Done in the product development management system before reporting.
+- If approved and all associated PRs are merged or closed, mark the issue as Done in the product development management system before reporting.
+- If approved but other associated PRs remain open, do NOT mark the issue as Done — include them in `remaining_open_prs`.
