@@ -9,7 +9,9 @@ These tests verify that the task definition files are internally consistent:
 - The team manager handles every report type any task can produce
 - Every task and role specifies the correct model in its frontmatter
 - The installer configures the TeammateIdle hook to stop idle teammates
+- Session persistence config and hooks are properly defined
 """
+import json
 import re
 from pathlib import Path
 
@@ -404,4 +406,68 @@ class TestIdleTeammateHook:
         content = load_file("roles/team-manager.md")
         assert "TeammateIdle" in content or "idle" in content.lower(), (
             "roles/team-manager.md must document that idle team members are removed after reporting"
+        )
+
+
+class TestSessionPersistence:
+    """Session persistence: config file, SessionStart hook, and manager startup."""
+
+    def test_default_config_exists(self):
+        config_path = REPO_ROOT / "config" / "default-config.json"
+        assert config_path.exists(), "config/default-config.json template must exist"
+
+    def test_default_config_is_valid_json(self):
+        config_path = REPO_ROOT / "config" / "default-config.json"
+        content = config_path.read_text()
+        data = json.loads(content)
+        assert "project_url" in data, "default-config.json must contain project_url field"
+        assert "system" in data, "default-config.json must contain system field"
+
+    def test_config_in_install_manifest(self):
+        content = load_file("lib/install.js")
+        assert "config/default-config.json" in content, (
+            "install.js MANIFEST must include config/default-config.json"
+        )
+        assert ".claude/product-team/config.json" in content, (
+            "install.js must install config to .claude/product-team/config.json"
+        )
+
+    def test_session_start_hook_in_settings(self):
+        content = load_file("lib/install.js")
+        assert "SessionStart" in content, (
+            "install.js REQUIRED_SETTINGS must include a SessionStart hook"
+        )
+
+    def test_config_in_package_files(self):
+        content = load_file("package.json")
+        data = json.loads(content)
+        assert "config/" in data.get("files", []), (
+            "package.json files array must include config/"
+        )
+
+    def test_manager_reads_saved_config(self):
+        content = load_file("roles/team-manager.md")
+        assert "config.json" in content, (
+            "team-manager.md startup must reference config.json"
+        )
+        assert "project_url" in content, (
+            "team-manager.md startup must reference project_url from saved config"
+        )
+
+    def test_manager_saves_config_on_first_run(self):
+        content = load_file("roles/team-manager.md")
+        assert re.search(r"[Ss]ave.*config", content), (
+            "team-manager.md must instruct saving config on first run"
+        )
+
+    def test_manager_skips_asking_when_config_exists(self):
+        content = load_file("roles/team-manager.md")
+        assert re.search(r"skip.*asking|only if no saved config", content, re.IGNORECASE), (
+            "team-manager.md must skip asking when saved config exists"
+        )
+
+    def test_status_shows_config_state(self):
+        content = load_file("lib/install.js")
+        assert "configStatus" in content or "config" in content.lower(), (
+            "status() function must display config state"
         )
