@@ -122,6 +122,49 @@ class TestPlanRoutingTable:
         for value in ["code", "test", "demo-review"]:
             assert value in content, f"plan.md must document next_task value: {value}"
 
+    def test_routing_covers_merge_conflicts(self):
+        content = load_file("tasks/plan.md")
+        assert re.search(r"merge.conflict", content, re.IGNORECASE), (
+            "Plan routing table must handle the case where a PR has merge conflicts"
+        )
+
+    def test_plan_checks_mergeability(self):
+        content = load_file("tasks/plan.md")
+        assert "mergeable" in content.lower(), (
+            "plan.md must instruct the agent to check PR mergeability (e.g. via gh pr view --json mergeable)"
+        )
+
+
+class TestMergeConflictHandling:
+    """Merge conflict detection and resolution must be covered end-to-end."""
+
+    def test_code_instructs_conflict_resolution_on_rebase(self):
+        content = load_file("tasks/code.md")
+        assert re.search(r"conflict", content, re.IGNORECASE), (
+            "code.md must instruct the agent to resolve merge conflicts during rebase"
+        )
+
+    def test_code_instructs_task_failed_on_unresolvable_conflicts(self):
+        content = load_file("tasks/code.md")
+        assert "task-failed" in content, (
+            "code.md must instruct the agent to report task-failed when conflicts cannot be resolved"
+        )
+        assert re.search(r"conflict", content, re.IGNORECASE), (
+            "code.md must mention conflicts in the context of task-failed reporting"
+        )
+
+    def test_demo_review_checks_mergeability_before_merge(self):
+        content = load_file("tasks/demo-review.md")
+        assert "mergeable" in content.lower(), (
+            "demo-review.md must check PR mergeability before attempting to merge"
+        )
+
+    def test_demo_review_blocks_merge_on_conflict(self):
+        content = load_file("tasks/demo-review.md")
+        assert re.search(r"CONFLICTING|conflict", content, re.IGNORECASE), (
+            "demo-review.md must explicitly block merge when the PR has merge conflicts"
+        )
+
 
 class TestInputOutputChain:
     """

@@ -54,7 +54,15 @@ Use `AskUserQuestion` to present:
 
 If the user's response mentions creating issues, tracking follow-ups, or requests that new work be recorded (e.g., "create an issue for X", "track this as a follow-up", "make a ticket for Y"): extract each request as a follow-up issue with a title and description derived from the user's wording.
 
-**Approved** → merge the PR into `main` (squash merge preferred). Mark the issue as Done in the product development management system.
+**Approved** → before merging, check that the PR has no merge conflicts:
+
+```bash
+gh pr view <pr_url> --json mergeable,mergeStateStatus
+```
+
+If `mergeable` is `CONFLICTING` or `mergeStateStatus` is `DIRTY`, do **not** attempt to merge. Instead, post a `demo-review-complete` comment with `outcome: redirect` and `user_feedback: "PR has merge conflicts and cannot be merged. The branch must be rebased onto main and conflicts resolved before merging."`, then report to `team-manager` with the same outcome and user_feedback. Stop here.
+
+If the PR is mergeable, proceed to merge it into `main` (squash merge preferred). Mark the issue as Done in the product development management system.
 
 **Redirect** → do NOT merge. Mark the issue status as **In Progress** in the product development management system.
 

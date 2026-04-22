@@ -320,6 +320,28 @@ Unresolved review threads (2):
             "does NOT route to test or demo-review",
         ],
     },
+    # task-complete, PR open, merge conflicts → code to rebase and resolve
+    {
+        "name": "task_complete_pr_has_merge_conflicts",
+        "description": "task-complete + PR open + merge conflicts → code to rebase and resolve conflicts",
+        "mock_context": """\
+Issue: PROJ-115 "Add audit log export"
+Status: In Progress
+Last updated: 2026-04-15 09:00 UTC
+
+PM issue comments (most recent of each type):
+- type: task-complete, task: tasks/code.md, pr_url: https://github.com/org/repo/pull/92 (2026-04-16 10:00 UTC)
+No test-complete comment. No demo-review-complete comment.
+
+Git state: branch feature/PROJ-115-audit-log-export exists. PR #92: OPEN.
+PR mergeability check: mergeable=CONFLICTING, mergeStateStatus=DIRTY — the branch has merge conflicts with main.""",
+        "rubric": [
+            "report type is 'plan-report'",
+            "next_task is 'code'",
+            "findings field mentions merge conflicts or the need to rebase",
+            "does NOT route to test or demo-review while conflicts exist",
+        ],
+    },
     # Row 10: no task-complete, no branch, no PR → fresh implementation
     {
         "name": "no_work_done_start_fresh",
