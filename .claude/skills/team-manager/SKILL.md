@@ -1,4 +1,6 @@
 ---
+name: team-manager
+description: Team Manager Responsibilities
 model: claude-sonnet-4-6
 ---
 

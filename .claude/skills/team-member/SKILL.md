@@ -1,4 +1,6 @@
 ---
+name: team-member
+description: Team Member Responsibilities
 model: claude-sonnet-4-6
 ---
 
