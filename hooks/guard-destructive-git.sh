@@ -2,6 +2,7 @@
 # Hook: Guard Against Destructive Git Operations
 # Event: PreToolUse on Bash
 # Blocks dangerous git commands that could cause irreversible damage.
+# Allows --force-with-lease for safe post-rebase pushes.
 
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
@@ -11,8 +12,8 @@ if [ -z "$COMMAND" ]; then
 fi
 
 DANGEROUS_PATTERNS=(
-  "git push.*--force"
-  "git push.*-f[^i]"
+  "git push.*--force([^a-z-]|$)"
+  "git push( .*)? -f( |$)"
   "git reset --hard"
   "git clean -f"
   "git checkout -- \."
