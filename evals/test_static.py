@@ -364,6 +364,35 @@ class TestMultiPRHandling:
         )
 
 
+class TestDemoReviewSyncAndApprovalGate:
+    """Both copies of demo-review.md must stay in sync and require explicit user approval."""
+
+    def test_demo_review_copies_in_sync(self):
+        primary = (REPO_ROOT / "tasks/demo-review.md").read_text()
+        secondary = (REPO_ROOT / ".claude/product-team/tasks/demo-review.md").read_text()
+        assert primary == secondary, (
+            "tasks/demo-review.md and .claude/product-team/tasks/demo-review.md are out of sync"
+        )
+
+    def test_demo_review_requires_ask_user_question(self):
+        content = load_file("tasks/demo-review.md")
+        assert "AskUserQuestion" in content, (
+            "demo-review.md must reference AskUserQuestion as the required approval mechanism"
+        )
+
+    def test_demo_review_prohibits_merge_without_user_approval(self):
+        content = load_file("tasks/demo-review.md")
+        assert "NEVER merge without" in content, (
+            "demo-review.md Rules section must explicitly prohibit merging without user approval"
+        )
+
+    def test_demo_review_ci_not_approval(self):
+        content = load_file("tasks/demo-review.md")
+        assert "CI green" in content and "NOT approval" in content, (
+            "demo-review.md must explicitly state that CI green is NOT approval"
+        )
+
+
 class TestModelSpecification:
     """Every task and role must specify a valid model in YAML frontmatter."""
 
