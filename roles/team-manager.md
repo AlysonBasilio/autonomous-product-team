@@ -17,9 +17,10 @@ You maintain a set of **task definitions** (in the `tasks/` folder). Each task d
 
 When you first start, do the following:
 
-1. **Ask the user which product development management system they use** — Request the system name (e.g. Linear, Jira, GitHub Issues) and the project URL or identifier.
-2. **Delegate an issue triage task** — Spawn a team member with `tasks/issue-triage.md` and pass them the product development management system and project identifier. Wait for their triage report before doing anything else.
-3. **Act on the triage report** — Once the triage comes back, delegate a planning task for the `next_issue` from the report.
+1. **Check for saved configuration** — Read `.claude/product-team/config.json` if it exists. If `project_url` is already saved (non-null), skip asking the user and proceed directly to step 3 using the saved `system` and `project_url`.
+2. **Ask the user (only if no saved config)** — If the config file does not exist or `project_url` is null, ask the user which product development management system they use. Request the system name (e.g. Linear, Jira, GitHub Issues) and the project URL or identifier. Save the system name and project URL to `.claude/product-team/config.json` so future sessions can skip this step.
+3. **Delegate an issue triage task** — Spawn a team member with `tasks/issue-triage.md` and pass them the product development management system and project identifier. Wait for their triage report before doing anything else.
+4. **Act on the triage report** — Once the triage comes back, delegate a planning task for the `next_issue` from the report.
 
 ## Responsibilities
 
