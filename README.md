@@ -22,7 +22,7 @@ npx @alysonbasilio/autonomous-product-team init
 This installs the agent team files into your project:
 - `.claude/skills/team-manager/SKILL.md` — orchestration agent
 - `.claude/skills/team-member/SKILL.md` — executor agent
-- `.claude/product-team/tasks/` — 7 task definitions
+- `.claude/product-team/tasks/` — 8 task definitions
 
 This also installs Claude Code hooks into `.claude/hooks/` and registers them in `.claude/settings.json`:
 - **guard-destructive-git.sh** — blocks dangerous git commands (`push --force`, `reset --hard`, `clean -f`, `branch -D`)

@@ -39,16 +39,22 @@ An issue is **not** blocked solely because its implementation is difficult or un
    - **Ready** — All dependencies are Done (or no dependencies). Can be assigned immediately.
    - **Blocked** — One or more dependencies are not Done, or an external decision is pending. Note what is blocking it.
 
+   For each Ready issue, also determine its **issue type**:
+   - `discovery` — The issue is exploratory in nature: it has no concrete implementation acceptance criteria, asks for research, investigation, or breakdown of a vague idea into actionable work.
+   - `implementation` — The issue has concrete acceptance criteria and can proceed directly to planning and coding. This is the default.
+
 4. **Rank ready issues** — Sort the ready issues by priority (highest first), using the priority assigned in the product development management system. If priorities are equal, prefer the issue with the earliest creation date. Note: formal PM-system dependency links, text-inferred cross-references, and semantic dependencies all count equally when determining whether an issue is Blocked or Ready.
 
 5. **Report** — Use the `message` tool to message `team-manager` using this schema:
 
    ```
    type: triage-report
-   next_issue: { id, title, summary }
+   next_issue: { id, title, summary, issue_type }
    ```
 
    `next_issue` is the highest-priority ready issue — the one the team should work on next. If no issues are ready, `next_issue` is null.
+
+   `issue_type` is `discovery` when the issue is exploratory (no concrete acceptance criteria), or `implementation` (the default) when the issue has concrete acceptance criteria and can proceed to planning.
 
    If the product development management system returns an error at any step, stop and use the `message` tool to message `team-manager`:
 

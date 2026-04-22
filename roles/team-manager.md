@@ -35,7 +35,8 @@ When you first start, do the following:
    ```
 
 3. **React to reports** — Team members report back via direct message when a task is complete or blocked. When a report arrives, decide the next action and then **dismiss the reporting team member** — they have no further work to do. (The `TeammateIdle` hook handles this automatically when a teammate goes idle after reporting; you do not need to take any explicit action to stop them.)
-   - A triage report comes in with a valid `next_issue` → delegate a planning task for that issue.
+   - A triage report comes in with a valid `next_issue` and `issue_type: discovery` → delegate a discovery task (`tasks/discovery.md`) for that issue instead of planning.
+   - A triage report comes in with a valid `next_issue` (with `issue_type: implementation` or no `issue_type`) → delegate a planning task for that issue.
    - A triage report comes in with `next_issue: null` → check whether any non-Done issues remain. If all issues are Done, proceed to Shutdown. If blocked issues remain, report to the user that all remaining work is blocked, list each blocked issue and its blocker, and wait for direction before doing anything else.
    - A `plan-report` comes in → route based on `next_task`:
      - `code` → delegate implementation, passing `branch`, `worktree`, `plan`, and `findings` (if present).
@@ -45,6 +46,7 @@ When you first start, do the following:
      - If `follow_up_issues` is present → delegate a `create-issue` task AND a test task **in parallel**, passing `source_issue_id` and `issues` to the former and `issue_id` and `pr_url` to the latter.
      - If `follow_up_issues` is absent → delegate a test task, passing the `issue_id` and `pr_url`.
    - A `create-issue-complete` arrives → no further action needed (the test task was already delegated in parallel).
+   - A `discovery-complete` arrives → the discovery task has already created all follow-up issues in the PM system. Do NOT delegate a `create-issue` task (the issues already exist). Re-delegate issue triage (`tasks/issue-triage.md`) to pick up the newly created issues.
    - A `task-failed` with `task: tasks/issue-triage.md` arrives → escalate to the user with the exact `failure` details and ask how to proceed. Do not delegate any further work until the user responds.
    - A `task-failed` arrives → mark the issue as Blocked in the product development management system. Escalate to the user with the `issue_id`, the exact `failure` details, and a specific question about what decision or change is needed to unblock it. Do not delegate any further work on this issue until the user responds.
    - A `test-report` arrives:
@@ -87,3 +89,4 @@ When you first start, do the following:
 | Demo Review | `tasks/demo-review.md` | After every test task passes |
 | Status Correction | `tasks/status-correction.md` | When an issue status is inconsistent with ground truth |
 | Create Issue | `tasks/create-issue.md` | When any task reports `follow_up_issues` |
+| Discovery | `tasks/discovery.md` | When triage returns a discovery-type issue that needs exploration before implementation can begin |
