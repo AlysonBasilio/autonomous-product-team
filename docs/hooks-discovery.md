@@ -138,10 +138,9 @@ exit 0
 #!/bin/bash
 CONFIG_FILE="$CLAUDE_PROJECT_DIR/.claude/product-team/config.json"
 if [ -f "$CONFIG_FILE" ]; then
-  REPO=$(jq -r '.repo // empty' "$CONFIG_FILE")
-  PM=$(jq -r '.pm_system // empty' "$CONFIG_FILE")
-  PROJECT=$(jq -r '.project_id // empty' "$CONFIG_FILE")
-  jq -n --arg ctx "Project config: repo=$REPO, pm_system=$PM, project_id=$PROJECT" \
+  REPO=$(jq -r '.project_url // empty' "$CONFIG_FILE")
+  PM=$(jq -r '.system // empty' "$CONFIG_FILE")
+  jq -n --arg ctx "Project config: project_url=$REPO, system=$PM" \
     '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'
 fi
 exit 0

@@ -466,6 +466,17 @@ class TestSessionPersistence:
             "team-manager.md must skip asking when saved config exists"
         )
 
+    def test_session_hook_reads_correct_config_fields(self):
+        """The SessionStart hook must read the same field names defined in default-config.json."""
+        config_path = REPO_ROOT / "config" / "default-config.json"
+        config_data = json.loads(config_path.read_text())
+        hook_content = load_file("hooks/load-session-context.sh")
+        for field in config_data:
+            assert f".{field}" in hook_content, (
+                f"load-session-context.sh must read .{field} from config "
+                f"(field defined in default-config.json)"
+            )
+
     def test_status_shows_config_state(self):
         content = load_file("lib/install.js")
         assert "configStatus" in content or "config" in content.lower(), (

@@ -10,12 +10,11 @@ if [ ! -f "$CONFIG_FILE" ]; then
   exit 0
 fi
 
-REPO=$(jq -r '.repo // empty' "$CONFIG_FILE")
-PM=$(jq -r '.pm_system // empty' "$CONFIG_FILE")
-PROJECT=$(jq -r '.project_id // empty' "$CONFIG_FILE")
+REPO=$(jq -r '.project_url // empty' "$CONFIG_FILE")
+PM=$(jq -r '.system // empty' "$CONFIG_FILE")
 
-if [ -n "$REPO" ] || [ -n "$PM" ] || [ -n "$PROJECT" ]; then
-  CONTEXT="Project config: repo=$REPO, pm_system=$PM, project_id=$PROJECT"
+if [ -n "$REPO" ] || [ -n "$PM" ]; then
+  CONTEXT="Project config: project_url=$REPO, system=$PM"
   jq -n --arg ctx "$CONTEXT" \
     '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'
 fi
