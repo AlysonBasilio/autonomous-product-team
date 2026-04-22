@@ -62,6 +62,22 @@ next_issue:
         ],
     ),
     build_scenario(
+        name="triage_discovery_issue_delegates_discovery",
+        description="triage-report with discovery-type issue → delegate discovery task, not plan",
+        message="""\
+type: triage-report
+next_issue:
+  id: PROJ-250
+  title: Investigate notification system requirements
+  summary: Exploratory issue to research what a notification system should look like and break it into concrete work.
+  issue_type: discovery""",
+        rubric=[
+            "delegates tasks/discovery.md (discovery task) for issue PROJ-250",
+            "task-assignment includes issue_id PROJ-250",
+            "does NOT delegate tasks/plan.md or tasks/code.md (this is a discovery issue, not an implementation issue)",
+        ],
+    ),
+    build_scenario(
         name="triage_null_issues_remain_escalates_to_user",
         description="triage-report null + blocked issues remain → escalate to user, do not delegate",
         message="""\
@@ -269,7 +285,7 @@ Note: The demo reviewer has already merged the PR and marked the issue Done.""",
     ),
     build_scenario(
         name="discovery_complete_retriggers_triage",
-        description="discovery-complete report arrives → manager re-triages",
+        description="discovery-complete report arrives → manager re-triages (issues already created by discovery)",
         message="""\
 type: discovery-complete
 issue_id: PROJ-1301
@@ -282,12 +298,12 @@ created_issues:
         rubric=[
             "re-delegates issue triage (tasks/issue-triage.md)",
             "does NOT skip triage and start on a specific next issue without re-triaging first",
-            "delegates tasks/create-issue.md since created_issues is present",
+            "does NOT delegate tasks/create-issue.md (issues were already created by the discovery task itself)",
         ],
     ),
     build_scenario(
-        name="discovery_complete_with_issues_delegates_create_issue_and_retriage",
-        description="discovery-complete with created_issues → delegate create-issue and re-triage",
+        name="discovery_complete_with_issues_no_create_issue",
+        description="discovery-complete with created_issues → re-triage only, no create-issue (discovery already created them)",
         message="""\
 type: discovery-complete
 issue_id: PROJ-1401
@@ -300,9 +316,8 @@ created_issues:
   - id: PROJ-1404
     title: Add CSV import API endpoint and UI upload flow""",
         rubric=[
-            "delegates tasks/create-issue.md with the created issues",
             "re-delegates issue triage (tasks/issue-triage.md)",
-            "delegates BOTH tasks (create-issue and triage) — does not skip either",
+            "does NOT delegate tasks/create-issue.md (the discovery task already created the issues in the PM system)",
             "does NOT attempt to implement any of the created issues directly",
         ],
     ),
