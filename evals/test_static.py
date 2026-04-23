@@ -448,6 +448,68 @@ class TestIdleTeammateHook:
         )
 
 
+class TestSessionStartHookExitsCleanly:
+    """The second SessionStart hook must always exit 0, even when config.json is missing."""
+
+    def test_session_start_uses_if_guard_not_bare_and(self):
+        content = load_file("lib/install.js")
+        # Find the SessionStart hook command that reads config.json
+        assert re.search(r'if \[ -f .claude/product-team/config\.json \]', content), (
+            "lib/install.js SessionStart hook must use 'if [ -f ... ]' guard "
+            "instead of bare 'test -f ... &&' to avoid non-zero exit when config is missing"
+        )
+
+    def test_session_start_config_hook_ends_with_fi(self):
+        content = load_file("lib/install.js")
+        # The command should end with 'fi' (inside the template string)
+        assert re.search(r'config\.json.*fi[`"\']', content), (
+            "lib/install.js SessionStart config hook command must end with 'fi' "
+            "to ensure the if-block always exits 0"
+        )
+
+    def test_session_start_node_never_exits_nonzero(self):
+        content = load_file("lib/install.js")
+        # The inline node command must not use process.exit(1) for unconfigured state;
+        # a null project_url (fresh install) must exit 0, not 1.
+        assert "process.exit(1)" not in content, (
+            "lib/install.js SessionStart hook must never use process.exit(1); "
+            "unconfigured state (project_url is null) must exit 0 to avoid hook errors"
+        )
+
+
+class TestWorktreeHookClaudioExemption:
+    """The worktree discipline hook must exempt .claude/ paths (metadata/config)."""
+
+    def test_worktree_hook_allows_claude_paths(self):
+        content = load_file("hooks/guard-worktree-discipline.sh")
+        assert ".claude/" in content, (
+            "guard-worktree-discipline.sh must contain an exemption for .claude/ paths"
+        )
+
+    def test_worktree_hook_exits_early_for_claude_paths(self):
+        content = load_file("hooks/guard-worktree-discipline.sh")
+        # The exemption should exit 0 (allow the write)
+        assert re.search(r'\.claude/.*exit 0', content, re.DOTALL), (
+            "guard-worktree-discipline.sh must exit 0 for .claude/ paths to allow config writes"
+        )
+
+
+class TestTeamMemberIdleWarning:
+    """Team member role must warn agents that going idle will terminate their session."""
+
+    def test_team_member_warns_about_idle_termination(self):
+        content = load_file("roles/team-member.md")
+        assert "TeammateIdle" in content, (
+            "roles/team-member.md must mention TeammateIdle hook so agents know they will be terminated"
+        )
+
+    def test_team_member_requires_continuous_session(self):
+        content = load_file("roles/team-member.md")
+        assert re.search(r"single continuous session|never go idle", content, re.IGNORECASE), (
+            "roles/team-member.md must instruct agents to complete work in a single continuous session"
+        )
+
+
 class TestSessionPersistence:
     """Session persistence: config file, SessionStart hook, and manager startup."""
 
