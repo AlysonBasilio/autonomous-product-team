@@ -24,12 +24,18 @@ ROLE_AND_TASK_FILES = [
     *[p.relative_to(REPO_ROOT) for p in sorted(REPO_ROOT.glob("tasks/*.md"))],
 ]
 
+SKILL_FILES = [
+    p.relative_to(REPO_ROOT)
+    for p in sorted(REPO_ROOT.glob(".claude/skills/*/SKILL.md"))
+]
+
 
 def load_file(path: str) -> str:
     return (REPO_ROOT / path).read_text()
 
 
-def parse_frontmatter_model(path: str) -> str | None:
+def parse_frontmatter_field(path: str, field: str) -> str | None:
+    """Extract a single YAML frontmatter field value from a Markdown file."""
     content = load_file(path)
     if not content.startswith("---"):
         return None
@@ -37,8 +43,12 @@ def parse_frontmatter_model(path: str) -> str | None:
     if end == -1:
         return None
     frontmatter = content[3:end]
-    match = re.search(r"^model:\s*(\S+)", frontmatter, re.MULTILINE)
-    return match.group(1) if match else None
+    match = re.search(rf"^{re.escape(field)}:\s*(.+)", frontmatter, re.MULTILINE)
+    return match.group(1).strip() if match else None
+
+
+def parse_frontmatter_model(path: str) -> str | None:
+    return parse_frontmatter_field(path, "model")
 
 
 class TestTaskFileExistence:
@@ -511,3 +521,28 @@ class TestSessionPersistence:
         assert "configStatus" in content or "config" in content.lower(), (
             "status() function must display config state"
         )
+
+
+class TestSkillFrontmatter:
+    """Every installed skill must declare name and description in YAML frontmatter."""
+
+    def test_skill_files_found(self):
+        assert SKILL_FILES, "No SKILL.md files found under .claude/skills/"
+
+    def test_all_skills_have_name(self):
+        for path in SKILL_FILES:
+            name = parse_frontmatter_field(path, "name")
+            assert name is not None, f"{path} is missing a 'name:' field in YAML frontmatter"
+
+    def test_all_skills_have_description(self):
+        for path in SKILL_FILES:
+            desc = parse_frontmatter_field(path, "description")
+            assert desc is not None, f"{path} is missing a 'description:' field in YAML frontmatter"
+
+    def test_skill_name_matches_directory(self):
+        for path in SKILL_FILES:
+            name = parse_frontmatter_field(path, "name")
+            dir_name = path.parent.name
+            assert name == dir_name, (
+                f"{path}: skill name '{name}' does not match directory name '{dir_name}'"
+            )
