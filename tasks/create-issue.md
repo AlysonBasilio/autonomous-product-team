@@ -11,6 +11,7 @@ Create new issues in the product management system for follow-up work identified
 The team manager provides:
 - `source_issue_id` — the issue that identified this follow-up work
 - `issues` — list of issues to create, each with `title` and `description`
+- `priority` (optional) — priority to assign to the created issues (e.g., urgent, high, medium, low, no priority). When omitted, defaults to "No priority".
 
 ## Workflow
 
@@ -36,7 +37,7 @@ The description must include:
 
 Create each issue with:
 - Status: **Backlog**
-- Priority: **No priority**
+- Priority: the provided `priority` value, or **No priority** if not specified
 
 ### 3. Check for dependencies
 

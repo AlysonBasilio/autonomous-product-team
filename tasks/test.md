@@ -12,11 +12,31 @@ You will receive `issue_id` and `pr_url` from the implementation task-complete r
 
 ## Workflow
 
-### 1. Fetch the issue
+### 1. Pre-flight: Check for environment setup instructions
+
+Before doing anything else, look for environment setup documentation in the target project. Check for:
+- `CLAUDE.md`, `README.md`, `docs/` directory
+- Any file mentioning "test setup", "how to run tests", or similar
+- Project-specific instructions in a `.claude/` directory
+
+If adequate instructions exist (i.e., they describe how to install dependencies, configure environment variables, and start the application for testing), proceed to Step 2.
+
+If instructions are missing or clearly insufficient (e.g., no mention of how to start or configure the app for tests), **stop immediately** — do NOT proceed with any testing. Instead, send this message to `team-manager`:
+
+```
+type: qa-blocked-missing-env-setup
+issue_id: <issue ID>
+pr_url: <PR URL>
+missing: <one-sentence description of what env setup documentation is missing>
+```
+
+Do NOT post a test-complete comment to the PM issue in this case.
+
+### 2. Fetch the issue
 
 Fetch the issue from the product development management system to understand the acceptance criteria. Do NOT read the implementation code or PR diff — test blind as a user would.
 
-### 2. Check out the branch
+### 3. Check out the branch
 
 Check out the PR branch locally:
 
@@ -24,11 +44,11 @@ Check out the PR branch locally:
 gh pr checkout <pr_url>
 ```
 
-### 3. Start the application
+### 4. Start the application
 
 Start the application from the branch and confirm it is running.
 
-### 4. Test with three lenses
+### 5. Test with three lenses
 
 **Acceptance criteria** — Verify each criterion is demonstrably met from the outside (API calls, UI interaction, observable side effects). Do not verify by reading source code.
 
@@ -36,7 +56,7 @@ Start the application from the branch and confirm it is running.
 
 **Regression** — Spot-check adjacent features that share code paths with this change. Confirm they still work.
 
-### 5. Report
+### 6. Report
 
 First, post a comment to the PM issue using the product development management system tool:
 
