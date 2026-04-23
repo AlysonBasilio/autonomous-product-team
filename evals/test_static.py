@@ -467,6 +467,15 @@ class TestSessionStartHookExitsCleanly:
             "to ensure the if-block always exits 0"
         )
 
+    def test_session_start_node_never_exits_nonzero(self):
+        content = load_file("lib/install.js")
+        # The inline node command must not use process.exit(1) for unconfigured state;
+        # a null project_url (fresh install) must exit 0, not 1.
+        assert "process.exit(1)" not in content, (
+            "lib/install.js SessionStart hook must never use process.exit(1); "
+            "unconfigured state (project_url is null) must exit 0 to avoid hook errors"
+        )
+
 
 class TestWorktreeHookClaudioExemption:
     """The worktree discipline hook must exempt .claude/ paths (metadata/config)."""
