@@ -267,6 +267,12 @@ class TestReportSchemas:
         assert "decision_needed" in content
         assert "what_was_tried" in content
 
+    def test_create_issue_supports_priority_field(self):
+        content = load_file("tasks/create-issue.md")
+        assert "priority" in content, (
+            "tasks/create-issue.md must support an optional priority field"
+        )
+
 
 class TestManagerHandlesAllReports:
     """Team Manager must handle every report type any task can produce."""
@@ -302,6 +308,12 @@ class TestManagerHandlesAllReports:
     def test_manager_handles_status_correction_report(self):
         content = load_file("roles/team-manager.md")
         assert "status-correction-report" in content
+
+    def test_manager_handles_qa_blocked_missing_env_setup(self):
+        content = load_file("roles/team-manager.md")
+        assert "qa-blocked-missing-env-setup" in content, (
+            "roles/team-manager.md must handle the qa-blocked-missing-env-setup report"
+        )
 
 
 class TestHooksExistence:
@@ -582,6 +594,38 @@ class TestSessionPersistence:
         content = load_file("lib/install.js")
         assert "configStatus" in content or "config" in content.lower(), (
             "status() function must display config state"
+        )
+
+
+class TestQAPreflightBehavior:
+    """QA task must include a pre-flight env setup check that blocks before testing."""
+
+    def test_test_has_preflight_step(self):
+        content = load_file("tasks/test.md")
+        assert "pre-flight" in content.lower(), (
+            "tasks/test.md must include a pre-flight step"
+        )
+
+    def test_test_defines_qa_blocked_report(self):
+        content = load_file("tasks/test.md")
+        assert "qa-blocked-missing-env-setup" in content, (
+            "tasks/test.md must define the qa-blocked-missing-env-setup report type"
+        )
+        assert "issue_id" in content, (
+            "tasks/test.md qa-blocked report must include issue_id"
+        )
+        assert "pr_url" in content, (
+            "tasks/test.md qa-blocked report must include pr_url"
+        )
+        assert "missing" in content, (
+            "tasks/test.md qa-blocked report must include missing field"
+        )
+
+    def test_test_preflight_blocks_before_testing(self):
+        content = load_file("tasks/test.md")
+        assert "stop immediately" in content.lower() or "do not proceed" in content.lower(), (
+            "tasks/test.md pre-flight must block before normal test steps "
+            "(should contain 'stop immediately' or 'do not proceed')"
         )
 
 
