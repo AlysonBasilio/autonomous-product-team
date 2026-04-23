@@ -24,6 +24,11 @@ if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
   exit 0
 fi
 
+# Allow writes to .claude/ paths — these are metadata/config, not source code
+case "$FILE_PATH" in
+  */.claude/*) exit 0 ;;
+esac
+
 # Check if the file path is inside the main checkout (not a worktree)
 REAL_PROJECT_DIR=$(cd "$CLAUDE_PROJECT_DIR" && pwd -P)
 REAL_FILE_DIR=$(cd "$(dirname "$FILE_PATH")" 2>/dev/null && pwd -P)
