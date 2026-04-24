@@ -16,3 +16,13 @@ Merges to main must go through a reviewed pull request. Use `gh pr merge` after 
 - Any `git merge <branch>` command while the current branch is `main`
 
 This policy was introduced in issue #28 after a merge to main occurred without explicit user approval.
+
+## Installation Pipeline Rule
+
+Any change to tasks, roles (personas), or hooks **must** also be reflected in the installation pipeline:
+
+- **`lib/install.js` MANIFEST** — add a new `{ src, dest, mode }` entry for every new file in `tasks/`, `roles/`, `hooks/`, or `config/`
+- **`lib/install.js` REQUIRED_SETTINGS** — for every new hook, add its `command` to the appropriate `hooks` event in `REQUIRED_SETTINGS` so it gets wired into `settings.json` on install
+- **`README.md`** — update the hook list or agent file list so users know what is installed
+
+Failing to update `lib/install.js` means new files will not be installed when users run `npx @alysonbasilio/autonomous-product-team init` or `update`.
