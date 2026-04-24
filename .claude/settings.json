@@ -22,12 +22,7 @@
             "type": "command",
             "command": ".claude/hooks/guard-destructive-git.sh",
             "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
+          },
           {
             "type": "command",
             "command": ".claude/hooks/guard-git-merge.sh",
