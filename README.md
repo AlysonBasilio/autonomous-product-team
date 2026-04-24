@@ -29,6 +29,7 @@ This also installs Claude Code hooks into `.claude/hooks/` and registers them in
 - **guard-worktree-discipline.sh** — prevents agents from writing files in the main checkout when they should be in a worktree
 - **load-session-context.sh** — loads project config on session start so agents do not re-ask for repo/PM details
 - **log-agent-event.sh** — logs subagent lifecycle events to `.claude/product-team/agent.log` for observability
+- **guard-git-merge.sh** — blocks `git merge` on the `main` branch; allows `--abort/--continue/--quit` and feature-to-feature merges
 
 Then open Claude Code in your project and ask:
 > "Use the team-manager skill to start working on my product"
