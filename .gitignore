@@ -4,3 +4,7 @@ evals/.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# autonomous-product-team logs
+.claude/product-team/agent.log
+.claude/product-team/agent-*.log.gz
