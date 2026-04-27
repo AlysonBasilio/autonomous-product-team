@@ -71,7 +71,7 @@ The autonomous-product-team project installs:
 - `roles/team-manager.md` → `.claude/skills/team-manager/SKILL.md`
 - `roles/team-member.md` → `.claude/skills/team-member/SKILL.md`
 - 8 task definitions → `.claude/product-team/tasks/`
-- `.claude/settings.json` with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` and `teammateMode=tmux`
+- `.claude/settings.json` with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`
 
 No hooks are currently configured.
 
@@ -207,8 +207,6 @@ For hooks to be useful in a distributed package, they need to be:
 1. Shipped as files in the package (`hooks/` directory at repo root)
 2. Copied to the target project during `init` (added to the `MANIFEST` in `lib/install.js`)
 3. Registered in `REQUIRED_SETTINGS` in `lib/install.js` so `mergeSettings` writes them into `.claude/settings.json`
-
-The `mergeSettings` function currently only writes `env` and `teammateMode`. It would need to be extended to merge the `hooks` object into the settings, following the same pattern — merging without overwriting user-defined hooks.
 
 ---
 
