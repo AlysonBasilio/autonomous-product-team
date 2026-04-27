@@ -26,3 +26,15 @@ Any change to tasks, roles (personas), or hooks **must** also be reflected in th
 - **`README.md`** — update the hook list or agent file list so users know what is installed
 
 Failing to update `lib/install.js` means new files will not be installed when users run `npx @alysonbasilio/autonomous-product-team init` or `update`.
+
+## Two-Copy Rule
+
+All agent files exist in **two locations** that must always be kept in sync:
+
+| Source (git / npm) | Installed copy (runs locally) |
+|---|---|
+| `hooks/<file>` | `.claude/hooks/<file>` |
+| `tasks/<file>` | `.claude/product-team/tasks/<file>` |
+| `roles/<file>` | `.claude/skills/<role>/SKILL.md` |
+
+**When editing any of these files, always update both copies.** The source is what gets deployed to users on `npx ... init/update`. The installed copy is what Claude Code executes right now. Editing only one creates a split-brain state where local behavior differs from what is shipped.
