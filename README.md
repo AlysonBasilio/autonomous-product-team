@@ -74,6 +74,8 @@ The definition of how to do a specific activity to reach a specific goal.
 4. Each task has its own completion status, tracked as structured comments on the PM issue — separate from the issue's overall lifecycle status (In Progress, Done, Blocked).
 5. Tasks must be idempotent. Before starting work, the plan task checks PM issue comment history to determine which tasks have already been completed and routes only to what is still needed.
 6. Every task posts a structured completion comment to the PM issue when it finishes. These comments are the authoritative record for re-entry after a restart or re-execution.
+7. **The user owns the merge.** The demo-review task presents the PR to the user for approval but never merges it. The user merges at their own pace. On the next planning cycle after the merge is detected, the plan task marks the issue Done and removes the local worktree.
+8. **Worktrees are created per-issue and cleaned up automatically.** The plan task creates a git worktree under `../worktrees/<branch-name>` for each implementation. When plan detects all associated PRs have been merged, it removes the worktree and deletes the local branch.
 
 ## Contributing
 

@@ -322,22 +322,20 @@ created_issues:
         ],
     ),
     build_scenario(
-        name="demo_review_approved_with_remaining_open_prs",
-        description="demo-review-report approved with remaining_open_prs → delegate test task for remaining PR, do not immediately re-triage",
+        name="demo_review_approved_re_triages_without_merge",
+        description="demo-review-report approved → re-triage; user owns the merge, team-manager does not mark Done or delegate test for specific PRs",
         message="""\
 type: demo-review-report
 issue_id: PROJ-1501
 outcome: approved
-user_feedback: "This part looks great, ship it."
-remaining_open_prs:
-  - https://github.com/org/repo/pull/50
+user_feedback: "Looks great, I'll merge when ready."
 
-Note: The demo reviewer has already merged the current PR. However, other associated PRs remain open.""",
+Note: The demo reviewer has recorded user approval but has NOT merged the PR. The user owns the merge action. Plan.md will detect the merge and mark the issue Done on the next cycle.""",
         rubric=[
-            "delegates tasks/test.md for the remaining open PR (https://github.com/org/repo/pull/50)",
-            "task-assignment includes issue_id PROJ-1501 and the remaining pr_url",
-            "does NOT immediately re-triage or mark the issue as fully Done",
-            "does NOT skip the remaining open PR",
+            "re-delegates issue triage (tasks/issue-triage.md)",
+            "does NOT mark the issue as Done",
+            "does NOT attempt to merge the PR itself",
+            "does NOT delegate tasks/test.md or tasks/demo-review.md for any specific PR",
         ],
     ),
     build_scenario(
@@ -379,7 +377,7 @@ You are about to spawn a team member and delegate this task to them.
 
 1. Which task file would you assign?
 2. What model would you specify when spawning the team member, and how did you determine it?
-3. What tool would you use to spawn the team member, and how would you assign them the task?
+3. Write out the exact tool calls you would make to spawn the team member and assign them the task. Show the tool name and arguments explicitly (e.g. TeamCreate(...), SendMessage(...)).
 
 Be specific. Output ONLY your response — no preamble.
 """
@@ -446,8 +444,8 @@ next_issue:
   title: Fix login redirect bug
   summary: Users are not redirected after successful login.""",
         rubric=[
-            "uses the TeamCreate tool to spawn the team member",
-            "uses the message tool (SendMessage) to assign the task after spawning",
+            "explicitly calls or references TeamCreate as the tool to spawn the team member",
+            "explicitly calls or references SendMessage (the message tool) to assign the task after spawning",
             "does NOT use the Agent tool or subagent_type to spawn the team member",
         ],
     ),

@@ -373,16 +373,18 @@ class TestMultiPRHandling:
             "tasks/plan.md routing table must require all associated PRs to be merged or closed"
         )
 
-    def test_demo_review_references_remaining_open_prs(self):
-        content = load_file("tasks/demo-review.md")
-        assert "remaining_open_prs" in content, (
-            "tasks/demo-review.md must reference remaining_open_prs for multi-PR tracking"
+    def test_plan_handles_remaining_open_prs(self):
+        content = load_file("tasks/plan.md")
+        assert re.search(r"other.*PR.*open|remaining.*PR|associated PRs still open", content, re.IGNORECASE), (
+            "tasks/plan.md routing table must handle the case where some associated PRs are still open "
+            "(multi-PR tracking moved from demo-review to plan.md)"
         )
 
-    def test_team_manager_handles_remaining_open_prs(self):
+    def test_team_manager_handles_no_next_task(self):
         content = load_file("roles/team-manager.md")
-        assert "remaining_open_prs" in content, (
-            "roles/team-manager.md must handle remaining_open_prs from demo-review-report"
+        assert re.search(r"no.{0,20}next_task|no `next_task`", content, re.IGNORECASE), (
+            "roles/team-manager.md must handle plan-report with no next_task "
+            "(issued when issue is Done or awaiting user merge)"
         )
 
 
@@ -404,14 +406,14 @@ class TestDemoReviewSyncAndApprovalGate:
 
     def test_demo_review_prohibits_merge_without_user_approval(self):
         content = load_file("tasks/demo-review.md")
-        assert "NEVER merge without" in content, (
-            "demo-review.md Rules section must explicitly prohibit merging without user approval"
+        assert re.search(r"NEVER merge", content), (
+            "demo-review.md Rules section must explicitly prohibit the agent from merging the PR"
         )
 
     def test_demo_review_ci_not_approval(self):
         content = load_file("tasks/demo-review.md")
-        assert "CI green" in content and "NOT approval" in content, (
-            "demo-review.md must explicitly state that CI green is NOT approval"
+        assert re.search(r"CI.{0,10}NOT approval|NOT approval", content) and re.search(r"CI pass|CI green", content), (
+            "demo-review.md must explicitly state that CI passing/green is NOT approval"
         )
 
 

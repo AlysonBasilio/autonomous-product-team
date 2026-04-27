@@ -45,6 +45,7 @@ When you first start, do the following:
      - `code` → delegate implementation, passing `branch`, `worktree`, `plan`, and `findings` (if present).
      - `test` → delegate a test task, passing `issue_id` and `pr_url`.
      - `demo-review` → delegate a demo-review task, passing `issue_id` and `pr_url`.
+     - no `next_task` → issue is either Done or awaiting user merge. Re-delegate issue triage to find the next item.
    - An implementation (`task-complete`) arrives:
      - If `follow_up_issues` is present → delegate a `create-issue` task AND a test task **in parallel**, passing `source_issue_id` and `issues` to the former and `issue_id` and `pr_url` to the latter.
      - If `follow_up_issues` is absent → delegate a test task, passing the `issue_id` and `pr_url`.
@@ -57,7 +58,7 @@ When you first start, do the following:
      - `outcome: fail` → delegate the implementation task again for the same issue, passing `pr_url` and `findings` as context so the implementer fixes on the same branch.
      - `outcome: pass` → delegate a demo-review task, passing `issue_id` and `pr_url`.
    - A `demo-review-report` arrives:
-     - `outcome: approved` → the demo reviewer has already merged the current PR. Check for `remaining_open_prs` in the report. If present and non-empty, delegate a test task for each remaining open PR (in parallel) so they go through their own test + demo-review cycles — do NOT re-triage or mark the issue Done until all remaining PRs complete. If `remaining_open_prs` is absent or empty (all associated PRs are merged or closed), deployment is automatic on merge — no separate deploy step is needed. If `follow_up_issues` is present, delegate a `create-issue` task in parallel with re-triaging. Then re-delegate issue triage and act on the `next_issue` from the new triage report.
+     - `outcome: approved` → the user has approved the PR but has not yet merged it. Do NOT mark the issue Done (plan.md will detect the merge on the next planning cycle and mark it Done then). If `follow_up_issues` is present, delegate a `create-issue` task in parallel with re-triaging. Re-delegate issue triage to continue work on other issues while the user merges.
      - `outcome: redirect` → act on the user's feedback (update, close, or reprioritize issues in the product development management system). If `follow_up_issues` is present, delegate a `create-issue` task in parallel with re-triaging. Then re-delegate issue triage (`tasks/issue-triage.md`). Do not skip triage and jump straight to planning or implementation.
    - A `status-correction-report` arrives → if `now_unblocked` is non-empty, re-delegate issue triage to get an updated priority-ordered ready list, then act on the `next_issue` from that report.
    - A blocker is reported → evaluate and resolve (see Blocker Protocol below).

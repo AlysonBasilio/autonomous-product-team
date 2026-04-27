@@ -4,7 +4,7 @@ model: claude-haiku-4-5
 
 # Task: Demo Review
 
-Customer collaboration touchpoint. Only reached after the tester passes. On approval, this task merges the PR.
+Customer collaboration touchpoint. Only reached after the tester passes. On approval, this task notifies the user the PR is ready to merge — the user owns the merge action.
 
 ## Input
 
@@ -44,7 +44,7 @@ If both checks are clear: continue to the next step.
 
 ### 4. Present to the user — MANDATORY
 
-You MUST call `AskUserQuestion` before any merge decision. There is no shortcut.
+You MUST call `AskUserQuestion` before recording any approval. There is no shortcut.
 
 CI passing, tests passing, and QA state are NOT approval. Only an explicit user response to `AskUserQuestion` counts as approval. Do not infer approval from any other signal.
 
@@ -52,7 +52,7 @@ Use `AskUserQuestion` to present:
 - The issue title and what it was supposed to do
 - One-sentence summary of what was built
 - The PR link
-- Question: "Does this meet your expectations? Any feedback or direction changes before we merge?"
+- Question: "Does this meet your expectations? Any feedback or direction changes before you merge?"
 
 Wait for the user's response before proceeding. Do not skip this step under any circumstances.
 
@@ -60,15 +60,15 @@ Wait for the user's response before proceeding. Do not skip this step under any 
 
 If the user's response mentions creating issues, tracking follow-ups, or requests that new work be recorded (e.g., "create an issue for X", "track this as a follow-up", "make a ticket for Y"): extract each request as a follow-up issue with a title and description derived from the user's wording.
 
-**Approved** → before merging, check that the PR has no merge conflicts:
+**Approved** → before notifying the user, check that the PR has no merge conflicts:
 
 ```bash
 gh pr view <pr_url> --json mergeable,mergeStateStatus
 ```
 
-If `mergeable` is `CONFLICTING` or `mergeStateStatus` is `DIRTY`, do **not** attempt to merge. Instead, post a `demo-review-complete` comment with `outcome: redirect` and `user_feedback: "PR has merge conflicts and cannot be merged. The branch must be rebased onto main and conflicts resolved before merging."`, then report to `team-manager` with the same outcome and user_feedback. Stop here.
+If `mergeable` is `CONFLICTING` or `mergeStateStatus` is `DIRTY`, do **not** proceed. Post a `demo-review-complete` comment with `outcome: redirect` and `user_feedback: "PR has merge conflicts and cannot be merged. The branch must be rebased onto main and conflicts resolved before merging."`, then report to `team-manager` with the same outcome and user_feedback. Stop here.
 
-If the PR is mergeable, proceed to merge it into `main` (squash merge preferred). Then look up all `pr_url` values from ALL `task-complete` comments on the PM issue to determine the full set of associated PRs. Check the state (open/merged/closed) of each associated PR. Build the list of `remaining_open_prs` — any associated PRs that are still open (not yet merged or closed). Mark the issue as Done in the product development management system **only when `remaining_open_prs` is empty** (all associated PRs are merged or closed). If `remaining_open_prs` is non-empty, do NOT mark the issue as Done yet.
+If the PR is mergeable, inform the user that their approval has been recorded and the PR is ready to merge whenever they would like. **Do not merge the PR yourself** — the user owns the merge action. Do not mark the issue as Done.
 
 **Redirect** → do NOT merge. Mark the issue status as **In Progress** in the product development management system.
 
@@ -93,8 +93,6 @@ type: demo-review-report
 issue_id: <issue ID>
 outcome: approved | redirect
 user_feedback: <verbatim user response>
-remaining_open_prs:  # include only when outcome is approved and other associated PRs are still open; omit if empty or not applicable
-  - <pr_url>
 follow_up_issues:  # include only if user requested issue creation; omit this field entirely if none
   - title: <title>
     description: <description>
@@ -102,11 +100,11 @@ follow_up_issues:  # include only if user requested issue creation; omit this fi
 
 ## Definition of Done
 
-Report delivered. If approved, PR is merged. Issue is marked Done only when all associated PRs are merged or closed (i.e., `remaining_open_prs` is empty). If redirect, no merge has occurred.
+Report delivered. If approved, user has been notified the PR is ready to merge. If redirect, no merge has occurred.
 
 ## Rules
 
-- NEVER merge without first calling `AskUserQuestion` and receiving explicit user approval. CI green, tests passing, and QA state are NOT approval. Only a direct user response to `AskUserQuestion` constitutes approval.
+- NEVER skip calling `AskUserQuestion`. Only a direct user response constitutes approval.
 - Record the user's feedback verbatim in the report.
-- If approved and all associated PRs are merged or closed, mark the issue as Done in the product development management system before reporting.
-- If approved but other associated PRs remain open, do NOT mark the issue as Done — include them in `remaining_open_prs`.
+- NEVER merge the PR yourself — the user owns the merge action.
+- NEVER mark the issue as Done — plan.md detects the merge on the next planning cycle and marks it Done then.

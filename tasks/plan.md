@@ -64,8 +64,9 @@ Use the most recent comment of each type from Step 2, combined with git/PR state
 
 | PM issue comment history | Git/PR state | `next_task` |
 |---|---|---|
-| `demo-review-complete outcome: approved` | All associated PRs merged or closed | Nothing to do — issue is Done; report immediately with no `next_task` |
-| `demo-review-complete outcome: approved` for current PR | Other associated PRs still open | `test` or `demo-review` — route to the next open PR (check its CI/review state to decide); include the open PR's `pr_url` in the report |
+| `demo-review-complete outcome: approved` | All associated PRs merged or closed | Mark issue Done + clean up worktree (see **Worktree Cleanup** below) — report immediately with no `next_task` |
+| `demo-review-complete outcome: approved` for most-recent reviewed PR | That PR is now merged, but other associated PRs still open | `test` or `demo-review` — route to the next open PR (check its CI/review state to decide); include the open PR's `pr_url` in the report |
+| `demo-review-complete outcome: approved` | PR reviewed is still open (user has not merged yet) | Nothing to do — awaiting user merge; report immediately with no `next_task` |
 | `demo-review-complete outcome: redirect`, no newer `task-complete` | any | `code` — user redirected; run Phase 1 with `user_feedback` as `findings` |
 | `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green, **unresolved review threads** | `code` — resolve review threads first; run Phase 1 with thread bodies as `findings` |
 | `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green | `test` — implementation was updated after redirect; skip Phase 1 |
@@ -79,6 +80,20 @@ Use the most recent comment of each type from Step 2, combined with git/PR state
 | `task-complete` exists | No open PR, or PR CI failing | `code` — lost artifact or broken CI; re-plan in Phase 1 |
 | No `task-complete` | Branch exists, no PR | `code` — proceed to Phase 1, reusing the existing branch |
 | No `task-complete` | No branch, no PR | `code` — proceed to Phase 1 |
+
+### Worktree Cleanup
+
+When the routing table directs you to **mark the issue Done**, also clean up the local worktree for the merged PR's branch:
+
+```bash
+BRANCH=$(gh pr view <pr_url> --json headRefName --jq '.headRefName')
+git worktree remove ../worktrees/$BRANCH --force 2>/dev/null || true
+git branch -d $BRANCH 2>/dev/null || true
+```
+
+Run this for each PR that was just confirmed as merged. If the worktree directory does not exist (e.g. the planner skipped worktree creation, or cleanup already ran), the command silently succeeds. Mark the issue Done in the product development management system after cleanup.
+
+---
 
 When routing to `code`, populate `findings` in the plan-report:
 - From `test-complete` findings when re-running after a test failure

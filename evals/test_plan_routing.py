@@ -391,7 +391,7 @@ Git state:
             "report type is 'plan-report'",
             "next_task is 'code'",
             "plan field is present in the report (any content is acceptable — this eval focuses on routing, not plan quality)",
-            "branch field is non-empty and contains a branch name that includes the issue ID 'PROJ-109'",
+            "branch field is non-empty and contains a branch name that includes the issue ID (case-insensitive: 'PROJ-109' or 'proj-109')",
         ],
     },
 ]

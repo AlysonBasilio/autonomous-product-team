@@ -40,8 +40,8 @@ An issue is **not** blocked solely because its implementation is difficult or un
    - **Blocked** — One or more dependencies are not Done, or an external decision is pending. Note what is blocking it.
 
    For each Ready issue, also determine its **issue type**:
-   - `discovery` — The issue is exploratory in nature: it has no concrete implementation acceptance criteria, asks for research, investigation, or breakdown of a vague idea into actionable work.
-   - `implementation` — The issue has concrete acceptance criteria and can proceed directly to planning and coding. This is the default.
+   - `discovery` — The issue itself asks for research, investigation, or breakdown of a vague idea. Key signal: the deliverable is a set of findings or follow-up issues, not working software. There are no concrete acceptance criteria describing what to build.
+   - `implementation` — The issue has a concrete deliverable (something to build, fix, or configure) with acceptance criteria. This is the default. **Technical complexity, uncertainty, or the need to research an approach during implementation does NOT make an issue `discovery`** — only the absence of a concrete deliverable does.
 
 4. **Rank ready issues** — Sort the ready issues by priority (highest first), using the priority assigned in the product development management system. If priorities are equal, prefer the issue with the earliest creation date. Note: formal PM-system dependency links, text-inferred cross-references, and semantic dependencies all count equally when determining whether an issue is Blocked or Ready.
 
