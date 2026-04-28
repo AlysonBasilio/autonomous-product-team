@@ -46,10 +46,13 @@ When you first start, do the following:
      - `test` → delegate a test task, passing `issue_id` and `pr_url`.
      - `demo-review` → delegate a demo-review task, passing `issue_id` and `pr_url`.
      - no `next_task` → issue is either Done or awaiting user merge. Re-delegate issue triage to find the next item.
+   - A `split-report` comes in → the plan task determined the issue is too large for a single PR. Delegate a `create-issue` task passing `source_issue_id` (the issue ID from the report), `issues` (the full sub-issues list from the report, each with `title`, `description`, and `depends_on`), and `context: split`. Do **not** delegate implementation or test — wait for `create-issue-complete`.
    - An implementation (`task-complete`) arrives:
      - If `follow_up_issues` is present → delegate a `create-issue` task AND a test task **in parallel**, passing `source_issue_id` and `issues` to the former and `issue_id` and `pr_url` to the latter.
      - If `follow_up_issues` is absent → delegate a test task, passing the `issue_id` and `pr_url`.
-   - A `create-issue-complete` arrives → no further action needed (the test task was already delegated in parallel).
+   - A `create-issue-complete` arrives:
+     - If `context: split` → re-delegate issue triage (`tasks/issue-triage.md`) to pick up the first ready sub-issue.
+     - Otherwise → no further action needed (the test task was already delegated in parallel).
    - A `qa-blocked-missing-env-setup` arrives → halt work on the reported `issue_id` (do not re-delegate test or any other task for it yet). Delegate a `create-issue` task with `source_issue_id: <issue_id>` and a single issue: title "Add environment setup instructions for QA", description built from the `missing` field with background referencing the blocking issue, what needs to be done (write env setup instructions), and acceptance criteria (QA agent can successfully set up and start the application using only the documented instructions). Set `priority: urgent`. After `create-issue-complete` arrives for this issue, re-delegate issue triage — the new "env setup" issue will be ranked highest by priority and will semantically block the original issue, so triage will surface it as `next_issue`.
    - A `discovery-complete` arrives → the discovery task has already created all follow-up issues in the PM system. Do NOT delegate a `create-issue` task (the issues already exist). Re-delegate issue triage (`tasks/issue-triage.md`) to pick up the newly created issues.
    - A `task-failed` with `task: tasks/issue-triage.md` arrives → escalate to the user with the exact `failure` details and ask how to proceed. Do not delegate any further work until the user responds.
@@ -93,5 +96,5 @@ When you first start, do the following:
 | Test | `tasks/test.md` | After every implementation task completes |
 | Demo Review | `tasks/demo-review.md` | After every test task passes |
 | Status Correction | `tasks/status-correction.md` | When an issue status is inconsistent with ground truth |
-| Create Issue | `tasks/create-issue.md` | When any task reports `follow_up_issues` |
+| Create Issue | `tasks/create-issue.md` | When any task reports `follow_up_issues`, or when a `split-report` arrives from plan |
 | Discovery | `tasks/discovery.md` | When triage returns a discovery-type issue that needs exploration before implementation can begin |

@@ -107,10 +107,28 @@ If `next_task` is `test` or `demo-review`, skip Phase 1 entirely and go straight
 
 Only run this phase when `next_task` is `code`.
 
-### 1. Mark the issue In Progress
+### 1. Scope Assessment
+
+Read the issue description and acceptance criteria. Skim the key areas of the codebase that would be touched. Evaluate whether this issue is too big for a single PR.
+
+**An issue is too big for a single PR if it meets any of these:**
+- Implementation spans ≥3 distinct system layers (e.g., DB schema + service layer + API endpoint + frontend component)
+- The work contains 2+ independent sub-deliverables that can each be reviewed, merged, and tested in isolation — partial delivery still provides standalone value
+- Estimated to touch ≥6 unrelated files or produce >400 LOC of non-test changes
+- The issue description lists multiple major features or capabilities as distinct requirements
+
+If the issue is too big → skip steps 2–4 and send a `split-report` (see Report section). Do **not** mark the issue In Progress and do **not** create a worktree.
+
+**Splitting guidelines:**
+- Aim for 2–4 sub-issues; never more than 5
+- Each sub-issue must be independently reviewable and testable (self-contained PR)
+- Order sub-issues so foundational work (data model, API contract) precedes consumer work (UI, integrations)
+- `depends_on` lists titles of other sub-issues in this split that must complete first
+
+### 2. Mark the issue In Progress
 Update the issue status to **In Progress** in the product development management system.
 
-### 2. Set up an isolated workspace
+### 3. Set up an isolated workspace
 If no worktree or branch exists yet, create one:
 
 ```bash
@@ -126,7 +144,7 @@ git worktree add ../worktrees/<branch-name> <branch-name>
 
 All subsequent reads, edits, and commits must happen inside the worktree — never in the main checkout.
 
-### 3. Build the plan
+### 4. Build the plan
 - Read the relevant files and understand existing patterns, conventions, and architecture.
 - Identify which files need to be created, modified, or deleted.
 - Identify dependencies between changes (what needs to happen first).
@@ -136,6 +154,23 @@ All subsequent reads, edits, and commits must happen inside the worktree — nev
 ---
 
 ## Report
+
+**When sending a `split-report`** (issue is too big for a single PR):
+
+Use the `message` tool to message `team-lead`:
+
+```
+type: split-report
+source_issue_id: <issue ID>
+reason: <one sentence: why this issue is too big for a single PR>
+issues:
+  - title: <sub-issue title>
+    description: <what this sub-issue covers and its acceptance criteria>
+    depends_on:
+      - <title of another sub-issue in this list that must complete first, if any>
+```
+
+**When sending a `plan-report`** (normal path):
 
 Use the `message` tool to message `team-lead`:
 

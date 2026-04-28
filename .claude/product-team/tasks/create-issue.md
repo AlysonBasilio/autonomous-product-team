@@ -12,6 +12,7 @@ The team lead provides:
 - `source_issue_id` — the issue that identified this follow-up work
 - `issues` — list of issues to create, each with `title` and `description`
 - `priority` (optional) — priority to assign to the created issues (e.g., urgent, high, medium, low, no priority). When omitted, defaults to "No priority".
+- `context` (optional) — caller-provided string echoed back in the completion message unchanged.
 
 ## Workflow
 
@@ -58,6 +59,7 @@ Post a comment to the source PM issue using the product development management s
 ```
 type: create-issue-complete
 source_issue_id: <source issue ID>
+context: <echo the context field from input, if present; omit if not provided>
 created_issues:
   - id: <new issue ID>
     title: <title>

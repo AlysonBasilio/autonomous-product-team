@@ -631,6 +631,43 @@ class TestQAPreflightBehavior:
         )
 
 
+class TestSplitReport:
+    """Split-report schema and routing must be fully defined in all relevant files."""
+
+    def test_plan_defines_split_report_type(self):
+        content = load_file("tasks/plan.md")
+        assert "split-report" in content, "plan.md must define the split-report message type"
+
+    def test_plan_defines_scope_assessment(self):
+        content = load_file("tasks/plan.md")
+        assert re.search(r"scope|too big|single PR", content, re.IGNORECASE), (
+            "plan.md must include a scope assessment step explaining when an issue is too big for a single PR"
+        )
+
+    def test_plan_split_report_has_required_fields(self):
+        content = load_file("tasks/plan.md")
+        for field in ["source_issue_id", "reason", "issues", "depends_on"]:
+            assert field in content, f"plan.md split-report schema is missing field: {field}"
+
+    def test_team_lead_routes_split_report(self):
+        content = load_file("roles/team-lead.md")
+        assert "split-report" in content, (
+            "team-lead.md must handle the split-report message type from plan"
+        )
+
+    def test_team_lead_routes_create_issue_complete_with_split_context(self):
+        content = load_file("roles/team-lead.md")
+        assert re.search(r"context.*split|split.*context", content, re.IGNORECASE), (
+            "team-lead.md must route create-issue-complete differently when context is 'split'"
+        )
+
+    def test_create_issue_accepts_and_echoes_context(self):
+        content = load_file("tasks/create-issue.md")
+        assert "context" in content, (
+            "create-issue.md must accept and echo the optional context field"
+        )
+
+
 class TestSkillFrontmatter:
     """Every installed skill must declare name and description in YAML frontmatter."""
 

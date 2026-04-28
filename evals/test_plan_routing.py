@@ -369,6 +369,54 @@ Git state: PR #42: MERGED. PR #50: OPEN. CI for PR #50: all checks green. No unr
             "does NOT declare the issue Done or report that there is nothing to do",
         ],
     },
+    # Scope assessment: large multi-layer issue → split-report instead of plan-report
+    {
+        "name": "large_issue_triggers_split_report",
+        "description": "Large multi-layer issue → plan emits split-report instead of plan-report",
+        "mock_context": """\
+Issue: PROJ-200 "Build full notification system"
+Status: Todo
+Last updated: 2026-04-20 09:00 UTC
+Acceptance criteria:
+  1. Define notification types (email, SMS, push, in-app) and user preferences schema
+  2. Build notification service backend with delivery queue
+  3. Create REST API endpoints for managing notification preferences
+  4. Build frontend notification preferences UI with toggle controls
+  5. Build frontend notification inbox / bell icon
+  6. Add admin dashboard panel for monitoring notification delivery rates
+
+PM issue comments: NONE
+
+Git state: No branch, no PR.""",
+        "rubric": [
+            "report type is 'split-report' (NOT 'plan-report')",
+            "split-report includes a 'reason' field explaining why the issue is too big for a single PR",
+            "split-report includes an 'issues' list with at least 2 sub-issues",
+            "at least one sub-issue has a 'depends_on' field referencing another sub-issue",
+            "does NOT set next_task to 'code' or produce an implementation checklist",
+        ],
+    },
+    # Scope assessment: small focused issue → normal plan-report
+    {
+        "name": "small_issue_no_split",
+        "description": "Small focused issue → normal plan-report with next_task: code",
+        "mock_context": """\
+Issue: PROJ-201 "Add 'forgot password' link to login page"
+Status: Todo
+Last updated: 2026-04-20 09:00 UTC
+Acceptance criteria:
+  1. Login page has a 'Forgot password?' link below the password field
+  2. Link navigates to /auth/forgot-password
+
+PM issue comments: NONE
+
+Git state: No branch, no PR.""",
+        "rubric": [
+            "report type is 'plan-report' (NOT 'split-report')",
+            "next_task is 'code'",
+            "does NOT split this issue — it is small and focused",
+        ],
+    },
     # Row 10: no task-complete, no branch, no PR → fresh implementation
     {
         "name": "no_work_done_start_fresh",

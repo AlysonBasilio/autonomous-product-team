@@ -339,6 +339,52 @@ Note: The demo reviewer has recorded user approval but has NOT merged the PR. Th
         ],
     ),
     build_scenario(
+        name="split_report_delegates_create_issue_with_split_context",
+        description="split-report from plan → delegate create-issue with context: split, do not triage yet",
+        message="""\
+type: split-report
+source_issue_id: PROJ-200
+reason: Issue spans 6 distinct system layers (schema, backend, API, frontend UI, frontend inbox, admin panel) and would produce an unreviewable PR.
+issues:
+  - title: Define notification schema and user preferences data model
+    description: Create the DB schema for notification types and per-user preference toggles. Acceptance criteria: migration runs, model tested.
+    depends_on: []
+  - title: Build notification service backend and delivery queue
+    description: Implement the delivery queue and background worker. Acceptance criteria: messages enqueued and delivered reliably.
+    depends_on:
+      - Define notification schema and user preferences data model
+  - title: Create notification preferences API endpoints
+    description: REST endpoints for reading and updating user notification preferences. Acceptance criteria: GET/PUT /notifications/preferences returns correct data.
+    depends_on:
+      - Build notification service backend and delivery queue""",
+        rubric=[
+            "delegates tasks/create-issue.md with source_issue_id PROJ-200",
+            "passes context: split in the task assignment",
+            "does NOT delegate tasks/code.md or tasks/test.md",
+            "does NOT immediately re-triage — waits for create-issue-complete first",
+        ],
+    ),
+    build_scenario(
+        name="create_issue_complete_split_context_retriggers_triage",
+        description="create-issue-complete with context: split → re-delegate issue-triage (not test)",
+        message="""\
+type: create-issue-complete
+source_issue_id: PROJ-200
+context: split
+created_issues:
+  - id: PROJ-201
+    title: Define notification schema and user preferences data model
+  - id: PROJ-202
+    title: Build notification service backend and delivery queue
+  - id: PROJ-203
+    title: Create notification preferences API endpoints""",
+        rubric=[
+            "re-delegates issue triage (tasks/issue-triage.md)",
+            "does NOT delegate tasks/code.md or tasks/test.md for any of the created issues",
+            "does NOT skip triage and pick a specific sub-issue directly",
+        ],
+    ),
+    build_scenario(
         name="blocked_report_escalates_product_decision_to_user",
         description="blocked report requiring product decision → escalate to user, do not resolve unilaterally",
         message="""\
