@@ -64,9 +64,9 @@ Use the most recent comment of each type from Step 2, combined with git/PR state
 
 | PM issue comment history | Git/PR state | `next_task` |
 |---|---|---|
-| `demo-review-complete outcome: approved` | All associated PRs merged or closed | Mark issue Done + clean up worktree (see **Worktree Cleanup** below) — report immediately with no `next_task` |
+| `demo-review-complete outcome: approved` | All associated PRs merged or closed | Mark issue Done + clean up worktree (see **Worktree Cleanup** below) — report immediately — omit the `next_task` field entirely (do not set it to `done` or any other value) |
 | `demo-review-complete outcome: approved` for most-recent reviewed PR | That PR is now merged, but other associated PRs still open | `test` or `demo-review` — route to the next open PR (check its CI/review state to decide); include the open PR's `pr_url` in the report |
-| `demo-review-complete outcome: approved` | PR reviewed is still open (user has not merged yet) | Nothing to do — awaiting user merge; report immediately with no `next_task` |
+| `demo-review-complete outcome: approved` | PR reviewed is still open (user has not merged yet) | Nothing to do — awaiting user merge; report immediately — omit the `next_task` field entirely (do not set it to `done` or any other value) |
 | `demo-review-complete outcome: redirect`, no newer `task-complete` | any | `code` — user redirected; run Phase 1 with `user_feedback` as `findings` |
 | `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green, **unresolved review threads** | `code` — resolve review threads first; run Phase 1 with thread bodies as `findings` |
 | `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green | `test` — implementation was updated after redirect; skip Phase 1 |
