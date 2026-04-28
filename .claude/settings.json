@@ -19,12 +19,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/guard-destructive-git.sh",
+            "command": "INPUT=$(cat); d=$PWD; while [ \"$d\" != \"/\" ]; do [ -x \"$d/.claude/hooks/guard-destructive-git.sh\" ] && { printf '%s\\n' \"$INPUT\" | \"$d/.claude/hooks/guard-destructive-git.sh\"; exit $?; }; d=$(dirname \"$d\"); done; exit 0",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": ".claude/hooks/guard-git-merge.sh",
+            "command": "INPUT=$(cat); d=$PWD; while [ \"$d\" != \"/\" ]; do [ -x \"$d/.claude/hooks/guard-git-merge.sh\" ] && { printf '%s\\n' \"$INPUT\" | \"$d/.claude/hooks/guard-git-merge.sh\"; exit $?; }; d=$(dirname \"$d\"); done; exit 0",
             "timeout": 10
           }
         ]
@@ -34,7 +34,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/guard-worktree-discipline.sh",
+            "command": "INPUT=$(cat); d=$PWD; while [ \"$d\" != \"/\" ]; do [ -x \"$d/.claude/hooks/guard-worktree-discipline.sh\" ] && { printf '%s\\n' \"$INPUT\" | \"$d/.claude/hooks/guard-worktree-discipline.sh\"; exit $?; }; d=$(dirname \"$d\"); done; exit 0",
             "timeout": 10
           }
         ]
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/load-session-context.sh",
+            "command": "INPUT=$(cat); d=$PWD; while [ \"$d\" != \"/\" ]; do [ -x \"$d/.claude/hooks/load-session-context.sh\" ] && { printf '%s\\n' \"$INPUT\" | \"$d/.claude/hooks/load-session-context.sh\"; exit $?; }; d=$(dirname \"$d\"); done; exit 0",
             "timeout": 10
           }
         ]
@@ -67,7 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/log-agent-event.sh",
+            "command": "INPUT=$(cat); d=$PWD; while [ \"$d\" != \"/\" ]; do [ -x \"$d/.claude/hooks/log-agent-event.sh\" ] && { printf '%s\\n' \"$INPUT\" | \"$d/.claude/hooks/log-agent-event.sh\"; exit $?; }; d=$(dirname \"$d\"); done; exit 0",
             "timeout": 10
           }
         ]
@@ -79,7 +79,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/log-agent-event.sh",
+            "command": "INPUT=$(cat); d=$PWD; while [ \"$d\" != \"/\" ]; do [ -x \"$d/.claude/hooks/log-agent-event.sh\" ] && { printf '%s\\n' \"$INPUT\" | \"$d/.claude/hooks/log-agent-event.sh\"; exit $?; }; d=$(dirname \"$d\"); done; exit 0",
             "timeout": 10
           }
         ]
