@@ -1,8 +1,8 @@
 """
-LLM-as-judge evals for Team Manager routing decisions.
+LLM-as-judge evals for Team Lead routing decisions.
 
 Each scenario delivers a specific inbound message to the manager and verifies
-that the manager's next action matches the routing rules in team-manager.md.
+that the manager's next action matches the routing rules in team-lead.md.
 
 Requires OPENROUTER_API_KEY.
 """
@@ -11,18 +11,18 @@ import pytest
 from conftest import load_task, parse_frontmatter_model
 from judge import grade
 
-ROLE_FILE = "roles/team-manager.md"
+ROLE_FILE = "roles/team-lead.md"
 ROLE_MODEL = parse_frontmatter_model(ROLE_FILE)
 
 EVAL_PROMPT = """\
-You are the Team Manager. Read your role definition carefully and apply it.
+You are the Team Lead. Read your role definition carefully and apply it.
 
 ## Your Role Definition
 {role_content}
 
 ## Situation
 
-You have just received the following message from a team member:
+You have just received the following message from a teammate:
 
 {message}
 
@@ -125,7 +125,7 @@ plan: |
   4. Process payment.succeeded and payment.failed events
   5. Add integration tests""",
         rubric=[
-            "delegates tasks/code.md to a team member",
+            "delegates tasks/code.md to a teammate",
             "task-assignment includes branch, worktree, and plan",
         ],
     ),
@@ -138,7 +138,7 @@ issue_id: PROJ-404
 next_task: test
 pr_url: https://github.com/org/repo/pull/112""",
         rubric=[
-            "delegates tasks/test.md to a team member",
+            "delegates tasks/test.md to a teammate",
             "task-assignment includes issue_id PROJ-404 and pr_url",
             "does NOT delegate an implementation task before testing",
         ],
@@ -153,7 +153,7 @@ issue_id: PROJ-501
 pr_url: https://github.com/org/repo/pull/120
 summary: Implemented Stripe webhook handling with signature validation and idempotency.""",
         rubric=[
-            "delegates tasks/test.md to a team member",
+            "delegates tasks/test.md to a teammate",
             "task-assignment includes issue_id PROJ-501 and pr_url https://github.com/org/repo/pull/120",
             "does NOT merge the PR or mark the issue Done at this stage",
         ],
@@ -188,7 +188,7 @@ pr_url: https://github.com/org/repo/pull/140
 outcome: pass
 findings: []""",
         rubric=[
-            "delegates tasks/demo-review.md to a team member",
+            "delegates tasks/demo-review.md to a teammate",
             "task-assignment includes issue_id PROJ-701 and pr_url",
             "does NOT merge the PR (demo review must happen before merge)",
         ],
@@ -323,7 +323,7 @@ created_issues:
     ),
     build_scenario(
         name="demo_review_approved_re_triages_without_merge",
-        description="demo-review-report approved → re-triage; user owns the merge, team-manager does not mark Done or delegate test for specific PRs",
+        description="demo-review-report approved → re-triage; user owns the merge, team-lead does not mark Done or delegate test for specific PRs",
         message="""\
 type: demo-review-report
 issue_id: PROJ-1501
@@ -357,7 +357,7 @@ decision_needed: What notification types should users be able to toggle? (e.g. e
 
 
 SPAWN_MODEL_PROMPT = """\
-You are the Team Manager. Read your role definition carefully and apply it.
+You are the Team Lead. Read your role definition carefully and apply it.
 
 ## Your Role Definition
 {role_content}
@@ -369,15 +369,15 @@ You have read the following task file from disk:
 
 ## Situation
 
-You have just received the following message from a team member:
+You have just received the following message from a teammate:
 
 {message}
 
-You are about to spawn a team member and delegate this task to them.
+You are about to spawn a teammate and delegate this task to them.
 
 1. Which task file would you assign?
-2. What model would you specify when spawning the team member, and how did you determine it?
-3. Write out the exact tool calls you would make to spawn the team member and assign them the task. Show the tool name and arguments explicitly (e.g. TeamCreate(...), SendMessage(...)).
+2. What model would you specify when spawning the teammate, and how did you determine it?
+3. Write out the exact tool calls you would make to spawn the teammate and assign them the task. Show the tool name and arguments explicitly (e.g. TeamCreate(...), SendMessage(...)).
 
 Be specific. Output ONLY your response — no preamble.
 """
@@ -435,7 +435,7 @@ plan: |
     ),
     build_spawn_model_scenario(
         name="spawn_uses_team_create_and_send_message",
-        description="When spawning a team member, manager must use TeamCreate tool and then SendMessage to assign the task",
+        description="When spawning a teammate, manager must use TeamCreate tool and then SendMessage to assign the task",
         task_file="tasks/issue-triage.md",
         message="""\
 type: triage-report
@@ -444,9 +444,9 @@ next_issue:
   title: Fix login redirect bug
   summary: Users are not redirected after successful login.""",
         rubric=[
-            "explicitly calls or references TeamCreate as the tool to spawn the team member",
+            "explicitly calls or references TeamCreate as the tool to spawn the teammate",
             "explicitly calls or references SendMessage (the message tool) to assign the task after spawning",
-            "does NOT use the Agent tool or subagent_type to spawn the team member",
+            "does NOT use the Agent tool or subagent_type to spawn the teammate",
         ],
     ),
 ]

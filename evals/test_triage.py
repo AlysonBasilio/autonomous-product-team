@@ -13,7 +13,7 @@ TASK_FILE = "tasks/issue-triage.md"
 TASK_MODEL = parse_frontmatter_model(TASK_FILE)
 
 EVAL_PROMPT = """\
-You are a team member executing a task. Read the task definition carefully and follow it.
+You are a teammate executing a task. Read the task definition carefully and follow it.
 
 ## Task Definition
 {task_content}

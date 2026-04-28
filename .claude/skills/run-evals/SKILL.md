@@ -22,7 +22,7 @@ Run the eval test suite for the autonomous product team project.
 
 4. **Run LLM evals** (only if key is available):
    ```bash
-   evals/.venv/bin/python -m pytest evals/test_triage.py evals/test_plan_routing.py evals/test_manager_routing.py -v
+   evals/.venv/bin/python -m pytest evals/test_triage.py evals/test_plan_routing.py evals/test_lead_routing.py -v
    ```
 
 5. **Summarize results** — report pass/fail counts per file and call out any failures with the specific rubric criterion that failed.

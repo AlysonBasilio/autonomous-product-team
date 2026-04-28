@@ -6,7 +6,7 @@ model: claude-sonnet-4-6
 
 ## Input
 
-The team manager provides the issue ID.
+The team lead provides the issue ID.
 
 ## Phase 0 — State Assessment
 
@@ -137,7 +137,7 @@ All subsequent reads, edits, and commits must happen inside the worktree — nev
 
 ## Report
 
-Use the `message` tool to message `team-manager`:
+Use the `message` tool to message `team-lead`:
 
 ```
 type: plan-report

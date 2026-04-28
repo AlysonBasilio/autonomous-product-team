@@ -8,7 +8,7 @@ Create new issues in the product management system for follow-up work identified
 
 ## Input
 
-The team manager provides:
+The team lead provides:
 - `source_issue_id` — the issue that identified this follow-up work
 - `issues` — list of issues to create, each with `title` and `description`
 - `priority` (optional) — priority to assign to the created issues (e.g., urgent, high, medium, low, no priority). When omitted, defaults to "No priority".
@@ -63,7 +63,7 @@ created_issues:
     title: <title>
 ```
 
-Then use the `message` tool to message `team-manager` with the same content.
+Then use the `message` tool to message `team-lead` with the same content.
 
 ## Definition of Done
 

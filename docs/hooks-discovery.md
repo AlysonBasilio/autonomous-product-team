@@ -68,8 +68,8 @@ Hooks can also be defined in skill/task frontmatter (scoped to that skill's life
 ## How the Current System Works
 
 The autonomous-product-team project installs:
-- `roles/team-manager.md` → `.claude/skills/team-manager/SKILL.md`
-- `roles/team-member.md` → `.claude/skills/team-member/SKILL.md`
+- `roles/team-lead.md` → `.claude/skills/team-lead/SKILL.md`
+- `roles/teammate.md` → `.claude/skills/teammate/SKILL.md`
 - 8 task definitions → `.claude/product-team/tasks/`
 - `.claude/settings.json` with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`
 
@@ -129,7 +129,7 @@ exit 0
 
 **Event:** `SessionStart` with matcher `startup` and `resume`
 
-**Problem:** Every time a team-manager or team-member session starts, the agent must discover or be told which GitHub repo and PM system to use. For the team-manager, this means asking the user on every fresh start. For resumed sessions, the context is re-established from memory only.
+**Problem:** Every time a team-lead or teammate session starts, the agent must discover or be told which GitHub repo and PM system to use. For the team-lead, this means asking the user on every fresh start. For resumed sessions, the context is re-established from memory only.
 
 **Hook:** On session start, read a lightweight project config file (e.g. `.claude/product-team/config.json`) containing the repo, PM system, and project identifier, and inject it as `additionalContext`.
 
@@ -146,7 +146,7 @@ fi
 exit 0
 ```
 
-**Installer change:** `lib/install.js` should prompt for repo + PM system during `init` and write `config.json`. Or the team-manager's first run creates it.
+**Installer change:** `lib/install.js` should prompt for repo + PM system during `init` and write `config.json`. Or the team-lead's first run creates it.
 
 ---
 
@@ -154,7 +154,7 @@ exit 0
 
 **Event:** `Stop`
 
-**Problem:** Team members are supposed to report back with structured YAML messages. If a team member finishes without sending a report (e.g. just says "Done"), the team manager receives no message and the workflow stalls. There's currently no enforcement.
+**Problem:** Team members are supposed to report back with structured YAML messages. If a teammate finishes without sending a report (e.g. just says "Done"), the team lead receives no message and the workflow stalls. There's currently no enforcement.
 
 **Hook type:** `prompt` — ask Claude to evaluate whether the session produced a valid structured report before allowing it to stop.
 
@@ -167,7 +167,7 @@ exit 0
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Did this session end with a structured report message (containing a 'type:' field like 'plan-report', 'task-complete', 'test-report', etc.) sent to 'team-manager'? Answer yes or no.",
+            "prompt": "Did this session end with a structured report message (containing a 'type:' field like 'plan-report', 'task-complete', 'test-report', etc.) sent to 'team-lead'? Answer yes or no.",
             "model": "claude-haiku-4-5"
           }
         ]
@@ -177,7 +177,7 @@ exit 0
 }
 ```
 
-**Caveat:** This would trigger for team-manager sessions too. Matcher could be scoped, but Stop hooks do not currently support skill-scoped matchers in the same way PreToolUse does.
+**Caveat:** This would trigger for team-lead sessions too. Matcher could be scoped, but Stop hooks do not currently support skill-scoped matchers in the same way PreToolUse does.
 
 ---
 
@@ -185,7 +185,7 @@ exit 0
 
 **Event:** `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`
 
-**Problem:** When multiple subagents are running (team-manager spawning team-members), there's no structured log of which agent started, what it was doing, and when it finished. Debugging failures requires reading terminal output, which can be interleaved and hard to trace.
+**Problem:** When multiple subagents are running (team-lead spawning teammates), there's no structured log of which agent started, what it was doing, and when it finished. Debugging failures requires reading terminal output, which can be interleaved and hard to trace.
 
 **Hook:** A shell command that appends a JSON log entry to `.claude/product-team/agent.log` on each subagent lifecycle event. The hook receives the subagent's task context in the JSON payload.
 

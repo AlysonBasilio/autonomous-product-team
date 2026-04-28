@@ -20,8 +20,8 @@ npx @alysonbasilio/autonomous-product-team init
 ```
 
 This installs the agent team files into your project:
-- `.claude/skills/team-manager/SKILL.md` — orchestration agent
-- `.claude/skills/team-member/SKILL.md` — executor agent
+- `.claude/skills/team-lead/SKILL.md` — orchestration agent
+- `.claude/skills/teammate/SKILL.md` — executor agent
 - `.claude/product-team/tasks/` — 8 task definitions
 
 This also installs Claude Code hooks into `.claude/hooks/` and registers them in `.claude/settings.json`:
@@ -32,9 +32,9 @@ This also installs Claude Code hooks into `.claude/hooks/` and registers them in
 - **guard-git-merge.sh** — blocks `git merge` on the `main` branch; allows `--abort/--continue/--quit` and feature-to-feature merges
 
 Then open Claude Code in your project and ask:
-> "Use the team-manager skill to start working on my product"
+> "Use the team-lead skill to start working on my product"
 
-Or run `/team-manager` inside Claude Code to invoke the agent directly.
+Or run `/team-lead` inside Claude Code to invoke the agent directly.
 
 To update to the latest version:
 
@@ -54,11 +54,11 @@ npx @alysonbasilio/autonomous-product-team status
 
 The team which will be responsible for handling a product.
 
-### Team Manager
+### Team Lead
 
-The role that is responsible for managing team members and delegates tasks.
+The role that is responsible for managing teammates and delegates tasks.
 
-### Team Member
+### Teammate
 
 The role that executes tasks.
 
@@ -68,9 +68,9 @@ The definition of how to do a specific activity to reach a specific goal.
 
 ## Premises
 
-1. Each team has one team manager.
-2. The team works on **one issue at a time** — the highest-priority unblocked issue. Multiple team members may work in parallel only on independent tasks within that single issue (e.g. backend and frontend simultaneously). No two team members ever work on different issues concurrently.
-3. Team managers do not execute tasks. They always delegate tasks to team members.
+1. Each team has one team lead.
+2. The team works on **one issue at a time** — the highest-priority unblocked issue. Multiple teammates may work in parallel only on independent tasks within that single issue (e.g. backend and frontend simultaneously). No two teammates ever work on different issues concurrently.
+3. Team managers do not execute tasks. They always delegate tasks to teammates.
 4. Each task has its own completion status, tracked as structured comments on the PM issue — separate from the issue's overall lifecycle status (In Progress, Done, Blocked).
 5. Tasks must be idempotent. Before starting work, the plan task checks PM issue comment history to determine which tasks have already been completed and routes only to what is still needed.
 6. Every task posts a structured completion comment to the PM issue when it finishes. These comments are the authoritative record for re-entry after a restart or re-execution.
@@ -111,6 +111,6 @@ echo "OPENROUTER_API_KEY=sk-or-..." > evals/.env
 | `evals/test_static.py` | Structural checks — new fields, new task references, new report types |
 | `evals/test_triage.py` | New triage edge cases (blocker definitions, priority rules) |
 | `evals/test_plan_routing.py` | New routing table rows or state combinations |
-| `evals/test_manager_routing.py` | New inbound message types or delegation rules |
+| `evals/test_lead_routing.py` | New inbound message types or delegation rules |
 
 Each LLM eval is a scenario dict with `name`, `description`, `mock_context`, and `rubric` — see any existing scenario in those files for the pattern.

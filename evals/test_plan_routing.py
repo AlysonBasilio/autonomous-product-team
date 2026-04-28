@@ -17,7 +17,7 @@ TASK_FILE = "tasks/plan.md"
 TASK_MODEL = parse_frontmatter_model(TASK_FILE)
 
 EVAL_PROMPT = """\
-You are a team member executing the Assess and Plan task. Read the task definition carefully.
+You are a teammate executing the Assess and Plan task. Read the task definition carefully.
 
 ## Task Definition
 {task_content}

@@ -21,7 +21,7 @@ Before doing anything else, look for environment setup documentation in the targ
 
 If adequate instructions exist (i.e., they describe how to install dependencies, configure environment variables, and start the application for testing), proceed to Step 2.
 
-If instructions are missing or clearly insufficient (e.g., no mention of how to start or configure the app for tests), **stop immediately** — do NOT proceed with any testing. Instead, send this message to `team-manager`:
+If instructions are missing or clearly insufficient (e.g., no mention of how to start or configure the app for tests), **stop immediately** — do NOT proceed with any testing. Instead, send this message to `team-lead`:
 
 ```
 type: qa-blocked-missing-env-setup
@@ -69,7 +69,7 @@ findings: [{ description, severity: critical | minor }]
 
 This is the authoritative test completion record for this issue. If re-running, this comment supersedes any prior test-complete comment.
 
-Then use the `message` tool to message `team-manager`:
+Then use the `message` tool to message `team-lead`:
 
 ```
 type: test-report

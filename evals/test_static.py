@@ -6,7 +6,7 @@ These tests verify that the task definition files are internally consistent:
 - The plan routing table covers all required decision branches
 - Input/output fields chain correctly between tasks
 - Every task defines an output report schema
-- The team manager handles every report type any task can produce
+- The team lead handles every report type any task can produce
 - Every task and role specifies the correct model in its frontmatter
 - The installer configures the TeammateIdle hook to stop idle teammates
 - Session persistence config and hooks are properly defined
@@ -52,12 +52,12 @@ def parse_frontmatter_model(path: str) -> str | None:
 
 
 class TestTaskFileExistence:
-    """All task files referenced in team-manager.md must exist on disk."""
+    """All task files referenced in team-lead.md must exist on disk."""
 
     def test_all_referenced_tasks_exist(self):
-        manager_content = load_file("roles/team-manager.md")
-        task_paths = re.findall(r"`(tasks/[\w\-]+\.md)`", manager_content)
-        assert task_paths, "No task paths found in team-manager.md Available Tasks table"
+        lead_content = load_file("roles/team-lead.md")
+        task_paths = re.findall(r"`(tasks/[\w\-]+\.md)`", lead_content)
+        assert task_paths, "No task paths found in team-lead.md Available Tasks table"
         for path in task_paths:
             assert (REPO_ROOT / path).exists(), f"Task file referenced but missing: {path}"
 
@@ -203,7 +203,7 @@ class TestInputOutputChain:
     def test_test_outputs_findings_consumed_by_manager_routing(self):
         # Manager must pass findings back to implementer on failure
         assert "findings" in load_file("tasks/test.md")
-        assert "findings" in load_file("roles/team-manager.md")
+        assert "findings" in load_file("roles/team-lead.md")
 
     def test_test_outputs_issue_id_consumed_by_demo_review(self):
         assert "issue_id" in load_file("tasks/test.md")
@@ -215,7 +215,7 @@ class TestInputOutputChain:
 
     def test_triage_outputs_next_issue_referenced_by_manager(self):
         assert "next_issue" in load_file("tasks/issue-triage.md")
-        assert "next_issue" in load_file("roles/team-manager.md")
+        assert "next_issue" in load_file("roles/team-lead.md")
 
 
 class TestReportSchemas:
@@ -260,8 +260,8 @@ class TestReportSchemas:
         assert "outcome" in content
         assert "user_feedback" in content
 
-    def test_team_member_defines_blocked_schema(self):
-        content = load_file("roles/team-member.md")
+    def test_teammate_defines_blocked_schema(self):
+        content = load_file("roles/teammate.md")
         assert "blocked" in content
         assert "what_is_blocked" in content
         assert "decision_needed" in content
@@ -275,44 +275,44 @@ class TestReportSchemas:
 
 
 class TestManagerHandlesAllReports:
-    """Team Manager must handle every report type any task can produce."""
+    """Team Lead must handle every report type any task can produce."""
 
     def test_manager_handles_triage_report(self):
-        content = load_file("roles/team-manager.md")
+        content = load_file("roles/team-lead.md")
         assert "triage report" in content.lower() or "triage-report" in content
 
     def test_manager_handles_plan_report(self):
-        content = load_file("roles/team-manager.md")
+        content = load_file("roles/team-lead.md")
         assert "plan-report" in content
 
     def test_manager_handles_task_complete(self):
-        content = load_file("roles/team-manager.md")
+        content = load_file("roles/team-lead.md")
         assert "task-complete" in content
 
     def test_manager_handles_task_failed(self):
-        content = load_file("roles/team-manager.md")
+        content = load_file("roles/team-lead.md")
         assert "task-failed" in content
 
     def test_manager_handles_test_report(self):
-        content = load_file("roles/team-manager.md")
+        content = load_file("roles/team-lead.md")
         assert "test-report" in content
 
     def test_manager_handles_demo_review_report(self):
-        content = load_file("roles/team-manager.md")
+        content = load_file("roles/team-lead.md")
         assert "demo-review-report" in content
 
     def test_manager_handles_blocked(self):
-        content = load_file("roles/team-manager.md")
+        content = load_file("roles/team-lead.md")
         assert "blocker" in content.lower() or "blocked" in content.lower()
 
     def test_manager_handles_status_correction_report(self):
-        content = load_file("roles/team-manager.md")
+        content = load_file("roles/team-lead.md")
         assert "status-correction-report" in content
 
     def test_manager_handles_qa_blocked_missing_env_setup(self):
-        content = load_file("roles/team-manager.md")
+        content = load_file("roles/team-lead.md")
         assert "qa-blocked-missing-env-setup" in content, (
-            "roles/team-manager.md must handle the qa-blocked-missing-env-setup report"
+            "roles/team-lead.md must handle the qa-blocked-missing-env-setup report"
         )
 
 
@@ -358,7 +358,7 @@ class TestHooksExistence:
 class TestMultiPRHandling:
     """
     Verify that multi-PR tracking is documented across the relevant files:
-    plan.md, demo-review.md, and team-manager.md.
+    plan.md, demo-review.md, and team-lead.md.
     """
 
     def test_plan_mentions_multi_pr_handling(self):
@@ -380,10 +380,10 @@ class TestMultiPRHandling:
             "(multi-PR tracking moved from demo-review to plan.md)"
         )
 
-    def test_team_manager_handles_no_next_task(self):
-        content = load_file("roles/team-manager.md")
+    def test_team_lead_handles_no_next_task(self):
+        content = load_file("roles/team-lead.md")
         assert re.search(r"no.{0,20}next_task|no `next_task`", content, re.IGNORECASE), (
-            "roles/team-manager.md must handle plan-report with no next_task "
+            "roles/team-lead.md must handle plan-report with no next_task "
             "(issued when issue is Done or awaiting user merge)"
         )
 
@@ -446,7 +446,7 @@ class TestIdleTeammateHook:
         install_js = _load_required_settings()
         assert "TeammateIdle" in install_js, (
             "lib/install.js REQUIRED_SETTINGS must include a TeammateIdle hook "
-            "to automatically stop idle team members"
+            "to automatically stop idle teammates"
         )
 
     def test_idle_hook_stops_teammate(self):
@@ -455,10 +455,10 @@ class TestIdleTeammateHook:
             'lib/install.js TeammateIdle hook must output {"continue": false} to stop idle teammates'
         )
 
-    def test_team_manager_role_mentions_idle_hook(self):
-        content = load_file("roles/team-manager.md")
+    def test_team_lead_role_mentions_idle_hook(self):
+        content = load_file("roles/team-lead.md")
         assert "TeammateIdle" in content or "idle" in content.lower(), (
-            "roles/team-manager.md must document that idle team members are removed after reporting"
+            "roles/team-lead.md must document that idle teammates are removed after reporting"
         )
 
 
@@ -511,16 +511,16 @@ class TestWorktreeHookClaudioExemption:
 class TestTeamMemberIdleWarning:
     """Team member role must warn agents that going idle will terminate their session."""
 
-    def test_team_member_warns_about_idle_termination(self):
-        content = load_file("roles/team-member.md")
+    def test_teammate_warns_about_idle_termination(self):
+        content = load_file("roles/teammate.md")
         assert "TeammateIdle" in content, (
-            "roles/team-member.md must mention TeammateIdle hook so agents know they will be terminated"
+            "roles/teammate.md must mention TeammateIdle hook so agents know they will be terminated"
         )
 
-    def test_team_member_requires_continuous_session(self):
-        content = load_file("roles/team-member.md")
+    def test_teammate_requires_continuous_session(self):
+        content = load_file("roles/teammate.md")
         assert re.search(r"single continuous session|never go idle", content, re.IGNORECASE), (
-            "roles/team-member.md must instruct agents to complete work in a single continuous session"
+            "roles/teammate.md must instruct agents to complete work in a single continuous session"
         )
 
 
@@ -561,24 +561,24 @@ class TestSessionPersistence:
         )
 
     def test_manager_reads_saved_config(self):
-        content = load_file("roles/team-manager.md")
+        content = load_file("roles/team-lead.md")
         assert "config.json" in content, (
-            "team-manager.md startup must reference config.json"
+            "team-lead.md startup must reference config.json"
         )
         assert "project_url" in content, (
-            "team-manager.md startup must reference project_url from saved config"
+            "team-lead.md startup must reference project_url from saved config"
         )
 
     def test_manager_saves_config_on_first_run(self):
-        content = load_file("roles/team-manager.md")
+        content = load_file("roles/team-lead.md")
         assert re.search(r"[Ss]ave.*config", content), (
-            "team-manager.md must instruct saving config on first run"
+            "team-lead.md must instruct saving config on first run"
         )
 
     def test_manager_skips_asking_when_config_exists(self):
-        content = load_file("roles/team-manager.md")
+        content = load_file("roles/team-lead.md")
         assert re.search(r"skip.*asking|only if no saved config", content, re.IGNORECASE), (
-            "team-manager.md must skip asking when saved config exists"
+            "team-lead.md must skip asking when saved config exists"
         )
 
     def test_session_hook_reads_correct_config_fields(self):

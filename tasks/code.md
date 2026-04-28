@@ -6,7 +6,7 @@ model: claude-opus-4-7
 
 ## Input
 
-The team manager provides:
+The team lead provides:
 - `issue_id` — the issue to implement
 - `branch` — the git branch created during planning (work here, do not create a new branch)
 - `worktree` — absolute path to the existing worktree created during planning (work here)
@@ -79,7 +79,7 @@ pr_url: <PR URL>
 
 This is the authoritative completion record for this task. If re-running after findings, this comment supersedes any prior one.
 
-Then use the `message` tool to message `team-manager`:
+Then use the `message` tool to message `team-lead`:
 
 ```
 type: task-complete
@@ -92,7 +92,7 @@ follow_up_issues:  # include only if TODOs were added; omit this field entirely 
     description: <file path — brief context on what is deferred and why>
 ```
 
-If implementation hits a blocker that cannot be resolved, use the `message` tool to message `team-manager`:
+If implementation hits a blocker that cannot be resolved, use the `message` tool to message `team-lead`:
 
 ```
 type: task-failed

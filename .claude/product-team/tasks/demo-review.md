@@ -38,7 +38,7 @@ gh api /repos/<owner>/<repo>/issues/<n>/comments | jq '[.[] | {id, user: .user.l
 
 Read all comments returned. If any comment appears to be requesting changes, raising a concern, or asking a question that has not been addressed — treat it as blocking feedback.
 
-If **either** check finds unresolved threads or unaddressed comments: do NOT proceed to user presentation. Post a demo-review-complete comment and use the `message` tool to message `team-manager` with `outcome: redirect` and `user_feedback` summarising the blocking items. Stop here.
+If **either** check finds unresolved threads or unaddressed comments: do NOT proceed to user presentation. Post a demo-review-complete comment and use the `message` tool to message `team-lead` with `outcome: redirect` and `user_feedback` summarising the blocking items. Stop here.
 
 If both checks are clear: continue to the next step.
 
@@ -66,7 +66,7 @@ If the user's response mentions creating issues, tracking follow-ups, or request
 gh pr view <pr_url> --json mergeable,mergeStateStatus
 ```
 
-If `mergeable` is `CONFLICTING` or `mergeStateStatus` is `DIRTY`, do **not** proceed. Post a `demo-review-complete` comment with `outcome: redirect` and `user_feedback: "PR has merge conflicts and cannot be merged. The branch must be rebased onto main and conflicts resolved before merging."`, then report to `team-manager` with the same outcome and user_feedback. Stop here.
+If `mergeable` is `CONFLICTING` or `mergeStateStatus` is `DIRTY`, do **not** proceed. Post a `demo-review-complete` comment with `outcome: redirect` and `user_feedback: "PR has merge conflicts and cannot be merged. The branch must be rebased onto main and conflicts resolved before merging."`, then report to `team-lead` with the same outcome and user_feedback. Stop here.
 
 If the PR is mergeable, inform the user that their approval has been recorded and the PR is ready to merge whenever they would like. **Do not merge the PR yourself** — the user owns the merge action. Do not mark the issue as Done.
 
@@ -86,7 +86,7 @@ follow_up_issues:  # include only if user requested issue creation; omit this fi
 
 This is the authoritative demo-review completion record. If re-running, this comment supersedes any prior demo-review-complete comment.
 
-Then use the `message` tool to message `team-manager`:
+Then use the `message` tool to message `team-lead`:
 
 ```
 type: demo-review-report

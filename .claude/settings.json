@@ -56,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f .claude/product-team/config.json ]; then node -e \"const c=JSON.parse(require('fs').readFileSync('.claude/product-team/config.json','utf8')); if(c.project_url){process.exit(0)}else{process.exit(0)}\" && echo \"Session config loaded. Use the team-manager skill to continue working on the product.\"; fi"
+            "command": "if [ -f .claude/product-team/config.json ]; then node -e \"const c=JSON.parse(require('fs').readFileSync('.claude/product-team/config.json','utf8')); if(c.project_url){process.exit(0)}else{process.exit(0)}\" && echo \"Session config loaded. Use the team-lead skill to continue working on the product.\"; fi"
           }
         ]
       }
