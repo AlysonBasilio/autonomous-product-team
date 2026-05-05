@@ -36,17 +36,17 @@ Before starting, edit `product-team.config.json`:
 ```json
 {
   "project_url": "https://linear.app/your-team/issues",
-  "system": "Linear",
-  "synthup_tenant": "<your-synthup-tenant-id>"
+  "system": "Linear"
 }
 ```
 
 `system` is the name of your issue management system (e.g. `"GitHub Issues"`, `"Linear"`). `project_url` points to your issues list in that system.
 
-Set your Synthup API key:
+Set your Synthup credentials:
 
 ```bash
-export SYNTHUP_API_KEY=<your-key>
+export SYNTHUP_API_KEY=<your-api-key>
+export SYNTHUP_TENANT=<your-tenant-id>
 ```
 
 The orchestrator UI is available at `http://localhost:4242`.
