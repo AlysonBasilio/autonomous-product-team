@@ -1,5 +1,5 @@
 ---
-model: claude-sonnet-4-6
+model: anthropic/claude-sonnet-4-6
 ---
 
 # Task: Test
@@ -15,13 +15,12 @@ You will receive `issue_id` and `pr_url` from the implementation task-complete r
 ### 1. Pre-flight: Check for environment setup instructions
 
 Before doing anything else, look for environment setup documentation in the target project. Check for:
-- `CLAUDE.md`, `README.md`, `docs/` directory
+- `README.md`, `docs/` directory, or any project-specific setup documentation
 - Any file mentioning "test setup", "how to run tests", or similar
-- Project-specific instructions in a `.claude/` directory
 
 If adequate instructions exist (i.e., they describe how to install dependencies, configure environment variables, and start the application for testing), proceed to Step 2.
 
-If instructions are missing or clearly insufficient (e.g., no mention of how to start or configure the app for tests), **stop immediately** — do NOT proceed with any testing. Instead, send this message to `team-lead`:
+If instructions are missing or clearly insufficient (e.g., no mention of how to start or configure the app for tests), **stop immediately** — do NOT proceed with any testing. Instead, output this as your final response:
 
 ```
 type: qa-blocked-missing-env-setup
@@ -69,7 +68,7 @@ findings: [{ description, severity: critical | minor }]
 
 This is the authoritative test completion record for this issue. If re-running, this comment supersedes any prior test-complete comment.
 
-Then use the `message` tool to message `team-lead`:
+Then output this as your final response:
 
 ```
 type: test-report

@@ -1,8 +1,8 @@
 {
   "name": "@alysonbasilio/autonomous-product-team",
-  "version": "5.1.1",
-  "description": "Autonomous AI product team system for Claude Code",
-  "keywords": ["claude", "claude-code", "ai-agents", "autonomous"],
+  "version": "6.0.0",
+  "description": "Autonomous AI product team system",
+  "keywords": ["ai-agents", "autonomous", "synthup"],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -14,9 +14,8 @@
   "files": [
     "bin/",
     "config/",
-    "hooks/",
     "lib/",
-    "roles/",
+    "orchestrator/",
     "tasks/",
     "README.md"
   ],

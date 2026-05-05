@@ -1,12 +1,12 @@
 ---
-model: claude-sonnet-4-6
+model: anthropic/claude-sonnet-4-6
 ---
 
 # Task: Discovery
 
 ## Input
 
-The team lead provides:
+The orchestrator provides as context:
 - `issue_id` — the issue to explore
 
 ## Workflow
@@ -69,11 +69,11 @@ created_issues:
     title: <title>
 ```
 
-Then report to `team-lead` with the same content.
+Output this as your final response with the same content.
 
 ## Definition of Done
 
-All follow-up issues have been created, any clear dependencies have been linked, and the discovery-complete report has been delivered to the team lead.
+All follow-up issues have been created, any clear dependencies have been linked, and the discovery-complete report has been output.
 
 ## Rules
 

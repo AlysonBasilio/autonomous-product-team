@@ -1,22 +1,28 @@
 ---
-model: claude-opus-4-7
+model: anthropic/claude-opus-4-7
 ---
 
 # Task: Code
 
 ## Input
 
-The team lead provides:
+The orchestrator provides as context:
 - `issue_id` — the issue to implement
 - `branch` — the git branch created during planning (work here, do not create a new branch)
-- `worktree` — absolute path to the existing worktree created during planning (work here)
 - `plan` — the ordered implementation checklist produced by `tasks/plan.md`
 - `findings` (optional) — test findings from a prior failed test; present when this is a re-run to fix QA failures
 - `user_feedback` (optional) — verbatim user feedback from a demo-review redirect; present when this is a re-run based on user direction
 
-Do not begin implementation until the first four inputs are present.
+Do not begin implementation until the first three inputs are present.
 
 ## Phase 1 — Implementation
+
+### 0. Check out the branch
+Start by checking out the branch for this issue:
+```bash
+git checkout <branch>
+```
+If the branch does not exist locally, fetch it first: `git fetch origin && git checkout <branch>`
 
 ### 1. Implement
 Write code to satisfy the issue requirements. Follow existing patterns in the codebase. Do not add features beyond what the issue specifies.
@@ -79,7 +85,7 @@ pr_url: <PR URL>
 
 This is the authoritative completion record for this task. If re-running after findings, this comment supersedes any prior one.
 
-Then use the `message` tool to message `team-lead`:
+Then output this as your final response:
 
 ```
 type: task-complete
@@ -92,7 +98,7 @@ follow_up_issues:  # include only if TODOs were added; omit this field entirely 
     description: <file path — brief context on what is deferred and why>
 ```
 
-If implementation hits a blocker that cannot be resolved, use the `message` tool to message `team-lead`:
+If implementation hits a blocker that cannot be resolved, output this as your final response:
 
 ```
 type: task-failed
@@ -120,3 +126,7 @@ Your work is **Done** if and only if:
 - Always read files before editing them.
 - Do not skip CI or commit hooks.
 - Do not merge the PR — merging is handled after QA and demo review.
+- Never merge directly to `main` — all merges go through an approved PR.
+- Always work on the assigned branch (`<branch>`); never commit directly to `main`.
+- Never use `git push --force` — use `--force-with-lease` if a force push is needed.
+- Never run destructive commands: `rm -rf /`, `git reset --hard HEAD~N` (discarding committed work), or anything that deletes untracked changes.

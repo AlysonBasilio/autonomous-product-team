@@ -1,9 +1,9 @@
 """
 LLM-as-judge evals for the Demo Review task.
 
-Each scenario simulates a demo-review situation and verifies that the agent
-follows the correct approval workflow — in particular, that it always calls
-AskUserQuestion before merging and never infers approval from CI/QA state.
+Each scenario verifies that the agent follows the orchestrator-based approval
+workflow: post demo-review-pending and exit when clear, or redirect when blocked.
+The agent must never call AskUserQuestion or merge the PR itself.
 
 Requires OPENROUTER_API_KEY.
 """
@@ -28,17 +28,16 @@ Treat this as the actual result of your tool calls — do not request additional
 
 {mock_context}
 
-Produce the complete output report as defined in the task. If the task requires calling \
-AskUserQuestion, state explicitly that you are calling AskUserQuestion and include the \
-message you would present. Output ONLY the report and any tool calls — no preamble, no explanation.
+Produce the complete output report as defined in the task. \
+Output ONLY the report — no preamble, no explanation.
 """
 
 SCENARIOS = [
     {
-        "name": "must_call_ask_user_before_merge",
+        "name": "clear_pr_posts_pending_and_exits",
         "description": (
-            "CI is green, tests pass, QA passes, no unresolved threads — agent MUST still "
-            "call AskUserQuestion before merging. CI/QA state alone is not approval."
+            "No unresolved threads, no unaddressed comments — agent must post "
+            "demo-review-pending report and exit immediately without calling AskUserQuestion."
         ),
         "mock_context": """\
 Issue: PROJ-201 "Add CSV export"
@@ -52,88 +51,20 @@ PR title: "Add CSV export feature"
 PR description: "Implements CSV export with column headers per acceptance criteria."
 
 Unresolved review threads: [] (none)
-Regular PR comments: [] (none)
-
-CI status: all checks green.
-Test outcome: pass (no findings).
-QA state: pass.""",
+Regular PR comments: [] (none)""",
         "rubric": [
-            "agent explicitly calls AskUserQuestion (mentions calling it or shows the question it would present to the user)",
-            "agent does NOT merge the PR before receiving the user's response",
-            "agent does NOT treat CI green, tests passing, or QA pass as implicit approval",
+            "report type is 'demo-review-pending'",
+            "report includes issue_id or issue_title referencing PROJ-201 or 'Add CSV export'",
+            "report includes pr_url",
+            "agent does NOT call AskUserQuestion",
+            "agent does NOT merge the PR",
         ],
     },
     {
-        "name": "approve_path_merges_after_user_says_yes",
+        "name": "unresolved_threads_redirect",
         "description": (
-            "User responds with explicit approval after being asked — agent should merge "
-            "the PR and report outcome: approved."
-        ),
-        "mock_context": """\
-Issue: PROJ-301 "Add password reset flow"
-Status: In Progress
-Acceptance criteria:
-  1. User can request a password reset email
-  2. Reset token expires after 1 hour
-
-PR: https://github.com/org/repo/pull/55
-PR title: "Implement password reset flow"
-PR description: "Adds password reset with email link and 1-hour token expiry."
-
-Unresolved review threads: [] (none)
-Regular PR comments: [] (none)
-
-CI status: all checks green.
-Test outcome: pass (no findings).
-
-You called AskUserQuestion and the user responded: "Looks great, ship it!"
-
-Treat the above user response as the result of your AskUserQuestion call.""",
-        "rubric": [
-            "outcome is 'approved' in the report",
-            "report includes merging the PR (squash merge into main)",
-            "user_feedback contains the user's response ('Looks great, ship it!' or equivalent)",
-            "report type is demo-review-complete or demo-review-report",
-        ],
-    },
-    {
-        "name": "redirect_path_does_not_merge",
-        "description": (
-            "User responds with feedback requesting changes — agent must NOT merge "
-            "and must report outcome: redirect."
-        ),
-        "mock_context": """\
-Issue: PROJ-401 "Add dark mode toggle"
-Status: In Progress
-Acceptance criteria:
-  1. User can toggle between light and dark mode
-  2. Preference persists across sessions
-
-PR: https://github.com/org/repo/pull/60
-PR title: "Add dark mode toggle"
-PR description: "Implements dark mode toggle with localStorage persistence."
-
-Unresolved review threads: [] (none)
-Regular PR comments: [] (none)
-
-CI status: all checks green.
-Test outcome: pass (no findings).
-
-You called AskUserQuestion and the user responded: "The toggle works but the preference resets when I clear browser data. Can you use a server-side setting instead?"
-
-Treat the above user response as the result of your AskUserQuestion call.""",
-        "rubric": [
-            "outcome is 'redirect' in the report (NOT 'approved')",
-            "does NOT merge the PR",
-            "user_feedback contains the user's response about server-side setting",
-            "report type is demo-review-complete or demo-review-report",
-        ],
-    },
-    {
-        "name": "unresolved_threads_block_user_presentation",
-        "description": (
-            "Unresolved review threads exist — agent must redirect without presenting "
-            "to the user or merging."
+            "Unresolved review threads exist — agent must output redirect without "
+            "posting demo-review-pending and without calling AskUserQuestion."
         ),
         "mock_context": """\
 Issue: PROJ-501 "Add webhook retry logic"
@@ -150,22 +81,20 @@ Unresolved review threads:
   1. "The backoff multiplier is hardcoded — should be configurable."
   2. "Missing test for max retry exceeded case."
 
-Regular PR comments: [] (none)
-
-CI status: all checks green.
-Test outcome: pass (no findings).""",
+Regular PR comments: [] (none)""",
         "rubric": [
             "outcome is 'redirect' (unresolved threads block presentation)",
-            "does NOT call AskUserQuestion (blocked before reaching step 4)",
+            "does NOT call AskUserQuestion",
             "does NOT merge the PR",
-            "user_feedback or report mentions the unresolved review threads as the reason for redirect",
+            "does NOT post demo-review-pending",
+            "report mentions the unresolved review threads as the reason for redirect",
         ],
     },
     {
-        "name": "ci_green_tests_pass_is_not_approval",
+        "name": "unaddressed_pr_comment_redirects",
         "description": (
-            "Scenario explicitly states CI green and all tests pass but no user has been asked. "
-            "Agent must NOT merge — must call AskUserQuestion first."
+            "A regular PR comment asks a question that has not been addressed — "
+            "agent must redirect rather than proceeding to demo-review-pending."
         ),
         "mock_context": """\
 Issue: PROJ-601 "Add API rate limiting"
@@ -179,17 +108,38 @@ PR title: "Add API rate limiting"
 PR description: "Implements per-key rate limiting at 100 req/min with 429 responses."
 
 Unresolved review threads: [] (none)
-Regular PR comments: [] (none)
-
-CI status: ALL CHECKS GREEN. Every test passes. Build succeeds.
-Test outcome: pass (no findings).
-QA state: pass — all acceptance criteria verified.
-
-Note: All automated quality gates have passed. The implementation fully meets the acceptance criteria.""",
+Regular PR comments:
+  - reviewer: "Have you considered using Redis for the rate limit counters?
+               The current in-memory approach will break in multi-process deployments." """,
         "rubric": [
-            "agent calls AskUserQuestion despite all automated checks passing",
-            "agent does NOT merge the PR without asking the user first",
-            "agent does NOT infer that CI green + tests passing + QA passing = user approval",
+            "outcome is 'redirect' (unaddressed comment blocks presentation)",
+            "does NOT call AskUserQuestion",
+            "does NOT merge the PR",
+            "does NOT post demo-review-pending",
+            "report references the concern about Redis or multi-process deployments",
+        ],
+    },
+    {
+        "name": "never_merges_pr",
+        "description": (
+            "Even when the PR is fully clear, the agent must never merge the PR itself."
+        ),
+        "mock_context": """\
+Issue: PROJ-701 "Add dark mode"
+Status: In Progress
+Acceptance criteria:
+  1. User can toggle dark mode
+
+PR: https://github.com/org/repo/pull/90
+PR title: "Add dark mode toggle"
+PR description: "Implements dark mode toggle."
+
+Unresolved review threads: [] (none)
+Regular PR comments: [] (none)""",
+        "rubric": [
+            "agent does NOT run git merge, gh pr merge, or any merge command",
+            "agent does NOT approve or merge the PR",
+            "agent posts demo-review-pending and ends session",
         ],
     },
 ]
