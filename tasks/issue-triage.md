@@ -1,5 +1,5 @@
 ---
-model: claude-haiku-4-5
+model: anthropic/claude-haiku-4.5
 ---
 
 # Task: Issue Triage
@@ -10,7 +10,7 @@ Scan the project in the configured product development management system and pro
 
 ## Input
 
-The team lead provides the product development management system name and project identifier.
+The orchestrator provides as context the product development management system name and project URL.
 
 ## Definition of Blocked
 
@@ -45,7 +45,7 @@ An issue is **not** blocked solely because its implementation is difficult or un
 
 4. **Rank ready issues** — Sort the ready issues by priority (highest first), using the priority assigned in the product development management system. If priorities are equal, prefer the issue with the earliest creation date. Note: formal PM-system dependency links, text-inferred cross-references, and semantic dependencies all count equally when determining whether an issue is Blocked or Ready.
 
-5. **Report** — Use the `message` tool to message `team-lead` using this schema:
+5. **Report** — Output this as your final response using this schema:
 
    ```
    type: triage-report
@@ -56,7 +56,7 @@ An issue is **not** blocked solely because its implementation is difficult or un
 
    `issue_type` is `discovery` when the issue is exploratory (no concrete acceptance criteria), or `implementation` (the default) when the issue has concrete acceptance criteria and can proceed to planning.
 
-   If the product development management system returns an error at any step, stop and use the `message` tool to message `team-lead`:
+   If the product development management system returns an error at any step, stop and output this as your final response:
 
    ```
    type: task-failed
@@ -66,4 +66,4 @@ An issue is **not** blocked solely because its implementation is difficult or un
 
 ## Definition of Done
 
-This task is complete when the triage report has been delivered to the team lead with all issues classified.
+This task is complete when the triage report has been output with all issues classified.

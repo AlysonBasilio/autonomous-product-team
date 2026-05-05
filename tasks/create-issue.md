@@ -8,7 +8,7 @@ Create new issues in the product management system for follow-up work identified
 
 ## Input
 
-The team lead provides:
+The orchestrator provides as context:
 - `source_issue_id` — the issue that identified this follow-up work
 - `issues` — list of issues to create, each with `title` and `description`
 - `priority` (optional) — priority to assign to the created issues (e.g., urgent, high, medium, low, no priority). When omitted, defaults to "No priority".
@@ -65,11 +65,11 @@ created_issues:
     title: <title>
 ```
 
-Then use the `message` tool to message `team-lead` with the same content.
+Output this as your final response with the same content.
 
 ## Definition of Done
 
-All issues in the input list have been created, any clear dependencies between new and existing issues have been linked, and the report has been delivered.
+All issues in the input list have been created, any clear dependencies between new and existing issues have been linked, and the report has been output.
 
 ## Rules
 

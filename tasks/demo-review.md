@@ -1,5 +1,5 @@
 ---
-model: claude-haiku-4-5
+model: anthropic/claude-haiku-4.5
 ---
 
 # Task: Demo Review
@@ -38,73 +38,34 @@ gh api /repos/<owner>/<repo>/issues/<n>/comments | jq '[.[] | {id, user: .user.l
 
 Read all comments returned. If any comment appears to be requesting changes, raising a concern, or asking a question that has not been addressed — treat it as blocking feedback.
 
-If **either** check finds unresolved threads or unaddressed comments: do NOT proceed to user presentation. Post a demo-review-complete comment and use the `message` tool to message `team-lead` with `outcome: redirect` and `user_feedback` summarising the blocking items. Stop here.
+If **either** check finds unresolved threads or unaddressed comments: do NOT proceed to user presentation. Post a demo-review-complete comment and output this as your final response with `outcome: redirect` and `user_feedback` summarising the blocking items. Stop here.
 
 If both checks are clear: continue to the next step.
 
-### 4. Present to the user — MANDATORY
+### 4. Report to the orchestrator — MANDATORY
 
-You MUST call `AskUserQuestion` before recording any approval. There is no shortcut.
+Post this report and **end your session immediately** — your job is done here:
 
-CI passing, tests passing, and QA state are NOT approval. Only an explicit user response to `AskUserQuestion` counts as approval. Do not infer approval from any other signal.
-
-Use `AskUserQuestion` to present:
-- The issue title and what it was supposed to do
-- One-sentence summary of what was built
-- The PR link
-- Question: "Does this meet your expectations? Any feedback or direction changes before you merge?"
-
-Wait for the user's response before proceeding. Do not skip this step under any circumstances.
-
-### 5. Act on the response
-
-If the user's response mentions creating issues, tracking follow-ups, or requests that new work be recorded (e.g., "create an issue for X", "track this as a follow-up", "make a ticket for Y"): extract each request as a follow-up issue with a title and description derived from the user's wording.
-
-**Approved** → before notifying the user, check that the PR has no merge conflicts:
-
-```bash
-gh pr view <pr_url> --json mergeable,mergeStateStatus
+```json
+{
+  "type": "demo-review-pending",
+  "issue_id": "<issue ID>",
+  "issue_title": "<issue title>",
+  "pr_url": "<PR URL>",
+  "summary": "<one sentence: what was built>"
+}
 ```
 
-If `mergeable` is `CONFLICTING` or `mergeStateStatus` is `DIRTY`, do **not** proceed. Post a `demo-review-complete` comment with `outcome: redirect` and `user_feedback: "PR has merge conflicts and cannot be merged. The branch must be rebased onto main and conflicts resolved before merging."`, then report to `team-lead` with the same outcome and user_feedback. Stop here.
+The orchestrator process receives this report, presents the approval gate to the user in its web UI, and dispatches the next task based on the user's response. You do not wait — exit as soon as the report is sent.
 
-If the PR is mergeable, inform the user that their approval has been recorded and the PR is ready to merge whenever they would like. **Do not merge the PR yourself** — the user owns the merge action. Do not mark the issue as Done.
-
-**Redirect** → do NOT merge. Mark the issue status as **In Progress** in the product development management system.
-
-In both cases, post a comment to the PM issue using the product development management system tool:
-
-```
-type: demo-review-complete
-pr_url: <PR URL>
-outcome: approved | redirect
-user_feedback: <verbatim user response>
-follow_up_issues:  # include only if user requested issue creation; omit this field entirely if none
-  - title: <title>
-    description: <description>
-```
-
-This is the authoritative demo-review completion record. If re-running, this comment supersedes any prior demo-review-complete comment.
-
-Then use the `message` tool to message `team-lead`:
-
-```
-type: demo-review-report
-issue_id: <issue ID>
-outcome: approved | redirect
-user_feedback: <verbatim user response>
-follow_up_issues:  # include only if user requested issue creation; omit this field entirely if none
-  - title: <title>
-    description: <description>
-```
+Do NOT call `AskUserQuestion`. Do NOT post any additional comments. Do NOT wait for a reply.
 
 ## Definition of Done
 
-Report delivered. If approved, user has been notified the PR is ready to merge. If redirect, no merge has occurred.
+Report sent. Session complete.
 
 ## Rules
 
-- NEVER skip calling `AskUserQuestion`. Only a direct user response constitutes approval.
-- Record the user's feedback verbatim in the report.
+- NEVER call `AskUserQuestion` — approval is handled by the orchestrator UI.
 - NEVER merge the PR yourself — the user owns the merge action.
 - NEVER mark the issue as Done — plan.md detects the merge on the next planning cycle and marks it Done then.

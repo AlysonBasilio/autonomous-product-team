@@ -27,7 +27,15 @@ Treat this as the actual result of your tool calls — do not request additional
 
 {mock_context}
 
-Produce the complete output report as defined in the task. Output ONLY the report — no preamble, no explanation.
+Do two things in order:
+
+1. For each follow-up issue you would create, output its full content: title and complete description \
+(Background, What needs to be done, Acceptance criteria). Use placeholder IDs (e.g. PROJ-51, PROJ-52).
+
+2. Then output the final discovery-complete report exactly as defined in the task (type, issue_id, summary, \
+created_issues list).
+
+No other preamble or explanation.
 """
 
 SCENARIOS = [
@@ -54,10 +62,7 @@ Existing non-Done issues in PM system:
 - PROJ-45 "Add user preferences page" — Status: Todo — no dependencies
 - PROJ-48 "Improve email delivery reliability" — Status: In Progress — no dependencies
 
-PM system created the following issues when requested:
-- PROJ-51 "Define notification types and delivery channels" — Status: Backlog, Priority: No priority
-- PROJ-52 "Build notification service backend" — Status: Backlog, Priority: No priority
-- PROJ-53 "Add in-app notification UI" — Status: Backlog, Priority: No priority""",
+PM API: ready to accept issue creation calls. Assign sequential IDs starting at PROJ-51.""",
         "rubric": [
             "report type is 'discovery-complete'",
             "at least two follow-up issues are created (the discovery breaks the vague request into concrete work)",
@@ -89,10 +94,7 @@ Existing non-Done issues in PM system:
 - PROJ-55 "Add product image gallery" — Status: Todo — no dependencies
 - PROJ-58 "Rate limit API endpoints" — Status: In Progress — no dependencies
 
-PM system created the following issues when requested:
-- PROJ-61 "Add CSV parsing and validation for product import" — Status: Backlog, Priority: No priority
-- PROJ-62 "Create background job for bulk product import processing" — Status: Backlog, Priority: No priority
-- PROJ-63 "Add CSV import API endpoint and UI upload flow" — Status: Backlog, Priority: No priority""",
+PM API: ready to accept issue creation calls. Assign sequential IDs starting at PROJ-61.""",
         "rubric": [
             "report type is 'discovery-complete'",
             "follow-up issue descriptions reference specific codebase findings (e.g. existing Product model, FastAPI, Celery, or file paths)",
@@ -142,7 +144,7 @@ def test_discovery_scenario(client, scenario):
         model=TASK_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0,
-        max_tokens=1024,
+        max_tokens=4096,
     )
     agent_output = response.choices[0].message.content
     result = grade(client, scenario, agent_output, task_content)

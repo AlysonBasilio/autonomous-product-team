@@ -1,8 +1,14 @@
 # Autonomous Product Team
 
-This project specifies how an autonomous product team should work in the age of AI. The goal is to apply this using https://code.claude.com/docs/en/agent-teams feature.
+An autonomous AI product team that runs on [Synthup](https://www.synthup.dev). A Ruby orchestrator picks up the highest-priority unblocked issue, plans it, implements it, tests it, and presents a PR for user approval — then loops. Synthup manages the sessions that execute each task.
 
-## Usage
+## Prerequisites
+
+- Node.js ≥ 18
+- Ruby ≥ 3.0 + Bundler
+- A [Synthup](https://synthup.dev) account
+
+## Setup
 
 First, add this to your `~/.npmrc` to authenticate with GitHub Packages:
 
@@ -13,33 +19,48 @@ First, add this to your `~/.npmrc` to authenticate with GitHub Packages:
 
 You can create a token at https://github.com/settings/tokens with `read:packages` scope.
 
-Then, from your project directory, run:
+From your project directory, run:
 
 ```bash
-npx @alysonbasilio/autonomous-product-team init
+npx @alysonbasilio/autonomous-product-team run
 ```
 
-This installs the agent team files into your project:
-- `.claude/skills/team-lead/SKILL.md` — orchestration agent
-- `.claude/skills/teammate/SKILL.md` — executor agent
-- `.claude/product-team/tasks/` — 8 task definitions
+This installs any missing files and starts the orchestrator:
+- `tasks/` — 8 task definitions (issue-triage, discovery, plan, code, test, demo-review, create-issue, status-correction)
+- `product-team.config.json` — project configuration (edit this before running; never overwritten by `--force`)
 
-This also installs Claude Code hooks into `.claude/hooks/` and registers them in `.claude/settings.json`:
-- **guard-destructive-git.sh** — blocks dangerous git commands (`push --force`, `reset --hard`, `clean -f`, `branch -D`)
-- **guard-worktree-discipline.sh** — prevents agents from writing files in the main checkout when they should be in a worktree
-- **load-session-context.sh** — loads project config on session start so agents do not re-ask for repo/PM details
-- **log-agent-event.sh** — logs subagent lifecycle events to `.claude/product-team/agent.log` for observability
-- **guard-git-merge.sh** — blocks `git merge` on the `main` branch; allows `--abort/--continue/--quit` and feature-to-feature merges
+It also appends `orchestrator-state.json` to your `.gitignore`.
 
-Then open Claude Code in your project and ask:
-> "Use the team-lead skill to start working on my product"
+Before starting, edit `product-team.config.json`:
 
-Or run `/team-lead` inside Claude Code to invoke the agent directly.
+```json
+{
+  "project_url": "https://linear.app/your-team/issues",
+  "system": "Linear",
+  "synthup_tenant": "<your-synthup-tenant-id>"
+}
+```
 
-To update to the latest version:
+`system` is the name of your issue management system (e.g. `"GitHub Issues"`, `"Linear"`). `project_url` points to your issues list in that system.
+
+Set your Synthup API key:
 
 ```bash
-npx @alysonbasilio/autonomous-product-team update
+export SYNTHUP_API_KEY=<your-key>
+```
+
+The orchestrator UI is available at `http://localhost:4242`.
+
+To update task definitions to the latest version:
+
+```bash
+npx @alysonbasilio/autonomous-product-team run --force
+```
+
+To preview what would be installed without making changes:
+
+```bash
+npx @alysonbasilio/autonomous-product-team run --dry-run
 ```
 
 To check what's installed:
@@ -48,46 +69,48 @@ To check what's installed:
 npx @alysonbasilio/autonomous-product-team status
 ```
 
-## Definitions
+## How it works
 
-### Team
+### Components
 
-The team which will be responsible for handling a product.
+- **Orchestrator** — Ruby process (`orchestrator/run.rb`) that drives the lifecycle loop. Routes between tasks based on their JSON output.
+- **Task** — A Markdown prompt file in `tasks/` defining one step of the workflow (e.g. `plan.md`, `code.md`). Each task specifies a model in its frontmatter.
+- **Session** — A Synthup-managed execution that runs a task prompt and outputs a structured JSON report. The orchestrator polls for the report and routes to the next task.
+- **State file** — `orchestrator-state.json` in your project root. Tracks the active session and history; enables crash-safe resume.
 
-### Team Lead
+### Lifecycle
 
-The role that is responsible for managing teammates and delegates tasks.
+```
+triage → plan → code → test → demo-review → [user approves + merges] → triage → …
+```
 
-### Teammate
+The orchestrator dispatches one task at a time. Each task runs as a Synthup session and signals completion by outputting a JSON report. The orchestrator reads the report and dispatches the next task automatically.
 
-The role that executes tasks.
+Demo review is the one human gate: the orchestrator pauses and presents the PR in the web UI. The user approves or redirects — the orchestrator never merges.
 
-### Tasks
+### How the orchestrator behaves
 
-The definition of how to do a specific activity to reach a specific goal.
+1. Works on **one issue at a time** — the highest-priority unblocked issue.
+2. **The user owns the merge.** Demo review presents the PR in the web UI and waits. The orchestrator never merges.
+3. **Tasks are idempotent.** Each task posts a structured JSON comment to the PM issue on completion. On restart, `plan.md` reads these comments to determine what has already been done.
+4. **Sessions resume after a crash.** The active session ID is saved to `orchestrator-state.json` before polling. On restart, the orchestrator resumes polling the existing session.
+5. **A branch is created per issue and cleaned up automatically.** `plan.md` creates a branch for each issue and pushes it. Each Synthup session checks out that branch at the start. After the PR merges, the next planning cycle deletes the local branch.
 
-## Premises
+## Web UI
 
-1. Each team has one team lead.
-2. The team works on **one issue at a time** — the highest-priority unblocked issue. Multiple teammates may work in parallel only on independent tasks within that single issue (e.g. backend and frontend simultaneously). No two teammates ever work on different issues concurrently.
-3. Team managers do not execute tasks. They always delegate tasks to teammates.
-4. Each task has its own completion status, tracked as structured comments on the PM issue — separate from the issue's overall lifecycle status (In Progress, Done, Blocked).
-5. Tasks must be idempotent. Before starting work, the plan task checks PM issue comment history to determine which tasks have already been completed and routes only to what is still needed.
-6. Every task posts a structured completion comment to the PM issue when it finishes. These comments are the authoritative record for re-entry after a restart or re-execution.
-7. **The user owns the merge.** The demo-review task presents the PR to the user for approval but never merges it. The user merges at their own pace. On the next planning cycle after the merge is detected, the plan task marks the issue Done and removes the local worktree.
-8. **Worktrees are created per-issue and cleaned up automatically.** The plan task creates a git worktree under `../worktrees/<branch-name>` for each implementation. When plan detects all associated PRs have been merged, it removes the worktree and deletes the local branch.
+The orchestrator UI at `http://localhost:4242` lets you:
+
+- **Pause / Resume** — Stop the orchestrator between tasks without killing the process
+- **Triage Now** — Force an immediate re-triage (useful after manually resolving a blocker)
+- **Cancel** — Abort the current running task
+- **Approve / Redirect** — The approval gate for demo review. Approve records your consent and lets the orchestrator move on; Redirect sends your feedback back through the code task
+- **Escalation banner** — Shown when a task fails; includes error details and a Triage Now button to reset
 
 ## Contributing
 
 ### Making changes
 
-When modifying role files (`roles/*.md`) or task definitions (`tasks/*.md`), run the eval suite to verify nothing is broken:
-
-```bash
-/run-evals
-```
-
-Or run directly:
+When modifying task definitions (`tasks/*.md`), run the eval suite to verify nothing is broken:
 
 ```bash
 # Fast structural checks (no API key required)
@@ -111,6 +134,7 @@ echo "OPENROUTER_API_KEY=sk-or-..." > evals/.env
 | `evals/test_static.py` | Structural checks — new fields, new task references, new report types |
 | `evals/test_triage.py` | New triage edge cases (blocker definitions, priority rules) |
 | `evals/test_plan_routing.py` | New routing table rows or state combinations |
-| `evals/test_lead_routing.py` | New inbound message types or delegation rules |
+| `evals/test_demo_review.py` | New demo-review scenarios or approval/redirect edge cases |
+| `evals/test_discovery.py` | New discovery scenarios or issue analysis edge cases |
 
 Each LLM eval is a scenario dict with `name`, `description`, `mock_context`, and `rubric` — see any existing scenario in those files for the pattern.

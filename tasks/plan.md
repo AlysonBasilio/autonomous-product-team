@@ -6,7 +6,7 @@ model: claude-sonnet-4-6
 
 ## Input
 
-The team lead provides the issue ID.
+The orchestrator provides as context the issue ID.
 
 ## Phase 0 — State Assessment
 
@@ -27,7 +27,7 @@ Read all comments on the PM issue using the product development management syste
 **Stale-implementation check**: If a `test-complete` comment with `outcome: pass` exists, compare its timestamp against the issue's last-updated timestamp. If the issue description or acceptance criteria appear to have been edited after the `test-complete` was posted, flag the implementation as **stale**.
 
 ### 3. Check git/PR state
-- Check if a branch for this issue already exists locally (e.g. `git branch --list "*<issue-id>*"` or check `../worktrees/`).
+- Check if a branch for this issue already exists locally (e.g. `git branch --list "*<issue-id>*"`).
 - Check if a PR is already open on the remote: `gh pr list --search "<issue-id>" --state open`.
 - For each associated PR in the multi-PR set (from Step 2), check its state individually: `gh pr view <pr_url> --json state` to determine if it is open, merged, or closed. Build a summary: count how many are merged/closed vs. still open. All associated PRs must be merged or closed for the issue to be considered fully complete.
 - If a PR exists and is open, check CI status: `gh pr checks <pr_url>`.
@@ -64,7 +64,7 @@ Use the most recent comment of each type from Step 2, combined with git/PR state
 
 | PM issue comment history | Git/PR state | `next_task` |
 |---|---|---|
-| `demo-review-complete outcome: approved` | All associated PRs merged or closed | Mark issue Done + clean up worktree (see **Worktree Cleanup** below) — report immediately with no `next_task` |
+| `demo-review-complete outcome: approved` | All associated PRs merged or closed | Mark issue Done + clean up branch (see **Branch Cleanup** below) — report immediately with no `next_task` |
 | `demo-review-complete outcome: approved` for most-recent reviewed PR | That PR is now merged, but other associated PRs still open | `test` or `demo-review` — route to the next open PR (check its CI/review state to decide); include the open PR's `pr_url` in the report |
 | `demo-review-complete outcome: approved` | PR reviewed is still open (user has not merged yet) | Nothing to do — awaiting user merge; report immediately with no `next_task` |
 | `demo-review-complete outcome: redirect`, no newer `task-complete` | any | `code` — user redirected; run Phase 1 with `user_feedback` as `findings` |
@@ -81,17 +81,16 @@ Use the most recent comment of each type from Step 2, combined with git/PR state
 | No `task-complete` | Branch exists, no PR | `code` — proceed to Phase 1, reusing the existing branch |
 | No `task-complete` | No branch, no PR | `code` — proceed to Phase 1 |
 
-### Worktree Cleanup
+### Branch Cleanup
 
-When the routing table directs you to **mark the issue Done**, also clean up the local worktree for the merged PR's branch:
+When the routing table directs you to **mark the issue Done**, delete the local branch for the merged PR:
 
 ```bash
 BRANCH=$(gh pr view <pr_url> --json headRefName --jq '.headRefName')
-git worktree remove ../worktrees/$BRANCH --force 2>/dev/null || true
 git branch -d $BRANCH 2>/dev/null || true
 ```
 
-Run this for each PR that was just confirmed as merged. If the worktree directory does not exist (e.g. the planner skipped worktree creation, or cleanup already ran), the command silently succeeds. Mark the issue Done in the product development management system after cleanup.
+Run this for each PR that was just confirmed as merged. If the branch does not exist locally (e.g. cleanup already ran), the command silently succeeds. Mark the issue Done in the product development management system after cleanup.
 
 ---
 
@@ -117,7 +116,7 @@ Read the issue description and acceptance criteria. Skim the key areas of the co
 - Estimated to touch ≥6 unrelated files or produce >400 LOC of non-test changes
 - The issue description lists multiple major features or capabilities as distinct requirements
 
-If the issue is too big → skip steps 2–4 and send a `split-report` (see Report section). Do **not** mark the issue In Progress and do **not** create a worktree.
+If the issue is too big → skip steps 2–4 and output a `split-report` (see Report section). Do **not** mark the issue In Progress and do **not** create a branch.
 
 **Splitting guidelines:**
 - Aim for 2–4 sub-issues; never more than 5
@@ -128,21 +127,20 @@ If the issue is too big → skip steps 2–4 and send a `split-report` (see Repo
 ### 2. Mark the issue In Progress
 Update the issue status to **In Progress** in the product development management system.
 
-### 3. Set up an isolated workspace
-If no worktree or branch exists yet, create one:
+### 3. Create or switch to a branch
+If no branch exists yet, create one from the latest main:
 
 ```bash
-# From the repo root
-git worktree add ../worktrees/<branch-name> -b <branch-name>
+git fetch origin main
+git checkout -b <branch-name> origin/main
+git push -u origin <branch-name>
 ```
 
-If a branch already exists, create a worktree pointing to it:
+If a branch already exists, switch to it:
 
 ```bash
-git worktree add ../worktrees/<branch-name> <branch-name>
+git checkout <branch-name>
 ```
-
-All subsequent reads, edits, and commits must happen inside the worktree — never in the main checkout.
 
 ### 4. Build the plan
 - Read the relevant files and understand existing patterns, conventions, and architecture.
@@ -155,9 +153,9 @@ All subsequent reads, edits, and commits must happen inside the worktree — nev
 
 ## Report
 
-**When sending a `split-report`** (issue is too big for a single PR):
+**When outputting a `split-report`** (issue is too big for a single PR):
 
-Use the `message` tool to message `team-lead`:
+Output this as your final response:
 
 ```
 type: split-report
@@ -170,20 +168,25 @@ issues:
       - <title of another sub-issue in this list that must complete first, if any>
 ```
 
-**When sending a `plan-report`** (normal path):
+**When outputting a `plan-report`** (normal path):
 
-Use the `message` tool to message `team-lead`:
+Output this as your final response:
 
 ```
 type: plan-report
 issue_id: <issue ID>
 next_task: code | test | demo-review
 branch: <branch name, if applicable>
-worktree: <absolute path to worktree, if applicable>
 pr_url: <PR URL, if applicable>
 plan: |
   <ordered implementation checklist — only when next_task is implement-*>
 findings: <context for the implementer — test findings on failure, or user_feedback on demo-review redirect; only when next_task is implement-*>
 ```
 
-Fields that do not apply to the current state should be omitted.
+Fields that do not apply to the current state should be omitted. When the routing table says "no `next_task`", **omit the `next_task` field entirely** — do not set it to `done`, `null`, or any other value.
+
+## Rules
+
+- Never merge directly to `main` — all merges go through an approved PR.
+- Always work on the designated branch; never commit directly to `main`.
+- Never use `git push --force` — use `--force-with-lease` if a force push is needed.

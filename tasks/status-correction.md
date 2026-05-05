@@ -1,5 +1,5 @@
 ---
-model: claude-haiku-4-5
+model: anthropic/claude-haiku-4.5
 ---
 
 # Task: Status Correction
@@ -10,7 +10,7 @@ Audit a set of issues in the product development management system and correct a
 
 ## Input
 
-The team lead provides either:
+The orchestrator provides as context either:
 - A specific issue ID to audit, or
 - A scope (e.g. "all issues in the project") to audit broadly.
 
@@ -24,12 +24,12 @@ The team lead provides either:
      - All acceptance criteria are checked off.
      - Dependencies are also Done.
      - If any of these are false, the status is wrong.
-   - If marked **In Progress** — confirm that a teammate is actively working on it. If no work is happening, it should revert to its prior status.
+   - If marked **In Progress** — confirm there is an open PR or recent commit activity. If no active work is in progress, revert to Backlog.
    - If marked **Blocked** — confirm the blocker still exists. If the blocking issue is now Done, this issue may no longer be blocked.
 
 3. **Correct any inconsistencies** — Update the issue status to match ground truth. Add a comment on the issue noting what was corrected and why.
 
-4. **Report** — Use the `message` tool to message `team-lead` using this schema:
+4. **Report** — Output this as your final response using this schema:
 
    ```
    type: status-correction-report
@@ -40,4 +40,4 @@ The team lead provides either:
 
 ## Definition of Done
 
-This task is complete when all audited issues have accurate statuses in the product development management system and the correction report has been delivered to the team lead.
+This task is complete when all audited issues have accurate statuses in the product development management system and the correction report has been output.

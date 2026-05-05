@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orchestrator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0f0f0f;
+    --surface: #1a1a1a;
+    --border:  #2e2e2e;
+    --muted:   #666;
+    --text:    #d4d4d4;
+    --bright:  #f0f0f0;
+    --green:   #4ade80;
+    --red:     #f87171;
+    --yellow:  #fbbf24;
+    --blue:    #60a5fa;
+    --gap:     1.25rem;
+  }
+
+  body {
+    font-family: 'Menlo', 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: var(--gap);
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: var(--gap);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--gap);
+  }
+
+  .title { color: var(--bright); font-size: 14px; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .badge-running   { background: #14532d; color: var(--green); }
+  .badge-paused    { background: #451a03; color: var(--yellow); }
+  .badge-done      { background: #1e3a5f; color: var(--blue); }
+  .badge-escalated { background: #450a0a; color: var(--red); }
+
+  .controls { display: flex; gap: .5rem; }
+
+  button {
+    font-family: inherit;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    background: var(--surface);
+    color: var(--text);
+    transition: background .1s;
+  }
+  button:hover { background: #2a2a2a; }
+  button.primary { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+  button.primary:hover { background: #1e40af; }
+  button.danger { background: #7f1d1d; color: #fca5a5; border-color: #7f1d1d; }
+  button.danger:hover { background: #991b1b; }
+
+  /* ── Sections ── */
+  section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: var(--gap);
+    margin-bottom: var(--gap);
+  }
+
+  h2 {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .75rem;
+  }
+
+  .row { display: flex; gap: .5rem; margin-bottom: .35rem; }
+  .label { color: var(--muted); min-width: 100px; flex-shrink: 0; }
+  .value { color: var(--bright); word-break: break-all; }
+
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ── Demo-review panel ── */
+  #demo-review { border-color: #d97706; }
+  #demo-review h2 { color: var(--yellow); }
+
+  .summary-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: .75rem;
+    margin-bottom: .75rem;
+    color: var(--bright);
+  }
+
+  textarea {
+    font-family: inherit;
+    font-size: 12px;
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    padding: .5rem;
+    resize: vertical;
+    min-height: 64px;
+    margin-top: .5rem;
+    margin-bottom: .5rem;
+  }
+  textarea:focus { outline: 1px solid var(--blue); }
+
+  .follow-ups-toggle {
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    margin-bottom: .5rem;
+    display: inline-block;
+  }
+  .follow-ups-toggle:hover { color: var(--text); }
+
+  .btn-row { display: flex; gap: .5rem; margin-top: .5rem; }
+
+  /* ── History ── */
+  .history-item {
+    display: flex;
+    gap: .75rem;
+    padding: .3rem 0;
+    border-bottom: 1px solid var(--border);
+    align-items: baseline;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-icon { font-style: normal; }
+  .history-task { color: var(--bright); flex: 1; }
+  .history-meta { color: var(--muted); font-size: 11px; white-space: nowrap; }
+
+  /* ── Escalation ── */
+  #escalation { border-color: #b91c1c; }
+  #escalation h2 { color: var(--red); }
+  .escalation-details {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: .75rem;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-top: .5rem;
+  }
+
+  .empty { color: var(--muted); font-style: italic; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="title">autonomous-product-team</span>
+  <div style="display:flex;align-items:center;gap:.75rem">
+    <span id="status-badge" class="badge badge-running">running</span>
+    <div class="controls">
+      <button id="btn-triage" onclick="triggerTriage()">Triage now</button>
+      <button id="btn-pause"  onclick="togglePause()">Pause</button>
+    </div>
+  </div>
+</header>
+
+<!-- Current task -->
+<section id="current-task-section">
+  <h2>Current Task</h2>
+  <div id="current-task-body">
+    <span class="empty">Idle</span>
+  </div>
+</section>
+
+<!-- Demo-review -->
+<section id="demo-review" class="hidden">
+  <h2>Demo Review — Awaiting Your Approval</h2>
+  <div id="dr-summary" class="summary-box"></div>
+  <div class="btn-row">
+    <button class="primary" onclick="approve()">Approve</button>
+  </div>
+  <div style="margin-top:1rem">
+    <div style="color:var(--muted);font-size:11px;margin-bottom:.25rem">Request changes:</div>
+    <textarea id="dr-feedback" placeholder="Describe what needs to change…"></textarea>
+    <div>
+      <span class="follow-ups-toggle" onclick="toggleFollowUps()">[+] Add follow-up issues</span>
+    </div>
+    <textarea id="dr-followups" class="hidden" placeholder="One follow-up issue per line: title — description"></textarea>
+    <div class="btn-row">
+      <button class="danger" onclick="redirect()">Send Redirect</button>
+    </div>
+  </div>
+</section>
+
+<!-- Escalation -->
+<section id="escalation" class="hidden">
+  <h2>Escalation</h2>
+  <div id="esc-reason" class="row"></div>
+  <div id="esc-details" class="escalation-details"></div>
+</section>
+
+<!-- History -->
+<section>
+  <h2>History</h2>
+  <div id="history-list">
+    <span class="empty">No completed tasks yet</span>
+  </div>
+</section>
+
+<script>
+  let state = {};
+  let evtSource;
+
+  // ── SSE / polling ──────────────────────────────────────────────────────────
+
+  function connect() {
+    if (typeof EventSource === 'undefined') { poll(); return; }
+    evtSource = new EventSource('/api/events');
+    evtSource.onmessage = e => { applyState(JSON.parse(e.data)); };
+    evtSource.onerror   = () => { evtSource.close(); setTimeout(connect, 3000); };
+  }
+
+  function poll() {
+    fetch('/api/state').then(r => r.json()).then(applyState).catch(() => {});
+    setTimeout(poll, 3000);
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  function applyState(s) {
+    state = s;
+
+    // Status badge
+    const badge = document.getElementById('status-badge');
+    badge.textContent = s.paused ? 'paused' : s.status;
+    badge.className = 'badge badge-' + (s.paused ? 'paused' : s.status);
+
+    // Pause/resume button
+    const pauseBtn = document.getElementById('btn-pause');
+    pauseBtn.textContent = s.paused ? 'Resume' : 'Pause';
+
+    // Current task
+    const ct = s.currentTask;
+    const ctSection = document.getElementById('current-task-body');
+    if (ct) {
+      const elapsed = ct.started_at ? formatElapsed(ct.started_at) : '—';
+      ctSection.innerHTML = `
+        <div class="row"><span class="label">task</span><span class="value">${esc(ct.task)}</span></div>
+        ${ct.context?.issue_id ? `<div class="row"><span class="label">issue</span><span class="value">${esc(ct.context.issue_id)}</span></div>` : ''}
+        ${ct.context?.pr_url   ? `<div class="row"><span class="label">PR</span><span class="value"><a href="${esc(ct.context.pr_url)}" target="_blank">${esc(ct.context.pr_url)}</a></span></div>` : ''}
+        <div class="row"><span class="label">elapsed</span><span class="value" id="elapsed-value">${elapsed}</span></div>
+        ${ct.session_id ? `<div class="row"><span class="label">session</span><span class="value" style="color:var(--muted)">${esc(ct.session_id)}</span></div>` : ''}
+        <div style="margin-top:.75rem"><button class="danger" onclick="cancelTask()">Cancel task</button></div>
+      `;
+    } else {
+      ctSection.innerHTML = '<span class="empty">Idle</span>';
+    }
+
+    // Demo review
+    const dr = document.getElementById('demo-review');
+    if (s.pending_approval) {
+      dr.classList.remove('hidden');
+      const p = s.pending_approval;
+      document.getElementById('dr-summary').innerHTML = `
+        ${p.issue_title ? `<strong>${esc(p.issue_title)}</strong><br>` : ''}
+        ${p.summary ? `<span>${esc(p.summary)}</span><br>` : ''}
+        ${p.pr_url ? `<a href="${esc(p.pr_url)}" target="_blank">${esc(p.pr_url)}</a>` : ''}
+      `;
+    } else {
+      dr.classList.add('hidden');
+    }
+
+    // Escalation
+    const esc_section = document.getElementById('escalation');
+    if (s.escalation) {
+      esc_section.classList.remove('hidden');
+      document.getElementById('esc-reason').innerHTML =
+        `<span class="label">reason</span><span class="value">${esc(s.escalation.reason)}</span>`;
+      document.getElementById('esc-details').textContent = s.escalation.details || '';
+    } else {
+      esc_section.classList.add('hidden');
+    }
+
+    // History
+    renderHistory(s.history || []);
+  }
+
+  function renderHistory(items) {
+    const el = document.getElementById('history-list');
+    if (!items.length) { el.innerHTML = '<span class="empty">No completed tasks yet</span>'; return; }
+    el.innerHTML = [...items].reverse().map(h => {
+      const icon = outcomeIcon(h.outcome || h.report?.type);
+      const dur  = h.duration_s ? `${h.duration_s}s` : '';
+      return `<div class="history-item">
+        <span class="history-icon">${icon}</span>
+        <span class="history-task">${esc(h.task || '?')}</span>
+        <span class="history-meta">${esc(dur)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+
+  function approve() {
+    const followUpsRaw = document.getElementById('dr-followups').value.trim();
+    const follow_up_issues = followUpsRaw
+      ? followUpsRaw.split('\n').filter(Boolean).map(line => {
+          const [title, ...rest] = line.split('—');
+          return { title: title.trim(), description: rest.join('—').trim() };
+        })
+      : undefined;
+    api('POST', '/api/approve', { follow_up_issues });
+  }
+
+  function redirect() {
+    const user_feedback = document.getElementById('dr-feedback').value.trim();
+    if (!user_feedback) { document.getElementById('dr-feedback').focus(); return; }
+    api('POST', '/api/redirect', { user_feedback });
+  }
+
+  function togglePause() {
+    api('POST', state.paused ? '/api/resume' : '/api/pause');
+  }
+
+  function triggerTriage() {
+    api('POST', '/api/triage');
+  }
+
+  function cancelTask() {
+    if (!state.currentTask) return;
+    api('POST', '/api/cancel');
+  }
+
+  function toggleFollowUps() {
+    const el = document.getElementById('dr-followups');
+    el.classList.toggle('hidden');
+  }
+
+  // ── Utils ──────────────────────────────────────────────────────────────────
+
+  function api(method, path, body) {
+    fetch(path, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    }).catch(() => {});
+  }
+
+  function esc(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function formatElapsed(iso) {
+    const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (secs < 60)   return `${secs}s`;
+    if (secs < 3600) return `${Math.floor(secs/60)}m ${secs%60}s`;
+    return `${Math.floor(secs/3600)}h ${Math.floor((secs%3600)/60)}m`;
+  }
+
+  function outcomeIcon(type) {
+    if (!type) return '·';
+    if (type.includes('fail') || type === 'escalate' || type === 'blocked') return '✗';
+    if (type.includes('complete') || type.includes('pass') || type.includes('approved')) return '✓';
+    return '·';
+  }
+
+  connect();
+  setInterval(() => {
+    const el = document.getElementById('elapsed-value');
+    if (el && state.currentTask?.started_at) {
+      el.textContent = formatElapsed(state.currentTask.started_at);
+    }
+  }, 1000);
+</script>
+</body>
+</html>

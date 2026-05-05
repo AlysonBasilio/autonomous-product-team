@@ -22,7 +22,8 @@ def parse_frontmatter_model(path: str) -> str:
         if end != -1:
             match = re.search(r"^model:\s*(\S+)", content[3:end], re.MULTILINE)
             if match:
-                return f"anthropic/{match.group(1)}"
+                model = match.group(1)
+                return model if model.startswith("anthropic/") else f"anthropic/{model}"
     raise ValueError(f"{path} is missing a 'model:' field in YAML frontmatter")
 
 
