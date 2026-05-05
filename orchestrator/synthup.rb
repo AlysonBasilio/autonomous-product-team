@@ -69,18 +69,12 @@ module Synthup
     request(uri, req)
   end
 
-  def self.request(uri, req, redirect_count = 0)
-    raise Error.new(0, 'Too many redirects') if redirect_count > 5
-
-    Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https') do |http|
+  def self.request(uri, req)
+    Net::HTTP.start(uri.host, uri.port,
+        use_ssl: uri.scheme == 'https',
+        open_timeout: 10,
+        read_timeout: 30) do |http|
       res = http.request(req)
-      if res.is_a?(Net::HTTPRedirection)
-        new_uri = URI(res['location'])
-        new_req = req.class.new(new_uri)
-        req.each_header { |k, v| new_req[k] = v }
-        new_req.body = req.body if req.respond_to?(:body)
-        return request(new_uri, new_req, redirect_count + 1)
-      end
       raise Error.new(res.code.to_i, res.body) unless res.is_a?(Net::HTTPSuccess)
       res.body.empty? ? nil : JSON.parse(res.body)
     end

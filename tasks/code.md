@@ -1,5 +1,5 @@
 ---
-model: claude-opus-4-7
+model: anthropic/claude-opus-4-7
 ---
 
 # Task: Code

@@ -16,7 +16,6 @@ module TaskRunner
 
   def self.compose_prompt(task_file, context = {})
     raw = File.read(task_file)
-    # Strip YAML frontmatter (--- ... ---)
     body = raw.sub(/\A---\n.*?\n---\n/m, '')
 
     return body if context.nil? || context.empty?
@@ -25,22 +24,19 @@ module TaskRunner
     "#{body}\n## Context\n\n#{context_lines.join("\n")}\n"
   end
 
-  def self.run(config:, task:, context: {}, project_root: Dir.pwd)
-    task_path = find_task_file(task, project_root)
-    model     = parse_model(task_path)
-    prompt    = compose_prompt(task_path, context)
+  def self.find_task_file(task, project_root)
+    path = File.join(project_root, 'tasks', task)
+    raise "Task file not found: #{task}" unless File.exist?(path)
+    path
+  end
 
-    session = Synthup.create_session(
-      tenant:  config['synthup_tenant'],
-      project: config['project_url'],
-      prompt:  prompt,
-      model:   model
-    )
-    session_id = session['id']
-
-    report = poll_for_report(session_id)
-    Synthup.archive_session(session_id)
-    report
+  def self.parse_model(task_path)
+    raw = File.read(task_path)
+    match = raw.match(/\A---\n(.*?)\n---/m)
+    return nil unless match
+    frontmatter = match[1]
+    model_match = frontmatter.match(/^model:\s*(.+)$/)
+    model_match ? model_match[1].strip : nil
   end
 
   def self.poll_for_report(session_id, interval: POLL_INTERVAL, timeout: TIMEOUT, cancel_check: nil)
@@ -75,21 +71,6 @@ module TaskRunner
 
   private
 
-  def self.find_task_file(task, project_root)
-    path = File.join(project_root, 'tasks', task)
-    raise "Task file not found: #{task}" unless File.exist?(path)
-    path
-  end
-
-  def self.parse_model(task_path)
-    raw = File.read(task_path)
-    match = raw.match(/\A---\n(.*?)\n---/m)
-    return nil unless match
-    frontmatter = match[1]
-    model_match = frontmatter.match(/^model:\s*(.+)$/)
-    model_match ? model_match[1].strip : nil
-  end
-
   def self.session_failed?(msg)
     return true if %w[failed error].include?(msg['status'])
     parsed = safe_parse_json(msg['content'].to_s)
@@ -104,13 +85,11 @@ module TaskRunner
   def self.extract_report(content)
     return nil unless content.is_a?(String)
 
-    # Try JSON code fence first
     content.scan(/```(?:json)?\n(\{.*?\})\n```/m).each do |match|
       parsed = safe_parse_json(match[0])
       return parsed if parsed && KNOWN_REPORT_TYPES.include?(parsed['type'])
     end
 
-    # Try raw JSON object
     content.scan(/(\{[^{}]*"type"\s*:\s*"[^"]+[^{}]*\})/m).each do |match|
       parsed = safe_parse_json(match[0])
       return parsed if parsed && KNOWN_REPORT_TYPES.include?(parsed['type'])

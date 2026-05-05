@@ -231,16 +231,8 @@
 
 <script>
   let state = {};
-  let evtSource;
 
-  // ── SSE / polling ──────────────────────────────────────────────────────────
-
-  function connect() {
-    if (typeof EventSource === 'undefined') { poll(); return; }
-    evtSource = new EventSource('/api/events');
-    evtSource.onmessage = e => { applyState(JSON.parse(e.data)); };
-    evtSource.onerror   = () => { evtSource.close(); setTimeout(connect, 3000); };
-  }
+  // ── Polling ────────────────────────────────────────────────────────────────
 
   function poll() {
     fetch('/api/state').then(r => r.json()).then(applyState).catch(() => {});
@@ -389,7 +381,7 @@
     return '·';
   }
 
-  connect();
+  poll();
   setInterval(() => {
     const el = document.getElementById('elapsed-value');
     if (el && state.currentTask?.started_at) {

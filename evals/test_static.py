@@ -15,8 +15,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent
 
 VALID_MODELS = {
-    "claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5",
-    "anthropic/claude-opus-4-7", "anthropic/claude-sonnet-4-6", "anthropic/claude-haiku-4.5",
+    "anthropic/claude-opus-4-7",
+    "anthropic/claude-sonnet-4-6",
+    "anthropic/claude-haiku-4.5",
 }
 
 TASK_FILES = [

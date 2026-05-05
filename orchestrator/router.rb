@@ -1,11 +1,4 @@
 module Router
-  KNOWN_REPORT_TYPES = %w[
-    triage-report plan-report task-complete split-report test-report
-    demo-review-pending demo-review-report discovery-complete
-    create-issue-complete status-correction-report
-    qa-blocked-missing-env-setup task-failed blocked
-  ].freeze
-
   # Returns a NextAction hash:
   #   { type: "run-task", task: "plan.md", context: {} }
   #   { type: "run-tasks-parallel", tasks: [{task:, context:}, ...] }
@@ -78,9 +71,9 @@ module Router
 
     when 'qa-blocked-missing-env-setup'
       { type: 'run-task', task: 'create-issue.md', context: {
-        title:       'Missing environment setup documentation',
-        description: report['details']
-      }.compact }
+        issues: [{ 'title' => 'Missing environment setup documentation',
+                   'description' => report['details'] }]
+      } }
 
     when 'discovery-complete'
       { type: 'run-task', task: 'issue-triage.md', context: {} }
