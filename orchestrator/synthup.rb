@@ -5,6 +5,10 @@ require 'uri'
 module Synthup
   BASE = 'https://www.synthup.dev'
 
+  class << self
+    attr_accessor :api_key
+  end
+
   class Error < StandardError
     attr_reader :status, :body
     def initialize(status, body)
@@ -45,16 +49,15 @@ module Synthup
 
   private
 
-  def self.api_key
-    key = ENV['SYNTHUP_API_KEY']
-    raise 'SYNTHUP_API_KEY environment variable is not set' unless key
-    key
+  def self.auth_key
+    raise 'Synthup API key is not configured' unless @api_key
+    @api_key
   end
 
   def self.get(path)
     uri = URI("#{BASE}#{path}")
     req = Net::HTTP::Get.new(uri)
-    req['Authorization'] = "Bearer #{api_key}"
+    req['Authorization'] = "Bearer #{auth_key}"
     req['Accept'] = 'application/json'
     request(uri, req)
   end
@@ -62,7 +65,7 @@ module Synthup
   def self.post(path, body)
     uri = URI("#{BASE}#{path}")
     req = Net::HTTP::Post.new(uri)
-    req['Authorization'] = "Bearer #{api_key}"
+    req['Authorization'] = "Bearer #{auth_key}"
     req['Content-Type'] = 'application/json'
     req['Accept'] = 'application/json'
     req.body = body.to_json

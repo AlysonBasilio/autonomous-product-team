@@ -10,6 +10,7 @@ module State
     {
       'version'    => 1,
       'status'     => 'running',
+      'config'     => nil,
       'currentTask'=> nil,
       'escalation' => nil,
       'history'    => []

@@ -27,29 +27,16 @@ npx @alysonbasilio/autonomous-product-team run
 
 This installs any missing files and starts the orchestrator:
 - `tasks/` — 8 task definitions (issue-triage, discovery, plan, code, test, demo-review, create-issue, status-correction)
-- `product-team.config.json` — project configuration (edit this before running; never overwritten by `--force`)
 
 It also appends `orchestrator-state.json` to your `.gitignore`.
 
-Before starting, edit `product-team.config.json`:
+The orchestrator UI is available at `http://localhost:4242`. On first run, the UI shows a setup form for:
 
-```json
-{
-  "project_url": "https://linear.app/your-team/issues",
-  "system": "Linear"
-}
-```
+- **project_url** — URL of your issues list (e.g. `https://linear.app/your-team/issues`)
+- **tenant** — your Synthup tenant id
+- **api_key** — your Synthup API key
 
-`system` is the name of your issue management system (e.g. `"GitHub Issues"`, `"Linear"`). `project_url` points to your issues list in that system.
-
-Set your Synthup credentials:
-
-```bash
-export SYNTHUP_API_KEY=<your-api-key>
-export SYNTHUP_TENANT=<your-tenant-id>
-```
-
-The orchestrator UI is available at `http://localhost:4242`.
+These values are persisted in `orchestrator-state.json` and reused on restart.
 
 To update task definitions to the latest version:
 
