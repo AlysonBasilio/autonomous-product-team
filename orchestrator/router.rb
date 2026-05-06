@@ -69,15 +69,13 @@ module Router
         }.compact }
       end
 
-    when 'qa-blocked-missing-env-setup'
-      { type: 'run-task', task: 'create-issue.md', context: {
-        source_issue_id: report['issue_id'],
-        priority:        'urgent',
-        block_source:    true,
-        split_context:   true,
-        issues: [{ 'title' => 'Missing environment setup documentation',
-                   'description' => report['details'] }]
-      } }
+    when 'test-blocked'
+      { type: 'wait-approval', context: {
+        issue_id: report['issue_id'],
+        pr_url:   report['pr_url'],
+        summary:  report['summary'],
+        kind:     'test'
+      }.compact }
 
     when 'discovery-complete'
       { type: 'run-task', task: 'issue-triage.md', context: {} }

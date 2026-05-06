@@ -313,36 +313,34 @@ class TestSessionPersistence:
         )
 
 
-class TestQAPreflightBehavior:
-    """QA task must include a pre-flight env setup check that blocks before testing."""
+class TestQABlockedDelegation:
+    """
+    When the QA agent cannot run the app itself, it must hand the test to
+    the user via a `test-blocked` report. The orchestrator routes this to
+    the wait-approval gate — there is no more pre-flight doc scan.
+    """
 
-    def test_test_has_preflight_step(self):
+    def test_test_defines_test_blocked_report(self):
         content = load_file("tasks/test.md")
-        assert "pre-flight" in content.lower(), (
-            "tasks/test.md must include a pre-flight step"
-        )
-
-    def test_test_defines_qa_blocked_report(self):
-        content = load_file("tasks/test.md")
-        assert "qa-blocked-missing-env-setup" in content, (
-            "tasks/test.md must define the qa-blocked-missing-env-setup report type"
+        assert "test-blocked" in content, (
+            "tasks/test.md must define the test-blocked report type"
         )
         assert "issue_id" in content, (
-            "tasks/test.md qa-blocked report must include issue_id"
+            "tasks/test.md test-blocked report must include issue_id"
         )
         assert "pr_url" in content, (
-            "tasks/test.md qa-blocked report must include pr_url"
+            "tasks/test.md test-blocked report must include pr_url"
         )
-        assert "details" in content, (
-            "tasks/test.md qa-blocked report must include details field "
-            "(matches router.rb's report['details'] read)"
+        assert "summary" in content, (
+            "tasks/test.md test-blocked report must include a summary "
+            "(matches router.rb's report['summary'] read)"
         )
 
-    def test_test_preflight_blocks_before_testing(self):
-        content = load_file("tasks/test.md")
-        assert "stop immediately" in content.lower() or "do not proceed" in content.lower(), (
-            "tasks/test.md pre-flight must block before normal test steps "
-            "(should contain 'stop immediately' or 'do not proceed')"
+    def test_test_attempts_before_delegating(self):
+        content = load_file("tasks/test.md").lower()
+        assert "try to" in content or "attempt" in content, (
+            "tasks/test.md must instruct the agent to try running the app itself "
+            "before handing off to the user"
         )
 
 
@@ -376,7 +374,7 @@ KNOWN_REPORT_TYPES = {
     "triage-report", "plan-report", "task-complete", "split-report", "test-report",
     "demo-review-pending", "demo-review-report", "discovery-complete",
     "create-issue-complete", "status-correction-report",
-    "qa-blocked-missing-env-setup", "task-failed", "blocked",
+    "test-blocked", "task-failed", "blocked",
 }
 
 # Report types that agents author in task specs. demo-review-report is constructed

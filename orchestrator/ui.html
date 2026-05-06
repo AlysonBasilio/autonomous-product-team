@@ -230,17 +230,17 @@
   </div>
 </section>
 
-<!-- Demo-review -->
+<!-- Demo-review / test verification -->
 <section id="demo-review" class="hidden">
-  <h2>Demo Review — Awaiting Your Approval</h2>
+  <h2 id="dr-heading">Demo Review — Awaiting Your Approval</h2>
   <div id="dr-summary" class="summary-box"></div>
   <div class="btn-row">
     <button class="primary" onclick="approve()">Approve</button>
   </div>
   <div style="margin-top:1rem">
-    <div style="color:var(--muted);font-size:11px;margin-bottom:.25rem">Request changes:</div>
+    <div id="dr-feedback-label" style="color:var(--muted);font-size:11px;margin-bottom:.25rem">Request changes:</div>
     <textarea id="dr-feedback" placeholder="Describe what needs to change…"></textarea>
-    <div>
+    <div id="dr-followups-row">
       <span class="follow-ups-toggle" onclick="toggleFollowUps()">[+] Add follow-up issues</span>
     </div>
     <textarea id="dr-followups" class="hidden" placeholder="One follow-up issue per line: title — description"></textarea>
@@ -325,11 +325,23 @@
       na.classList.add('hidden');
     }
 
-    // Demo review
+    // Demo review / test verification
     const dr = document.getElementById('demo-review');
     if (s.pending_approval) {
       dr.classList.remove('hidden');
       const p = s.pending_approval;
+      const isTest = p.kind === 'test';
+      document.getElementById('dr-heading').textContent =
+        isTest ? 'Test Verification — Please Test Manually'
+               : 'Demo Review — Awaiting Your Approval';
+      document.getElementById('dr-feedback-label').textContent =
+        isTest ? 'Report what failed:' : 'Request changes:';
+      document.getElementById('dr-feedback').placeholder =
+        isTest ? 'Describe what didn’t work…' : 'Describe what needs to change…';
+      document.getElementById('dr-followups-row').classList.toggle('hidden', isTest);
+      if (isTest) {
+        document.getElementById('dr-followups').classList.add('hidden');
+      }
       document.getElementById('dr-summary').innerHTML = `
         ${p.issue_title ? `<strong>${esc(p.issue_title)}</strong><br>` : ''}
         ${p.summary ? `<span>${esc(p.summary)}</span><br>` : ''}

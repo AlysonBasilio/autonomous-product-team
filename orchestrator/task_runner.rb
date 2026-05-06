@@ -11,7 +11,7 @@ module TaskRunner
     triage-report plan-report task-complete split-report test-report
     demo-review-pending demo-review-report discovery-complete
     create-issue-complete status-correction-report
-    qa-blocked-missing-env-setup task-failed blocked
+    test-blocked task-failed blocked
   ].freeze
 
   def self.compose_prompt(task_file, context = {})

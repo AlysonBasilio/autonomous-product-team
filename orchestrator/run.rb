@@ -38,7 +38,8 @@ def describe_action(action)
     "run-tasks-parallel → #{tasks.join(', ')}"
   when 'wait-approval'
     title = action.dig(:context, :issue_title) || action.dig(:context, :issue_id)
-    "wait-approval → demo review#{title ? " for #{title}" : ''}"
+    label = action.dig(:context, :kind) == 'test' ? 'user testing' : 'demo review'
+    "wait-approval → #{label}#{title ? " for #{title}" : ''}"
   when 'escalate'
     "escalate → #{action[:reason]}"
   when 'done'
@@ -141,6 +142,35 @@ def github_repo(url)
   url.match(%r{github\.com/([^/]+/[^/]+)})&.then { |m| m[1].sub(/\.git$/, '') } || url
 end
 
+# Translates an approval result from the wait-approval gate into a typed report
+# the router can dispatch on. The `kind` field on the gate context selects the
+# shape: 'test' produces a synthetic test-report; default produces demo-review-report.
+def approval_to_report(approval, kind:, issue_id:, pr_url: nil)
+  outcome = approval['outcome']
+  if kind == 'test'
+    case outcome
+    when 'approved'
+      { 'type' => 'test-report', 'outcome' => 'pass',
+        'issue_id' => issue_id, 'pr_url' => pr_url, 'findings' => [] }.compact
+    when 'redirect'
+      feedback = approval['user_feedback'].to_s.strip
+      findings = feedback.empty? ? [] : [{ 'description' => feedback, 'severity' => 'critical' }]
+      { 'type' => 'test-report', 'outcome' => 'fail',
+        'issue_id' => issue_id, 'pr_url' => pr_url, 'findings' => findings }.compact
+    else  # timeout, cancelled, etc — surface as cancelled so the loop's cancel handling fires
+      { 'type' => 'cancelled', 'outcome' => outcome }
+    end
+  else
+    {
+      'type'             => 'demo-review-report',
+      'issue_id'         => issue_id,
+      'outcome'          => outcome,
+      'user_feedback'    => approval['user_feedback'],
+      'follow_up_issues' => approval['follow_up_issues']
+    }.compact
+  end
+end
+
 # ── Main orchestration loop ───────────────────────────────────────────────────
 
 trap('INT')  { puts "\nInterrupted."; exit 0 }
@@ -167,13 +197,15 @@ loop do
       r = pending_report; pending_report = nil; r
     elsif state.dig('currentTask', 'task') == 'demo-review.md'
       ctx = state['currentTask']
-      DemoReview.wait_for_approval(
+      approval = DemoReview.wait_for_approval(
         server:      server,
         pr_url:      ctx['pr_url'],
         issue_title: ctx['issue_title'],
         issue_id:    ctx['issue_id'],
-        summary:     ctx['summary']
+        summary:     ctx['summary'],
+        kind:        ctx['kind']
       )
+      approval_to_report(approval, kind: ctx['kind'], issue_id: ctx['issue_id'], pr_url: ctx['pr_url'])
     elsif (sid = state.dig('currentTask', 'session_id'))
       r = begin
         TaskRunner.poll_for_report(sid, cancel_check: -> { server.cancel_requested })
@@ -247,16 +279,16 @@ loop do
       'pr_url'      => ctx[:pr_url],
       'issue_title' => ctx[:issue_title],
       'issue_id'    => ctx[:issue_id],
-      'summary'     => ctx[:summary]
-    })
+      'summary'     => ctx[:summary],
+      'kind'        => ctx[:kind]
+    }.compact)
     approval = DemoReview.wait_for_approval(server: server, **ctx)
-    pending_report = {
-      'type'             => 'demo-review-report',
-      'issue_id'         => ctx[:issue_id],
-      'outcome'          => approval['outcome'],
-      'user_feedback'    => approval['user_feedback'],
-      'follow_up_issues' => approval['follow_up_issues']
-    }.compact
+    pending_report = approval_to_report(
+      approval,
+      kind:     ctx[:kind],
+      issue_id: ctx[:issue_id],
+      pr_url:   ctx[:pr_url]
+    )
 
   when 'noop'
     # nothing — loop again to dispatch triage

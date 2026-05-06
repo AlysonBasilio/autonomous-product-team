@@ -26,7 +26,8 @@ class OrchestratorServer < Sinatra::Base
       issue_title: pending_approval[:issue_title],
       issue_id:    pending_approval[:issue_id],
       pr_url:      pending_approval[:pr_url],
-      summary:     pending_approval[:summary]
+      summary:     pending_approval[:summary],
+      kind:        pending_approval[:kind]
     }
     {
       status:              s['status'],

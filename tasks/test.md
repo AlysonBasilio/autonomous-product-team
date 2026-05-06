@@ -12,32 +12,11 @@ You will receive `issue_id` and `pr_url` from the implementation task-complete r
 
 ## Workflow
 
-### 1. Pre-flight: Check for environment setup instructions
-
-Before doing anything else, look for environment setup documentation in the target project. Check for:
-- `README.md`, `docs/` directory, or any project-specific setup documentation
-- Any file mentioning "test setup", "how to run tests", or similar
-
-If adequate instructions exist (i.e., they describe how to install dependencies, configure environment variables, and start the application for testing), proceed to Step 2.
-
-If instructions are missing or clearly insufficient (e.g., no mention of how to start or configure the app for tests), **stop immediately** — do NOT proceed with any testing. Instead, output your final response as a single fenced ```json code block — and nothing else — containing this object:
-
-```json
-{
-  "type": "qa-blocked-missing-env-setup",
-  "issue_id": "<issue ID>",
-  "pr_url": "<PR URL>",
-  "details": "<one-sentence description of what env setup documentation is missing>"
-}
-```
-
-Do NOT post a test-complete comment to the PM issue in this case.
-
-### 2. Fetch the issue
+### 1. Fetch the issue
 
 Fetch the issue from the product development management system to understand the acceptance criteria. Do NOT read the implementation code or PR diff — test blind as a user would.
 
-### 3. Check out the branch
+### 2. Check out the branch
 
 Check out the PR branch locally:
 
@@ -45,11 +24,26 @@ Check out the PR branch locally:
 gh pr checkout <pr_url>
 ```
 
-### 4. Start the application
+### 3. Start the application and test
 
-Start the application from the branch and confirm it is running.
+Try to start the application from the branch and exercise the change. Use whatever cues the repo gives you, any setup notes you happen across, or sensible defaults for the stack.
 
-### 5. Test with three lenses
+If you genuinely cannot run the app yourself (commands fail with missing dependencies, no obvious entry point, the environment refuses to start, required services are unavailable, etc.), stop and hand the test off to the user. Do NOT post a test-complete comment in this case. Output your final response as a single fenced ```json code block — and nothing else — containing this object:
+
+```json
+{
+  "type": "test-blocked",
+  "issue_id": "<issue ID>",
+  "pr_url": "<PR URL>",
+  "summary": "<one sentence: what you tried and what blocked you>"
+}
+```
+
+The orchestrator will pause and ask the user to verify the change manually. This is a request for human testing, not a request to write setup documentation — do not propose creating env-setup issues or similar follow-ups.
+
+If the app starts, continue to step 4.
+
+### 4. Test with three lenses
 
 **Acceptance criteria** — Verify each criterion is demonstrably met from the outside (API calls, UI interaction, observable side effects). Do not verify by reading source code.
 
@@ -57,7 +51,7 @@ Start the application from the branch and confirm it is running.
 
 **Regression** — Spot-check adjacent features that share code paths with this change. Confirm they still work.
 
-### 6. Report
+### 5. Report
 
 First, post a comment to the PM issue using the product development management system tool. The comment body must be a single fenced ```json block containing this object:
 
@@ -92,10 +86,11 @@ Then output your final response as a single fenced ```json code block — and no
 
 ## Definition of Done
 
-Report delivered. If `outcome: pass`, findings list is empty. If `outcome: fail`, every finding is specific and actionable for the implementer.
+Either a `test-report` (after running the tests yourself) or a `test-blocked` (handing the test to the user) has been delivered. If `outcome: pass`, findings list is empty. If `outcome: fail`, every finding is specific and actionable for the implementer.
 
 ## Rules
 
 - Do not read the PR diff or implementation code before testing — test as an external user would.
 - Test from the branch, not from main.
+- Try to run the app yourself before handing off to the user.
 - Every finding must include enough detail for the implementer to reproduce and fix it.
