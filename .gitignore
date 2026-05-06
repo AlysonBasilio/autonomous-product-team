@@ -4,6 +4,8 @@ evals/.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+tmp/
 
 # autonomous-product-team
 orchestrator-state.json
+
