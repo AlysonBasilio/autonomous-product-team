@@ -286,30 +286,39 @@ class TestModelSpecification:
 
 
 class TestSessionPersistence:
-    """Session persistence: config file must be well-formed and in the install manifest."""
+    """Session persistence: config is submitted via the web UI and persists in
+    orchestrator-state.json. The orchestrator must wait for a complete config
+    before dispatching tasks, and `install.js status` must surface it."""
 
-    def test_default_config_exists(self):
-        config_path = REPO_ROOT / "config" / "default-config.json"
-        assert config_path.exists(), "config/default-config.json template must exist"
+    def test_server_defines_required_config_keys(self):
+        content = load_file("orchestrator/server.rb")
+        assert "CONFIG_KEYS" in content, (
+            "orchestrator/server.rb must define CONFIG_KEYS for session config"
+        )
+        for key in ("project_url", "tenant", "api_key"):
+            assert key in content, (
+                f"orchestrator/server.rb must reference required config key '{key}'"
+            )
 
-    def test_default_config_is_valid_json(self):
-        config_path = REPO_ROOT / "config" / "default-config.json"
-        content = config_path.read_text()
-        data = json.loads(content)
-        assert "project_url" in data, "default-config.json must contain project_url field"
-        assert "system" in data, "default-config.json must contain system field"
+    def test_config_persists_to_state_file(self):
+        content = load_file("orchestrator/server.rb")
+        assert "/api/config" in content, (
+            "orchestrator/server.rb must expose POST /api/config"
+        )
+        assert "State.patch" in content and "'config'" in content, (
+            "POST /api/config must persist submitted values into orchestrator-state.json"
+        )
 
-    def test_config_in_package_files(self):
-        content = load_file("package.json")
-        data = json.loads(content)
-        assert "config/" in data.get("files", []), (
-            "package.json files array must include config/"
+    def test_run_waits_for_config_before_dispatch(self):
+        content = load_file("orchestrator/run.rb")
+        assert "config_complete?" in content, (
+            "orchestrator/run.rb must gate task dispatch on config_complete?"
         )
 
     def test_status_shows_config_state(self):
         content = load_file("lib/install.js")
-        assert "configStatus" in content or "config" in content.lower(), (
-            "status() function must display config state"
+        assert "orchestrator-state.json" in content and "config" in content.lower(), (
+            "install.js status() must read config state from orchestrator-state.json"
         )
 
 

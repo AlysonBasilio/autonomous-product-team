@@ -229,6 +229,11 @@ CI: FAILING — 3 test failures in webhook_retry_test.go (TestRetryExponentialBa
 Issue: PROJ-108 "Add OAuth login"
 Status: In Progress
 Last updated: 2026-04-15 09:00 UTC
+Acceptance criteria:
+  1. User can sign in with Google OAuth from the login page
+  2. New users are auto-provisioned on first OAuth sign-in
+  3. Existing users with a matching email are linked to their OAuth identity
+  4. Session persists across browser restarts via secure cookie
 
 PM issue comments: NONE (no task-complete, test-complete, or demo-review-complete)
 

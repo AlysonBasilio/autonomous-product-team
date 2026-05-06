@@ -38,13 +38,23 @@ gh api /repos/<owner>/<repo>/issues/<n>/comments | jq '[.[] | {id, user: .user.l
 
 Read all comments returned. If any comment appears to be requesting changes, raising a concern, or asking a question that has not been addressed — treat it as blocking feedback.
 
-If **either** check finds unresolved threads or unaddressed comments: do NOT proceed to user presentation. Post a demo-review-complete comment and output this as your final response with `outcome: redirect` and `user_feedback` summarising the blocking items. Stop here.
+If **either** check finds unresolved threads or unaddressed comments: do NOT proceed to user presentation. Post a demo-review-complete comment, then output your final response as a single fenced ```json code block — and nothing else — containing this object, and stop here:
+
+```json
+{
+  "type": "demo-review-report",
+  "outcome": "redirect",
+  "issue_id": "<issue ID>",
+  "pr_url": "<PR URL>",
+  "user_feedback": "<summary of the unresolved threads or unaddressed comments blocking presentation>"
+}
+```
 
 If both checks are clear: continue to the next step.
 
 ### 4. Report to the orchestrator — MANDATORY
 
-Post this report and **end your session immediately** — your job is done here:
+Post this report and **end your session immediately** — your job is done here. Output your final response as a single fenced ```json code block — and nothing else — containing this object:
 
 ```json
 {
