@@ -3,3 +3,8 @@ source 'https://rubygems.org'
 gem 'sinatra'
 gem 'puma'
 gem 'rackup'
+
+# Pin to a supported bundler major to prevent contributors with future bundler
+# versions from writing a `BUNDLED WITH` entry that causes CI and end-user
+# environments running bundler 2.x/3.x to abort on version mismatch.
+gem 'bundler', '~> 2'
