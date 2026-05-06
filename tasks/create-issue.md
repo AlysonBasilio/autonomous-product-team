@@ -12,6 +12,8 @@ The orchestrator provides as context:
 - `source_issue_id` — the issue that identified this follow-up work
 - `issues` — list of issues to create, each with `title` and `description`
 - `priority` (optional) — priority to assign to the created issues (e.g., urgent, high, medium, low, no priority). When omitted, defaults to "No priority".
+- `block_source` (optional, boolean) — when true, the source issue must be linked as **blocked by** every newly created issue, regardless of the heuristic dependency review in step 3.
+- `split_context` (optional, boolean) — pass-through flag echoed back in the completion report so the orchestrator can re-trigger triage after the new issues exist.
 - `context` (optional) — caller-provided string echoed back in the completion message unchanged.
 
 ## Workflow
@@ -52,6 +54,8 @@ Apply the same check across the newly created issues themselves — if two follo
 
 For any dependency identified, link the issues using the product management system's dependency feature. Do not add speculative links — only link when the relationship is clear from the issue content.
 
+If the input flag `block_source` is true, additionally link the source issue (`source_issue_id`) as **blocked by** every newly created issue, even if the heuristic review above did not surface that link. This is non-negotiable — the caller has asserted the dependency.
+
 ### 3. Report
 
 Post a comment to the source PM issue using the product development management system tool. The comment body must be a single fenced ```json block containing this object:
@@ -61,13 +65,14 @@ Post a comment to the source PM issue using the product development management s
   "type": "create-issue-complete",
   "source_issue_id": "<source issue ID>",
   "context": "<echo the context field from input, if present>",
+  "split_context": true,
   "created_issues": [
     { "id": "<new issue ID>", "title": "<title>" }
   ]
 }
 ```
 
-Omit the `context` field entirely when no context was provided in the input; do not emit `null` or an empty string.
+Omit the `context` field entirely when no context was provided in the input; do not emit `null` or an empty string. Likewise, only include `split_context` when it was set to `true` in the input — omit the field otherwise.
 
 Output your final response as a single fenced ```json code block containing the same object — and nothing else.
 
