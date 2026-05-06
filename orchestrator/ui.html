@@ -168,6 +168,8 @@
   .history-item:last-child { border-bottom: none; }
   .history-icon { font-style: normal; }
   .history-task { color: var(--bright); flex: 1; }
+  a.history-task { color: var(--bright); text-decoration: none; }
+  a.history-task:hover { text-decoration: underline; }
   .history-meta { color: var(--muted); font-size: 11px; white-space: nowrap; }
 
   /* ── Escalation ── */
@@ -374,9 +376,13 @@
       const dur     = h.duration_s ? `${h.duration_s}s` : '';
       const taskStr = h.task ? h.task.replace(/\.md$/, '') : (h.report?.type || '?');
       const issueId = h.report?.issue_id ? ` · ${issueDisplay(h.report.issue_id)}` : '';
+      const url     = sessionUrl(h.session_id);
+      const taskHtml = url
+        ? `<a class="history-task" href="${esc(url)}" target="_blank">${esc(taskStr)}${esc(issueId)}</a>`
+        : `<span class="history-task">${esc(taskStr)}${esc(issueId)}</span>`;
       return `<div class="history-item">
         <span class="history-icon">${icon}</span>
-        <span class="history-task">${esc(taskStr)}${esc(issueId)}</span>
+        ${taskHtml}
         <span class="history-meta">${esc(dur)}</span>
       </div>`;
     }).join('');
@@ -467,10 +473,15 @@
     return String(issueId);
   }
 
-  function sessionLink(sessionId) {
+  function sessionUrl(sessionId) {
     const tenant = state.config?.tenant;
-    if (!tenant) return `<span style="color:var(--muted)">${esc(sessionId)}</span>`;
-    const url = `https://www.synthup.dev/t/${encodeURIComponent(tenant)}/s/${encodeURIComponent(sessionId)}`;
+    if (!tenant || !sessionId) return null;
+    return `https://www.synthup.dev/t/${encodeURIComponent(tenant)}/s/${encodeURIComponent(sessionId)}`;
+  }
+
+  function sessionLink(sessionId) {
+    const url = sessionUrl(sessionId);
+    if (!url) return `<span style="color:var(--muted)">${esc(sessionId)}</span>`;
     return `<a href="${esc(url)}" target="_blank">${esc(sessionId)}</a>`;
   }
 
