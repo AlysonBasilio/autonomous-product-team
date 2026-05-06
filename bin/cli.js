@@ -13,27 +13,30 @@ const dryRun = args.includes('--dry-run');
 function ensureBundler() {
   const { spawnSync } = require('child_process');
 
-  const check = spawnSync('bundle', ['--version'], { stdio: 'ignore' });
+  // `shell: true` so `bundle.bat` is resolved on Windows; on POSIX it still
+  // runs through the user's shell which resolves `bundle` from PATH normally.
+  const check = spawnSync('bundle', ['--version'], { stdio: 'ignore', shell: true });
   if (check.status === 0) return true;
 
   console.error('bundler not found on PATH; attempting to install with `gem install bundler`...');
   const install = spawnSync('gem', ['install', 'bundler', '--no-document', '--user-install'], {
     stdio: 'inherit',
     env: process.env,
+    shell: true,
   });
 
   if (install.status === 0) {
     // `gem install --user-install` writes to ~/.gem/ruby/X.Y.Z/bin which is
     // often not on PATH by default. Discover it via `gem env` and prepend it
     // so the recheck can find the newly-installed `bundle` executable.
-    const gemEnv = spawnSync('gem', ['env', 'user_gemhome'], { encoding: 'utf8' });
+    const gemEnv = spawnSync('gem', ['env', 'user_gemhome'], { encoding: 'utf8', shell: true });
     if (gemEnv.status === 0) {
       const userGemHome = gemEnv.stdout.trim();
       const userBinDir = path.join(userGemHome, 'bin');
       process.env.PATH = userBinDir + path.delimiter + process.env.PATH;
     }
 
-    const recheck = spawnSync('bundle', ['--version'], { stdio: 'ignore' });
+    const recheck = spawnSync('bundle', ['--version'], { stdio: 'ignore', shell: true });
     if (recheck.status === 0) return true;
     console.error(
       'bundler was installed but `bundle` is still not on PATH. ' +
@@ -67,6 +70,7 @@ switch (command) {
       cwd: orchestratorDir,
       stdio: ['ignore', 'inherit', 'inherit'],
       env: process.env,
+      shell: true,
     });
     if (install.status !== 0) {
       console.error(
