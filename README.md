@@ -2,11 +2,152 @@
 
 An autonomous AI product team that runs on [Synthup](https://www.synthup.dev). A Ruby orchestrator picks up the highest-priority unblocked issue, plans it, implements it, tests it, and presents a PR for user approval — then loops. Synthup manages the sessions that execute each task.
 
+New to the project? Start with [Prerequisites](#prerequisites), then [Environment Setup](#environment-setup), [Verification](#verification), and finally [Setup](#setup). If something goes wrong, see [Troubleshooting](#troubleshooting).
+
 ## Prerequisites
 
-- Node.js ≥ 18
-- Ruby ≥ 3.0 + Bundler
-- A [Synthup](https://synthup.dev) account
+You need the following installed on your machine before running the orchestrator. Exact versions matter — gem resolution and Bundler will fail if these are off.
+
+| Tool | Required version | Notes |
+|---|---|---|
+| Ruby | ≥ 3.0 | Tested with Ruby 3.x. Older Ruby versions will fail to resolve `sinatra 4.x` and `puma 8.x`. |
+| Bundler | ≥ 2.0 | This repo's `orchestrator/Gemfile.lock` is pinned to Bundler 4.0.10, but any Bundler ≥ 2 can install it. |
+| Node.js | ≥ 18 | Needed for the `npx` CLI bootstrap. |
+| `npx` | ships with Node.js ≥ 18 | No separate install. |
+| [Synthup](https://synthup.dev) account | — | Needed for the `tenant` and `api_key` configured in the web UI. |
+
+## Environment Setup
+
+Step-by-step instructions for installing the prerequisites from a clean machine.
+
+### 1. Install Ruby ≥ 3.0
+
+We recommend a Ruby version manager (`rbenv`, `rvm`, or `asdf`) so you can pin the version per-project.
+
+**macOS (Homebrew + rbenv):**
+
+```bash
+brew install rbenv ruby-build
+rbenv init                 # follow the printed instructions to add rbenv to your shell
+rbenv install 3.3.0
+rbenv global 3.3.0
+```
+
+**Linux (apt + rbenv):**
+
+```bash
+sudo apt-get update
+sudo apt-get install -y rbenv ruby-build build-essential libssl-dev libreadline-dev zlib1g-dev
+rbenv init                 # follow the printed instructions to add rbenv to your shell
+rbenv install 3.3.0
+rbenv global 3.3.0
+```
+
+**Linux (asdf, alternative):**
+
+```bash
+asdf plugin add ruby
+asdf install ruby 3.3.0
+asdf global ruby 3.3.0
+```
+
+### 2. Install Bundler
+
+Bundler ships with modern Ruby releases, but if `bundle --version` is missing or below 2.0:
+
+```bash
+gem install bundler
+```
+
+### 3. Install Node.js ≥ 18
+
+**macOS / Linux (nvm):**
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+nvm install 20
+nvm use 20
+```
+
+**macOS (Homebrew):** `brew install node`
+
+**Linux (apt):**
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+`npx` is installed automatically with Node.js ≥ 18.
+
+### Platform-specific notes
+
+- **macOS (arm64 / x86_64):** the standard rbenv + Homebrew path works out of the box. The `Gemfile.lock` includes `arm64-darwin-24` for Apple Silicon.
+- **Linux (x86_64):** the `Gemfile.lock` now includes `x86_64-linux` in its `PLATFORMS` section (added in PR #37 to fix the original gem-resolution bug). If you cloned this repo before that fix landed and you see `Could not find puma-X, mustermann-X in locally installed gems`, run:
+
+  ```bash
+  cd orchestrator
+  bundle lock --add-platform x86_64-linux
+  bundle install
+  ```
+- **Windows:** not officially supported. Use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) and follow the Linux instructions above.
+
+## Verification
+
+Before running `npx ... run`, confirm your environment:
+
+```bash
+ruby --version    # ruby 3.x.x ...
+bundle --version  # Bundler version 2.x.x or higher
+node --version    # v18.x.x or higher
+npx --version     # any version that ships with Node ≥ 18
+```
+
+If any command above fails or reports an unsupported version, fix it before continuing — see [Troubleshooting](#troubleshooting).
+
+## Troubleshooting
+
+### `Could not find puma-X, mustermann-X in locally installed gems`
+
+This means Bundler couldn't resolve gems for your platform from `orchestrator/Gemfile.lock`. The CLI may suppress the underlying error — to see the full output, run Bundler directly:
+
+```bash
+cd orchestrator
+bundle install
+```
+
+The error usually points to one of: missing platform entry (see next item), Ruby version mismatch, or missing Bundler.
+
+### Missing platform entry in `Gemfile.lock`
+
+If `bundle install` complains that your platform is unsupported (typical on Linux x86_64 after a fresh clone of an older revision):
+
+```bash
+cd orchestrator
+bundle lock --add-platform x86_64-linux   # or arm64-darwin for Apple Silicon
+bundle install
+```
+
+### Ruby version mismatch
+
+If `ruby --version` is below 3.0 or doesn't match what other tools expect, pin it locally:
+
+```bash
+cd orchestrator
+rbenv local 3.3.0   # or: asdf local ruby 3.3.0
+```
+
+Then re-run `bundle install`.
+
+### Bundler version too old
+
+If `bundle --version` reports below 2.0 or Bundler is missing entirely:
+
+```bash
+gem install bundler
+```
+
+Re-run `bundle install` afterwards.
 
 ## Setup
 
