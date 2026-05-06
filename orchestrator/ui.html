@@ -293,7 +293,7 @@
         ${ct.context?.issue_id ? `<div class="row"><span class="label">issue</span><span class="value">${esc(ct.context.issue_id)}</span></div>` : ''}
         ${ct.context?.pr_url   ? `<div class="row"><span class="label">PR</span><span class="value"><a href="${esc(ct.context.pr_url)}" target="_blank">${esc(ct.context.pr_url)}</a></span></div>` : ''}
         <div class="row"><span class="label">elapsed</span><span class="value" id="elapsed-value">${elapsed}</span></div>
-        ${ct.session_id ? `<div class="row"><span class="label">session</span><span class="value" style="color:var(--muted)">${esc(ct.session_id)}</span></div>` : ''}
+        ${ct.session_id ? `<div class="row"><span class="label">session</span><span class="value">${sessionLink(ct.session_id)}</span></div>` : ''}
         <div style="margin-top:.75rem"><button class="danger" onclick="cancelTask()">Cancel task</button></div>
       `;
     } else {
@@ -411,6 +411,13 @@
       headers: { 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined
     }).catch(() => {});
+  }
+
+  function sessionLink(sessionId) {
+    const tenant = state.config?.tenant;
+    if (!tenant) return `<span style="color:var(--muted)">${esc(sessionId)}</span>`;
+    const url = `https://www.synthup.dev/t/${encodeURIComponent(tenant)}/s/${encodeURIComponent(sessionId)}`;
+    return `<a href="${esc(url)}" target="_blank">${esc(sessionId)}</a>`;
   }
 
   function esc(s) {
