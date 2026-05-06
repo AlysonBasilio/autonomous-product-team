@@ -195,11 +195,15 @@ loop do
   end
 
   # Record history (store only a compact summary of the report)
-  started_at = state.dig('currentTask', 'started_at')
+  # Reload state here so we capture the currentTask that was set by dispatch_task —
+  # the local `state` variable may be stale if dispatch_task ran in the current iteration.
+  current_task_state = State.load(project_root)
+  started_at = current_task_state.dig('currentTask', 'started_at') ||
+               state.dig('currentTask', 'started_at')
   duration   = started_at ? (Time.now - Time.parse(started_at)).round : nil
   State.record_history(project_root, {
-    'task'         => state.dig('currentTask', 'task'),
-    'session_id'   => state.dig('currentTask', 'session_id'),
+    'task'         => current_task_state.dig('currentTask', 'task') || state.dig('currentTask', 'task'),
+    'session_id'   => current_task_state.dig('currentTask', 'session_id') || state.dig('currentTask', 'session_id'),
     'completed_at' => Time.now.utc.iso8601,
     'duration_s'   => duration,
     'report'       => { 'type'     => report['type'],

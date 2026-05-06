@@ -304,7 +304,7 @@
       const elapsed = ct.started_at ? formatElapsed(ct.started_at) : '—';
       ctSection.innerHTML = `
         <div class="row"><span class="label">task</span><span class="value">${esc(ct.task)}</span></div>
-        ${ct.context?.issue_id ? `<div class="row"><span class="label">issue</span><span class="value">${esc(ct.context.issue_id)}</span></div>` : ''}
+        ${ct.context?.issue_id ? `<div class="row"><span class="label">issue</span><span class="value">${esc(issueDisplay(ct.context.issue_id))}</span></div>` : ''}
         ${ct.context?.pr_url   ? `<div class="row"><span class="label">PR</span><span class="value"><a href="${esc(ct.context.pr_url)}" target="_blank">${esc(ct.context.pr_url)}</a></span></div>` : ''}
         <div class="row"><span class="label">elapsed</span><span class="value" id="elapsed-value">${elapsed}</span></div>
         ${ct.session_id ? `<div class="row"><span class="label">session</span><span class="value">${sessionLink(ct.session_id)}</span></div>` : ''}
@@ -358,11 +358,13 @@
     const el = document.getElementById('history-list');
     if (!items.length) { el.innerHTML = '<span class="empty">No completed tasks yet</span>'; return; }
     el.innerHTML = [...items].reverse().map(h => {
-      const icon = outcomeIcon(h.outcome || h.report?.type);
-      const dur  = h.duration_s ? `${h.duration_s}s` : '';
+      const icon    = outcomeIcon(h.outcome || h.report?.type);
+      const dur     = h.duration_s ? `${h.duration_s}s` : '';
+      const taskStr = h.task ? h.task.replace(/\.md$/, '') : (h.report?.type || '?');
+      const issueId = h.report?.issue_id ? ` · ${issueDisplay(h.report.issue_id)}` : '';
       return `<div class="history-item">
         <span class="history-icon">${icon}</span>
-        <span class="history-task">${esc(h.task || '?')}</span>
+        <span class="history-task">${esc(taskStr)}${esc(issueId)}</span>
         <span class="history-meta">${esc(dur)}</span>
       </div>`;
     }).join('');
@@ -440,6 +442,17 @@
       headers: { 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined
     }).catch(() => {});
+  }
+
+  function issueDisplay(issueId) {
+    if (issueId == null) return '';
+    if (typeof issueId === 'object') {
+      // next_issue is passed as { id, title, summary } from triage-report
+      const id    = issueId.id    || '';
+      const title = issueId.title || '';
+      return title ? `${id} — ${title}` : id;
+    }
+    return String(issueId);
   }
 
   function sessionLink(sessionId) {
