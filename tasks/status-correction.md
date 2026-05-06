@@ -29,14 +29,20 @@ The orchestrator provides as context either:
 
 3. **Correct any inconsistencies** — Update the issue status to match ground truth. Add a comment on the issue noting what was corrected and why.
 
-4. **Report** — Output this as your final response using this schema:
+4. **Report** — Output your final response as a single fenced ```json code block — and nothing else — containing this object:
 
+   ```json
+   {
+     "type": "status-correction-report",
+     "audited": ["<issue ID>"],
+     "corrections": [
+       { "id": "<issue ID>", "old_status": "<status>", "new_status": "<status>", "reason": "<why>" }
+     ],
+     "now_unblocked": ["<issue ID>"]
+   }
    ```
-   type: status-correction-report
-   audited: [issue IDs]
-   corrections: [{ id, old_status, new_status, reason }]
-   now_unblocked: [issue IDs]
-   ```
+
+   `audited`, `corrections`, and `now_unblocked` are arrays. Use `[]` when a category has no entries — do not omit these fields.
 
 ## Definition of Done
 

@@ -58,18 +58,20 @@ Link any clear dependencies using the product development management system's de
 
 ### 7. Report
 
-Post a comment to the PM issue using the product development management system tool:
+Post a comment to the PM issue using the product development management system tool. The comment body must be a single fenced ```json block containing this object:
 
-```
-type: discovery-complete
-issue_id: <issue ID>
-summary: <one sentence describing what was explored>
-created_issues:
-  - id: <new issue ID>
-    title: <title>
+```json
+{
+  "type": "discovery-complete",
+  "issue_id": "<issue ID>",
+  "summary": "<one sentence describing what was explored>",
+  "created_issues": [
+    { "id": "<new issue ID>", "title": "<title>" }
+  ]
+}
 ```
 
-Output this as your final response with the same content.
+Output your final response as a single fenced ```json code block containing the same object — and nothing else.
 
 ## Definition of Done
 

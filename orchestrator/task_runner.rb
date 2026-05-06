@@ -43,23 +43,43 @@ module TaskRunner
     deadline        = Time.now + timeout
     last_content    = nil
     last_changed_at = nil
+    started_at      = Time.now
+    sid_short       = session_id.to_s.slice(0, 8)
 
     loop do
       return { 'type' => 'cancelled' } if cancel_check&.call
       raise TimeoutError, "Session #{session_id} timed out after #{timeout}s" if Time.now > deadline
 
+      elapsed = (Time.now - started_at).round
       msg = Synthup.get_last_message(session_id)
-      if msg
-        return failed_report(session_id, msg) if session_failed?(msg)
 
-        content = msg['content']
-        report  = extract_report(content)
-        return report if report
+      if msg.nil?
+        warn "[poll #{sid_short}] +#{elapsed}s no message yet"
+      else
+        if session_failed?(msg)
+          warn "[poll #{sid_short}] +#{elapsed}s session failed (status=#{msg['status'].inspect})"
+          return failed_report(session_id, msg)
+        end
 
-        if content != last_content
+        content     = msg['content']
+        len         = content.is_a?(String) ? content.length : 0
+        fence_count = content.is_a?(String) ? content.scan(/```/).length / 2 : 0
+        report      = extract_report(content)
+
+        if report
+          warn "[poll #{sid_short}] +#{elapsed}s matched type=#{report['type']} (content=#{len}c, fences=#{fence_count})"
+          return report
+        end
+
+        changed = content != last_content
+        warn "[poll #{sid_short}] +#{elapsed}s no report match (content=#{len}c, fences=#{fence_count}, " \
+             "changed=#{changed}, stale=#{last_changed_at ? (Time.now - last_changed_at).round : 0}s)"
+
+        if changed
           last_content    = content
           last_changed_at = Time.now
         elsif last_changed_at && Time.now - last_changed_at > STALE_THRESHOLD
+          warn "[poll #{sid_short}] +#{elapsed}s STALL — no new content for #{STALE_THRESHOLD}s"
           return { 'type' => 'task-failed',
                    'details' => "Session #{session_id} stalled — no new output for #{STALE_THRESHOLD}s" }
         end
@@ -85,14 +105,10 @@ module TaskRunner
   def self.extract_report(content)
     return nil unless content.is_a?(String)
 
-    content.scan(/```(?:json)?\n(\{.*?\})\n```/m).each do |match|
+    content.scan(/```(?:json)?\n(.*?)\n```/m).each do |match|
       parsed = safe_parse_json(match[0])
-      return parsed if parsed && KNOWN_REPORT_TYPES.include?(parsed['type'])
-    end
-
-    content.scan(/(\{[^{}]*"type"\s*:\s*"[^"]+[^{}]*\})/m).each do |match|
-      parsed = safe_parse_json(match[0])
-      return parsed if parsed && KNOWN_REPORT_TYPES.include?(parsed['type'])
+      next unless parsed.is_a?(Hash) && KNOWN_REPORT_TYPES.include?(parsed['type'])
+      return parsed
     end
 
     nil

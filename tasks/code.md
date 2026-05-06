@@ -75,36 +75,44 @@ Review the diff for any TODO comments added during this implementation. For each
 
 Once CI is green, your branch is rebased, and all review threads are resolved (verified via the GraphQL check above — must return `0`):
 
-First, post a comment to the PM issue using the product development management system tool:
+First, post a comment to the PM issue using the product development management system tool. The comment body must be a single fenced ```json block containing this object exactly:
 
-```
-type: task-complete
-task: tasks/code.md
-pr_url: <PR URL>
+```json
+{
+  "type": "task-complete",
+  "task": "tasks/code.md",
+  "pr_url": "<PR URL>"
+}
 ```
 
 This is the authoritative completion record for this task. If re-running after findings, this comment supersedes any prior one.
 
-Then output this as your final response:
+Then output your final response as a single fenced ```json code block — and nothing else — containing this object:
 
-```
-type: task-complete
-task: tasks/code.md
-issue_id: <issue ID>
-pr_url: <PR URL>
-summary: <one sentence>
-follow_up_issues:  # include only if TODOs were added; omit this field entirely if none
-  - title: <TODO text>
-    description: <file path — brief context on what is deferred and why>
+```json
+{
+  "type": "task-complete",
+  "task": "tasks/code.md",
+  "issue_id": "<issue ID>",
+  "pr_url": "<PR URL>",
+  "summary": "<one sentence>",
+  "follow_up_issues": [
+    { "title": "<TODO text>", "description": "<file path — brief context on what is deferred and why>" }
+  ]
+}
 ```
 
-If implementation hits a blocker that cannot be resolved, output this as your final response:
+Omit the `follow_up_issues` field entirely when no TODOs were added; do not emit `null` or `[]`.
 
-```
-type: task-failed
-task: tasks/code.md
-issue_id: <issue ID>
-failure: <exact failure details — test name, error message, unmet criterion>
+If implementation hits a blocker that cannot be resolved, output your final response as a single fenced ```json code block containing this object — and nothing else:
+
+```json
+{
+  "type": "task-failed",
+  "task": "tasks/code.md",
+  "issue_id": "<issue ID>",
+  "failure": "<exact failure details — test name, error message, unmet criterion>"
+}
 ```
 
 ---

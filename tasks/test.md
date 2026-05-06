@@ -20,13 +20,15 @@ Before doing anything else, look for environment setup documentation in the targ
 
 If adequate instructions exist (i.e., they describe how to install dependencies, configure environment variables, and start the application for testing), proceed to Step 2.
 
-If instructions are missing or clearly insufficient (e.g., no mention of how to start or configure the app for tests), **stop immediately** — do NOT proceed with any testing. Instead, output this as your final response:
+If instructions are missing or clearly insufficient (e.g., no mention of how to start or configure the app for tests), **stop immediately** — do NOT proceed with any testing. Instead, output your final response as a single fenced ```json code block — and nothing else — containing this object:
 
-```
-type: qa-blocked-missing-env-setup
-issue_id: <issue ID>
-pr_url: <PR URL>
-missing: <one-sentence description of what env setup documentation is missing>
+```json
+{
+  "type": "qa-blocked-missing-env-setup",
+  "issue_id": "<issue ID>",
+  "pr_url": "<PR URL>",
+  "details": "<one-sentence description of what env setup documentation is missing>"
+}
 ```
 
 Do NOT post a test-complete comment to the PM issue in this case.
@@ -57,25 +59,35 @@ Start the application from the branch and confirm it is running.
 
 ### 6. Report
 
-First, post a comment to the PM issue using the product development management system tool:
+First, post a comment to the PM issue using the product development management system tool. The comment body must be a single fenced ```json block containing this object:
 
+```json
+{
+  "type": "test-complete",
+  "pr_url": "<PR URL>",
+  "outcome": "pass",
+  "findings": [
+    { "description": "<finding>", "severity": "critical" }
+  ]
+}
 ```
-type: test-complete
-pr_url: <PR URL>
-outcome: pass | fail
-findings: [{ description, severity: critical | minor }]
-```
+
+`outcome` must be `"pass"` or `"fail"`. `severity` must be `"critical"` or `"minor"`. When `outcome` is `"pass"`, `findings` must be `[]`.
 
 This is the authoritative test completion record for this issue. If re-running, this comment supersedes any prior test-complete comment.
 
-Then output this as your final response:
+Then output your final response as a single fenced ```json code block — and nothing else — containing this object:
 
-```
-type: test-report
-issue_id: <issue ID>
-pr_url: <PR URL>
-outcome: pass | fail
-findings: [{ description, severity: critical | minor }]
+```json
+{
+  "type": "test-report",
+  "issue_id": "<issue ID>",
+  "pr_url": "<PR URL>",
+  "outcome": "pass",
+  "findings": [
+    { "description": "<finding>", "severity": "critical" }
+  ]
+}
 ```
 
 ## Definition of Done

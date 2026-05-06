@@ -155,35 +155,42 @@ git checkout <branch-name>
 
 **When outputting a `split-report`** (issue is too big for a single PR):
 
-Output this as your final response:
+Output your final response as a single fenced ```json code block — and nothing else — containing this object:
 
+```json
+{
+  "type": "split-report",
+  "source_issue_id": "<issue ID>",
+  "reason": "<one sentence: why this issue is too big for a single PR>",
+  "issues": [
+    {
+      "title": "<sub-issue title>",
+      "description": "<what this sub-issue covers and its acceptance criteria>",
+      "depends_on": ["<title of another sub-issue in this list that must complete first>"]
+    }
+  ]
+}
 ```
-type: split-report
-source_issue_id: <issue ID>
-reason: <one sentence: why this issue is too big for a single PR>
-issues:
-  - title: <sub-issue title>
-    description: <what this sub-issue covers and its acceptance criteria>
-    depends_on:
-      - <title of another sub-issue in this list that must complete first, if any>
-```
+
+Omit `depends_on` entirely on sub-issues that have no prerequisites; do not emit `null` or an empty array.
 
 **When outputting a `plan-report`** (normal path):
 
-Output this as your final response:
+Output your final response as a single fenced ```json code block — and nothing else — containing this object:
 
-```
-type: plan-report
-issue_id: <issue ID>
-next_task: code | test | demo-review
-branch: <branch name, if applicable>
-pr_url: <PR URL, if applicable>
-plan: |
-  <ordered implementation checklist — only when next_task is implement-*>
-findings: <context for the implementer — test findings on failure, or user_feedback on demo-review redirect; only when next_task is implement-*>
+```json
+{
+  "type": "plan-report",
+  "issue_id": "<issue ID>",
+  "next_task": "code",
+  "branch": "<branch name>",
+  "pr_url": "<PR URL>",
+  "plan": "<ordered implementation checklist as a single string with newlines>",
+  "findings": "<context for the implementer — test findings on failure, or user_feedback on demo-review redirect>"
+}
 ```
 
-Fields that do not apply to the current state should be omitted. When the routing table says "no `next_task`", **omit the `next_task` field entirely** — do not set it to `done`, `null`, or any other value.
+`next_task` must be one of `"code"`, `"test"`, or `"demo-review"`. Fields that do not apply to the current state must be omitted entirely (no `null`, no empty strings). `plan` and `findings` apply only when `next_task` is `"code"`. When the routing table says "no `next_task`", **omit the `next_task` field entirely** — do not set it to `"done"`, `null`, or any other value.
 
 ## Rules
 

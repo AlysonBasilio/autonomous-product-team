@@ -36,14 +36,23 @@ class GradeResult:
     failure_reasons: List[str] = field(default_factory=list)
 
 
+FORMAT_CRITERION = (
+    "the agent's final output contains a fenced ```json code block whose contents "
+    "parse as valid JSON and include a top-level \"type\" field"
+)
+
+
 def grade(
     client: openai.OpenAI,
     scenario: dict,
     agent_output: str,
     task_content: str,
 ) -> GradeResult:
+    # Append the wire-format criterion to every rubric — the orchestrator's
+    # extract_report only recognizes fenced ```json blocks.
+    rubric = list(scenario["rubric"]) + [FORMAT_CRITERION]
     rubric_str = "\n".join(
-        f"CRITERION {i + 1}: {r}" for i, r in enumerate(scenario["rubric"])
+        f"CRITERION {i + 1}: {r}" for i, r in enumerate(rubric)
     )
     prompt = JUDGE_PROMPT.format(
         task_content=task_content,
@@ -69,7 +78,7 @@ def grade(
     scores = []
     failure_reasons = []
 
-    for i, criterion in enumerate(scenario["rubric"]):
+    for i, criterion in enumerate(rubric):
         marker = f"CRITERION {i + 1}:"
         passed_criterion = False
         reason = "criterion not found in judge output"

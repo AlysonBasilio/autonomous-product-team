@@ -333,8 +333,9 @@ class TestQAPreflightBehavior:
         assert "pr_url" in content, (
             "tasks/test.md qa-blocked report must include pr_url"
         )
-        assert "missing" in content, (
-            "tasks/test.md qa-blocked report must include missing field"
+        assert "details" in content, (
+            "tasks/test.md qa-blocked report must include details field "
+            "(matches router.rb's report['details'] read)"
         )
 
     def test_test_preflight_blocks_before_testing(self):
@@ -368,3 +369,93 @@ class TestSplitReport:
         assert "context" in content, (
             "create-issue.md must accept and echo the optional context field"
         )
+
+
+# Mirrored from orchestrator/task_runner.rb — keep in sync.
+KNOWN_REPORT_TYPES = {
+    "triage-report", "plan-report", "task-complete", "split-report", "test-report",
+    "demo-review-pending", "demo-review-report", "discovery-complete",
+    "create-issue-complete", "status-correction-report",
+    "qa-blocked-missing-env-setup", "task-failed", "blocked",
+}
+
+# Report types that agents author in task specs. demo-review-report is constructed
+# by orchestrator/run.rb after UI approval, never by an agent — so it isn't expected
+# to appear as a fenced JSON example in any task spec.
+EXPECTED_AGENT_REPORT_TYPES = KNOWN_REPORT_TYPES - {"demo-review-report"}
+
+# Types not authored in any task spec today (router-only handlers).
+TYPES_NOT_IN_TASK_SPECS = {"blocked"}
+
+
+def _fenced_json_blocks(content: str) -> list[dict]:
+    """Return every fenced ```json block in content that successfully JSON-parses."""
+    blocks = []
+    for match in re.finditer(r"^[ \t]*```json\n(.*?)\n[ \t]*```", content, re.DOTALL | re.MULTILINE):
+        try:
+            blocks.append(json.loads(match.group(1)))
+        except json.JSONDecodeError:
+            continue
+    return blocks
+
+
+class TestReportFormatIsJson:
+    """
+    Each agent-authored report block in tasks/*.md must be fenced ```json and
+    parse as valid JSON. Regression guard against drift back to YAML-ish format.
+
+    Fixtures use angle-bracket placeholders like "<issue ID>" — JSON parsing
+    treats those as plain strings, so the example payloads must already be
+    syntactically valid JSON.
+    """
+
+    def test_every_known_report_type_appears_in_a_task_spec(self):
+        """Every agent-emitted report type must be authored as a fenced JSON example."""
+        types_seen: set[str] = set()
+        for task_path in TASK_FILES:
+            for block in _fenced_json_blocks(load_file(str(task_path))):
+                if isinstance(block, dict) and "type" in block:
+                    types_seen.add(block["type"])
+
+        expected = EXPECTED_AGENT_REPORT_TYPES - TYPES_NOT_IN_TASK_SPECS
+        missing = expected - types_seen
+        assert not missing, (
+            f"Report types missing a fenced ```json example in tasks/*.md: {sorted(missing)}. "
+            f"Each agent-emitted report type must have a JSON example so the "
+            f"orchestrator's extract_report can match it."
+        )
+
+    def test_every_fenced_json_block_in_task_specs_parses(self):
+        """Every ```json block in tasks/*.md must parse — no malformed JSON examples."""
+        for task_path in TASK_FILES:
+            content = load_file(str(task_path))
+            for match in re.finditer(r"^[ \t]*```json\n(.*?)\n[ \t]*```", content, re.DOTALL | re.MULTILINE):
+                try:
+                    json.loads(match.group(1))
+                except json.JSONDecodeError as e:
+                    raise AssertionError(
+                        f"{task_path} contains a ```json block that does not parse: {e}\n"
+                        f"Block:\n{match.group(1)}"
+                    )
+
+    def test_no_yaml_style_report_blocks_remain(self):
+        """
+        Catch the old YAML-ish ` ```\\ntype: foo\\n... ` shape that the
+        orchestrator's extract_report cannot match (this is the bug that
+        caused issue-triage to time out at 30 minutes).
+        """
+        # Pattern: a fenced block (no language tag, or any tag other than json)
+        # whose first line is `type: <known-report-type>`.
+        type_alternation = "|".join(re.escape(t) for t in EXPECTED_AGENT_REPORT_TYPES)
+        bad_pattern = re.compile(
+            r"```(?!json\n)[a-z]*\n\s*type:\s*(" + type_alternation + r")\b",
+            re.MULTILINE,
+        )
+        for task_path in TASK_FILES:
+            content = load_file(str(task_path))
+            match = bad_pattern.search(content)
+            assert not match, (
+                f"{task_path} still has a YAML-style report block (`type: {match.group(1)}` "
+                f"inside a non-json fence). The orchestrator's extract_report only matches "
+                f"fenced ```json blocks — convert this to JSON."
+            )

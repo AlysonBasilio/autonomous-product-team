@@ -45,23 +45,28 @@ An issue is **not** blocked solely because its implementation is difficult or un
 
 4. **Rank ready issues** — Sort the ready issues by priority (highest first), using the priority assigned in the product development management system. If priorities are equal, prefer the issue with the earliest creation date. Note: formal PM-system dependency links, text-inferred cross-references, and semantic dependencies all count equally when determining whether an issue is Blocked or Ready.
 
-5. **Report** — Output this as your final response using this schema:
+5. **Report** — Output your final response as a single fenced ```json code block — and nothing else — containing this object:
 
+   ```json
+   {
+     "type": "triage-report",
+     "next_issue": { "id": "<id>", "title": "<title>", "summary": "<summary>" },
+     "issue_type": "implementation"
+   }
    ```
-   type: triage-report
-   next_issue: { id, title, summary, issue_type }
-   ```
 
-   `next_issue` is the highest-priority ready issue — the one the team should work on next. If no issues are ready, `next_issue` is null.
+   `next_issue` is the highest-priority ready issue — the one the team should work on next. If no issues are ready, set `next_issue` to `null` and omit `issue_type`.
 
-   `issue_type` is `discovery` when the issue is exploratory (no concrete acceptance criteria), or `implementation` (the default) when the issue has concrete acceptance criteria and can proceed to planning.
+   `issue_type` is `"discovery"` when the issue is exploratory (no concrete acceptance criteria), or `"implementation"` (the default) when the issue has concrete acceptance criteria and can proceed to planning.
 
-   If the product development management system returns an error at any step, stop and output this as your final response:
+   If the product development management system returns an error at any step, stop and output your final response as a single fenced ```json code block containing this object — and nothing else:
 
-   ```
-   type: task-failed
-   task: tasks/issue-triage.md
-   failure: <exact error message and which step failed>
+   ```json
+   {
+     "type": "task-failed",
+     "task": "tasks/issue-triage.md",
+     "failure": "<exact error message and which step failed>"
+   }
    ```
 
 ## Definition of Done

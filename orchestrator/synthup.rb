@@ -25,7 +25,8 @@ module Synthup
   end
 
   def self.get_last_message(session_id)
-    get("/api/sessions/#{session_id}/last-message")
+    response = get("/api/sessions/#{session_id}/last-message")
+    response.is_a?(Hash) ? response['message'] || response : response
   rescue Error => e
     return nil if e.status == 404
     raise
