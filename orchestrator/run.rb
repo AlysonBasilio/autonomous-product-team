@@ -3,12 +3,14 @@
 
 require 'json'
 require 'socket'
-ENV['BUNDLE_GEMFILE'] ||= File.join(File.dirname(__FILE__), 'Gemfile')
 require 'bundler/setup'
 
 dir = File.dirname(__FILE__)
 $LOAD_PATH.unshift(dir)
 
+require_relative 'storage'
+require_relative 'config'
+require_relative 'projects'
 require_relative 'synthup'
 require_relative 'state'
 require_relative 'router'
@@ -18,11 +20,9 @@ require_relative 'server'
 
 # ── Start web server ──────────────────────────────────────────────────────────
 
-project_root = Dir.pwd
-port   = (ENV['ORCHESTRATOR_PORT'] || 4242).to_i
+port = (ENV['ORCHESTRATOR_PORT'] || 4242).to_i
 interactive = ENV['ORCHESTRATOR_INTERACTIVE'] == '1'
-OrchestratorServer.project_root = project_root
-server = OrchestratorServer  # class used as handle; state is class-level
+server = OrchestratorServer
 
 puts "Interactive mode: orchestrator will pause for approval before each action." if interactive
 
@@ -62,22 +62,29 @@ rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT
   sleep 0.1
 end
 
-# ── Load or initialise state ──────────────────────────────────────────────────
+# ── Wait for global config + an active project ───────────────────────────────
 
-state = State.load(project_root) || State.initial
+def wait_for_setup(port)
+  cfg = Config.load
+  needs_creds = !cfg.synthup_configured?
+  needs_project = Projects.find(cfg.active_project_id).nil?
+  return cfg unless needs_creds || needs_project
 
-# ── Wait for configuration via UI ─────────────────────────────────────────────
-
-unless OrchestratorServer.config_complete?(state['config'])
-  puts "Waiting for configuration at http://localhost:#{port} …"
-  until OrchestratorServer.config_complete?(state['config'])
+  puts "Waiting for setup at http://localhost:#{port} …"
+  loop do
     sleep 1
-    state = State.load(project_root) || State.initial
+    cfg = Config.load
+    next unless cfg.synthup_configured?
+    next if Projects.find(cfg.active_project_id).nil?
+    return cfg
   end
 end
 
-config = state['config']
-Synthup.api_key = config['api_key']
+cfg = wait_for_setup(port)
+project = Projects.find(cfg.active_project_id)
+Synthup.api_key = cfg.api_key
+
+state = State.load(project.id)
 
 if state['status'] == 'escalated'
   esc = state['escalation'] || {}
@@ -87,7 +94,7 @@ if state['status'] == 'escalated'
   puts "\nUI: http://localhost:#{port} — click 'Triage now' to reset and retry."
   loop { sleep 1; break if server.triage_requested }
   server.triage_requested = false
-  state = State.patch(project_root, 'status' => 'running', 'escalation' => nil, 'currentTask' => nil)
+  state = State.patch(project.id, 'status' => 'running', 'escalation' => nil, 'currentTask' => nil)
 end
 
 if state['status'] == 'done'
@@ -95,33 +102,33 @@ if state['status'] == 'done'
   puts "UI: http://localhost:#{port} — click 'Triage now' to start again."
   loop { sleep 1; break if server.triage_requested }
   server.triage_requested = false
-  state = State.patch(project_root, 'status' => 'running', 'currentTask' => nil)
+  state = State.patch(project.id, 'status' => 'running', 'currentTask' => nil)
 end
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def dispatch_task(config, project_root, task, context)
+def dispatch_task(project, cfg, task, context)
   started_at = Time.now.utc.iso8601
-  State.patch(project_root, 'currentTask' => {
+  State.patch(project.id, 'currentTask' => {
     'task'       => task,
     'session_id' => nil,
     'started_at' => started_at,
     'context'    => context
   }, 'status' => 'running')
 
-  task_path = TaskRunner.find_task_file(task, project_root)
+  task_path = TaskRunner.find_task_file(task)
   model     = TaskRunner.parse_model(task_path)
-  full_context = { 'project_url' => config['project_url'] }.merge(context)
+  full_context = { 'project_url' => project.project_url }.merge(context)
   prompt = TaskRunner.compose_prompt(task_path, full_context)
 
   session = Synthup.create_session(
-    tenant:  config['tenant'],
-    project: github_repo(config['project_url']),
+    tenant:  cfg.tenant,
+    project: github_repo(project.project_url),
     prompt:  prompt,
     model:   model
   )
 
-  State.patch(project_root, 'currentTask' => {
+  State.patch(project.id, 'currentTask' => {
     'task'       => task,
     'session_id' => session['id'],
     'started_at' => started_at,
@@ -182,13 +189,26 @@ loop do
   # Pause gate — check before every iteration
   loop { break unless server.paused; sleep 1 }
 
-  state = State.load(project_root)
+  # Refresh config + active project. Global config can change via UI mid-run.
+  cfg = Config.load
+  unless cfg.synthup_configured? && Projects.find(cfg.active_project_id)
+    cfg = wait_for_setup(port)
+  end
+  Synthup.api_key = cfg.api_key
+
+  # Detect active-project change: drop any pending report and resume cleanly.
+  if project.id != cfg.active_project_id
+    project = Projects.find(cfg.active_project_id)
+    pending_report = nil
+  end
+
+  state = State.load(project.id)
 
   # Handle manual triage trigger
   if server.triage_requested
     server.triage_requested = false
     pending_report = nil
-    state = State.patch(project_root, 'currentTask' => nil)
+    state = State.patch(project.id, 'currentTask' => nil)
   end
 
   # Obtain a report for the current state
@@ -215,12 +235,12 @@ loop do
       Synthup.archive_session(sid) rescue nil if r['type'] == 'cancelled'
       r
     else
-      dispatch_task(config, project_root, 'issue-triage.md', {})
+      dispatch_task(project, cfg, 'issue-triage.md', {})
     end
 
   # Handle cancel
   if report['type'] == 'cancelled' || report['outcome'] == 'cancelled'
-    State.clear_current_task(project_root)
+    State.clear_current_task(project.id)
     server.cancel_requested = false
     pending_report = nil
     next
@@ -229,11 +249,11 @@ loop do
   # Record history (store only a compact summary of the report)
   # Reload state here so we capture the currentTask that was set by dispatch_task —
   # the local `state` variable may be stale if dispatch_task ran in the current iteration.
-  current_task_state = State.load(project_root)
+  current_task_state = State.load(project.id)
   started_at = current_task_state.dig('currentTask', 'started_at') ||
                state.dig('currentTask', 'started_at')
   duration   = started_at ? (Time.now - Time.parse(started_at)).round : nil
-  State.record_history(project_root, {
+  State.record_history(project.id, {
     'task'         => current_task_state.dig('currentTask', 'task') || state.dig('currentTask', 'task'),
     'session_id'   => current_task_state.dig('currentTask', 'session_id') || state.dig('currentTask', 'session_id'),
     'completed_at' => Time.now.utc.iso8601,
@@ -243,7 +263,7 @@ loop do
                         'issue_id' => report['issue_id'],
                         'pr_url'   => report['pr_url'] }.compact
   })
-  State.clear_current_task(project_root)
+  State.clear_current_task(project.id)
 
   action = Router.route(report, state)
 
@@ -260,19 +280,19 @@ loop do
 
   case action[:type]
   when 'run-task'
-    new_report     = dispatch_task(config, project_root, action[:task], action[:context] || {})
+    new_report     = dispatch_task(project, cfg, action[:task], action[:context] || {})
     pending_report = new_report
 
   when 'run-tasks-parallel'
     threads = action[:tasks].map do |t|
-      Thread.new { dispatch_task(config, project_root, t[:task], t[:context] || {}) }
+      Thread.new { dispatch_task(project, cfg, t[:task], t[:context] || {}) }
     end
     reports        = threads.map(&:value)
     pending_report = reports.find { |r| r['type'] != 'create-issue-complete' } || reports.first
 
   when 'wait-approval'
     ctx = action[:context] || {}
-    State.patch(project_root, 'currentTask' => {
+    State.patch(project.id, 'currentTask' => {
       'task'        => 'demo-review.md',
       'session_id'  => nil,
       'started_at'  => Time.now.utc.iso8601,
@@ -294,7 +314,7 @@ loop do
     # nothing — loop again to dispatch triage
 
   when 'escalate'
-    State.patch(project_root, 'status' => 'escalated',
+    State.patch(project.id, 'status' => 'escalated',
       'escalation' => {
         'reason'    => action[:reason],
         'details'   => action[:details],
@@ -305,14 +325,14 @@ loop do
     puts "\nUI: http://localhost:#{port} — click 'Triage now' to retry."
     loop { sleep 1; break if server.triage_requested }
     server.triage_requested = false
-    State.patch(project_root, 'status' => 'running', 'escalation' => nil, 'currentTask' => nil)
+    State.patch(project.id, 'status' => 'running', 'escalation' => nil, 'currentTask' => nil)
 
   when 'done'
-    State.patch(project_root, 'status' => 'done')
+    State.patch(project.id, 'status' => 'done')
     puts "\nAll issues Done."
     puts "UI: http://localhost:#{port} — click 'Triage now' to start again."
     loop { sleep 1; break if server.triage_requested }
     server.triage_requested = false
-    State.patch(project_root, 'status' => 'running', 'currentTask' => nil)
+    State.patch(project.id, 'status' => 'running', 'currentTask' => nil)
   end
 end

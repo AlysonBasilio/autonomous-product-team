@@ -286,39 +286,43 @@ class TestModelSpecification:
 
 
 class TestSessionPersistence:
-    """Session persistence: config is submitted via the web UI and persists in
-    orchestrator-state.json. The orchestrator must wait for a complete config
-    before dispatching tasks, and `install.js status` must surface it."""
+    """Session persistence: Synthup credentials and project registry are submitted
+    via the web UI and persist under data/. The orchestrator must wait for both
+    before dispatching tasks."""
 
-    def test_server_defines_required_config_keys(self):
-        content = load_file("orchestrator/server.rb")
-        assert "CONFIG_KEYS" in content, (
-            "orchestrator/server.rb must define CONFIG_KEYS for session config"
-        )
-        for key in ("project_url", "tenant", "api_key"):
-            assert key in content, (
-                f"orchestrator/server.rb must reference required config key '{key}'"
-            )
-
-    def test_config_persists_to_state_file(self):
+    def test_server_exposes_global_config_endpoint(self):
         content = load_file("orchestrator/server.rb")
         assert "/api/config" in content, (
             "orchestrator/server.rb must expose POST /api/config"
         )
-        assert "State.patch" in content and "'config'" in content, (
-            "POST /api/config must persist submitted values into orchestrator-state.json"
+        for key in ("tenant", "api_key"):
+            assert key in content, (
+                f"orchestrator/server.rb must reference required config key '{key}'"
+            )
+
+    def test_server_exposes_project_endpoints(self):
+        content = load_file("orchestrator/server.rb")
+        for route in ("/api/projects", "/activate"):
+            assert route in content, (
+                f"orchestrator/server.rb must expose {route}"
+            )
+
+    def test_config_persists_via_storage(self):
+        content = load_file("orchestrator/config.rb")
+        assert "save_synthup_credentials" in content, (
+            "Config.save_synthup_credentials must persist Synthup tenant + api_key"
+        )
+        assert "set_active_project_id" in content, (
+            "Config.set_active_project_id must persist the active project"
         )
 
-    def test_run_waits_for_config_before_dispatch(self):
+    def test_run_waits_for_setup_before_dispatch(self):
         content = load_file("orchestrator/run.rb")
-        assert "config_complete?" in content, (
-            "orchestrator/run.rb must gate task dispatch on config_complete?"
+        assert "wait_for_setup" in content, (
+            "orchestrator/run.rb must gate task dispatch on wait_for_setup (creds + active project)"
         )
-
-    def test_status_shows_config_state(self):
-        content = load_file("lib/install.js")
-        assert "orchestrator-state.json" in content and "config" in content.lower(), (
-            "install.js status() must read config state from orchestrator-state.json"
+        assert "synthup_configured?" in content, (
+            "orchestrator/run.rb must check synthup_configured? before dispatching"
         )
 
 

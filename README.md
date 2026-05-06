@@ -2,206 +2,53 @@
 
 An autonomous AI product team that runs on [Synthup](https://www.synthup.dev). A Ruby orchestrator picks up the highest-priority unblocked issue, plans it, implements it, tests it, and presents a PR for user approval — then loops. Synthup manages the sessions that execute each task.
 
-New to the project? Start with [Prerequisites](#prerequisites), then [Environment Setup](#environment-setup), [Verification](#verification), and finally [Setup](#setup). If something goes wrong, see [Troubleshooting](#troubleshooting).
+This repo *is* the app: clone it, run `./bin/start`, configure via the web UI. No npm, no copy-into-your-project step. Tasks live in `tasks/` and are read in place.
 
 ## Prerequisites
 
-You need the following installed on your machine before running the orchestrator. Exact versions matter — gem resolution and Bundler will fail if these are off.
-
 | Tool | Required version | Notes |
 |---|---|---|
-| Ruby | ≥ 3.0 | Tested with Ruby 3.x. Older Ruby versions will fail to resolve `sinatra 4.x` and `puma 8.x`. |
-| Bundler | ≥ 2.0 | This repo's `orchestrator/Gemfile.lock` is pinned to Bundler 4.0.10, but any Bundler ≥ 2 can install it. |
-| Node.js | ≥ 18 | Needed for the `npx` CLI bootstrap. |
-| `npx` | ships with Node.js ≥ 18 | No separate install. |
+| Ruby | ≥ 3.0 | Older versions fail to resolve `sinatra 4.x` and `puma 8.x`. |
+| Bundler | ≥ 2.0 | Bundler ships with modern Ruby; `gem install bundler` if missing. |
 | [Synthup](https://synthup.dev) account | — | Needed for the `tenant` and `api_key` configured in the web UI. |
 
-## Environment Setup
+Windows is not officially supported — use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install).
 
-Step-by-step instructions for installing the prerequisites from a clean machine.
-
-### 1. Install Ruby ≥ 3.0
-
-We recommend a Ruby version manager (`rbenv`, `rvm`, or `asdf`) so you can pin the version per-project.
-
-**macOS (Homebrew + rbenv):**
+## Quick start
 
 ```bash
-brew install rbenv ruby-build
-rbenv init                 # follow the printed instructions to add rbenv to your shell
-rbenv install 3.3.0
-rbenv global 3.3.0
+git clone https://github.com/alysonbasilio/autonomous-product-team.git
+cd autonomous-product-team
+./bin/start
 ```
 
-**Linux (apt + rbenv):**
+`bin/start` runs `bundle install` if needed, then boots the orchestrator. Open `http://localhost:4242`:
 
-```bash
-sudo apt-get update
-sudo apt-get install -y rbenv ruby-build build-essential libssl-dev libreadline-dev zlib1g-dev
-rbenv init                 # follow the printed instructions to add rbenv to your shell
-rbenv install 3.3.0
-rbenv global 3.3.0
-```
+1. Enter your Synthup `tenant` and `api_key` under **Global Config**.
+2. Add a project: paste the URL of your issues list (e.g. `https://linear.app/your-team/issues`) and optionally a `local_path`.
+3. The first project becomes active automatically. The orchestrator starts dispatching `issue-triage.md` against it.
 
-**Linux (asdf, alternative):**
+Stop with Ctrl-C; restart with `./bin/start`. State is persisted under `data/` and survives restarts.
 
-```bash
-asdf plugin add ruby
-asdf install ruby 3.3.0
-asdf global ruby 3.3.0
-```
+## Configuration
 
-### 2. Install Bundler
+| Env var | Purpose |
+|---|---|
+| `SYNTHUP_TENANT` | Override the tenant from `data/config.json`. When set, the UI hides the field. |
+| `SYNTHUP_API_KEY` | Override the api key from `data/config.json`. When set, the UI hides the field. |
+| `ORCHESTRATOR_PORT` | Web UI port (default `4242`). |
+| `ORCHESTRATOR_INTERACTIVE` | Set to `1` to pause for approval before every routed action. |
+| `ORCHESTRATOR_DATA_DIR` | Override the data root (default `data/` next to the repo). |
 
-Bundler ships with modern Ruby releases, but if `bundle --version` is missing or below 2.0:
-
-```bash
-gem install bundler
-```
-
-### 3. Install Node.js ≥ 18
-
-**macOS / Linux (nvm):**
-
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-nvm install 20
-nvm use 20
-```
-
-**macOS (Homebrew):** `brew install node`
-
-**Linux (apt):**
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs
-```
-
-`npx` is installed automatically with Node.js ≥ 18.
-
-### Platform-specific notes
-
-- **macOS (arm64 / x86_64):** the standard rbenv + Homebrew path works out of the box. The `Gemfile.lock` includes `arm64-darwin-24` for Apple Silicon.
-- **Linux (x86_64):** the `Gemfile.lock` now includes `x86_64-linux` in its `PLATFORMS` section (added in PR #37 to fix the original gem-resolution bug). If you cloned this repo before that fix landed and you see `Could not find puma-X, mustermann-X in locally installed gems`, run:
-
-  ```bash
-  cd orchestrator
-  bundle lock --add-platform x86_64-linux
-  bundle install
-  ```
-- **Windows:** not officially supported. Use [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) and follow the Linux instructions above.
-
-## Verification
-
-Before running `npx ... run`, confirm your environment:
-
-```bash
-ruby --version    # ruby 3.x.x ...
-bundle --version  # Bundler version 2.x.x or higher
-node --version    # v18.x.x or higher
-npx --version     # any version that ships with Node ≥ 18
-```
-
-If any command above fails or reports an unsupported version, fix it before continuing — see [Troubleshooting](#troubleshooting).
-
-## Troubleshooting
-
-### `Could not find puma-X, mustermann-X in locally installed gems`
-
-This means Bundler couldn't resolve gems for your platform from `orchestrator/Gemfile.lock`. The CLI may suppress the underlying error — to see the full output, run Bundler directly:
-
-```bash
-cd orchestrator
-bundle install
-```
-
-The error usually points to one of: missing platform entry (see next item), Ruby version mismatch, or missing Bundler.
-
-### Missing platform entry in `Gemfile.lock`
-
-If `bundle install` complains that your platform is unsupported (typical on Linux x86_64 after a fresh clone of an older revision):
-
-```bash
-cd orchestrator
-bundle lock --add-platform x86_64-linux   # or arm64-darwin for Apple Silicon
-bundle install
-```
-
-### Ruby version mismatch
-
-If `ruby --version` is below 3.0 or doesn't match what other tools expect, pin it locally:
-
-```bash
-cd orchestrator
-rbenv local 3.3.0   # or: asdf local ruby 3.3.0
-```
-
-Then re-run `bundle install`.
-
-### Bundler version too old
-
-If `bundle --version` reports below 2.0 or Bundler is missing entirely:
-
-```bash
-gem install bundler
-```
-
-Re-run `bundle install` afterwards.
-
-## Setup
-
-First, add this to your `~/.npmrc` to authenticate with GitHub Packages:
+### Data layout
 
 ```
-@alysonbasilio:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+data/
+├── config.json                  # global Synthup creds + active_project_id
+└── projects/<slug>.json         # one file per configured project
 ```
 
-You can create a token at https://github.com/settings/tokens with `read:packages` scope.
-
-From your project directory, run:
-
-```bash
-npx @alysonbasilio/autonomous-product-team run
-```
-
-This installs any missing files and starts the orchestrator:
-- `tasks/` — 8 task definitions (issue-triage, discovery, plan, code, test, demo-review, create-issue, status-correction)
-
-It also appends `orchestrator-state.json` to your `.gitignore`.
-
-The orchestrator UI is available at `http://localhost:4242`. On first run, the UI shows a setup form for:
-
-- **project_url** — URL of your issues list (e.g. `https://linear.app/your-team/issues`)
-- **tenant** — your Synthup tenant id
-- **api_key** — your Synthup API key
-
-These values are persisted in `orchestrator-state.json` and reused on restart.
-
-To update task definitions to the latest version:
-
-```bash
-npx @alysonbasilio/autonomous-product-team run --force
-```
-
-To preview what would be installed without making changes:
-
-```bash
-npx @alysonbasilio/autonomous-product-team run --dry-run
-```
-
-To pause for manual approval before each routed action (useful for supervised runs and debugging):
-
-```bash
-npx @alysonbasilio/autonomous-product-team run --interactive
-```
-
-To check what's installed:
-
-```bash
-npx @alysonbasilio/autonomous-product-team status
-```
+`<slug>` is derived deterministically from `project_url` (e.g. `https://linear.app/acme/issues` → `linear-acme-issues`). Re-adding the same URL re-binds the existing state file.
 
 ## How it works
 
@@ -210,7 +57,7 @@ npx @alysonbasilio/autonomous-product-team status
 - **Orchestrator** — Ruby process (`orchestrator/run.rb`) that drives the lifecycle loop. Routes between tasks based on their JSON output.
 - **Task** — A Markdown prompt file in `tasks/` defining one step of the workflow (e.g. `plan.md`, `code.md`). Each task specifies a model in its frontmatter.
 - **Session** — A Synthup-managed execution that runs a task prompt and outputs a structured JSON report. The orchestrator polls for the report and routes to the next task.
-- **State file** — `orchestrator-state.json` in your project root. Tracks the active session and history; enables crash-safe resume.
+- **Project state** — `data/projects/<slug>.json`. Tracks the active session and history per project; enables crash-safe resume.
 
 ### Lifecycle
 
@@ -222,29 +69,74 @@ The orchestrator dispatches one task at a time. Each task runs as a Synthup sess
 
 Demo review is the one human gate: the orchestrator pauses and presents the PR in the web UI. The user approves or redirects — the orchestrator never merges.
 
-### How the orchestrator behaves
+### Behavior
 
-1. Works on **one issue at a time** — the highest-priority unblocked issue.
-2. **The user owns the merge.** Demo review presents the PR in the web UI and waits. The orchestrator never merges.
+1. Works on **one issue at a time** for the active project — the highest-priority unblocked issue.
+2. **The user owns the merge.** Demo review presents the PR in the web UI and waits.
 3. **Tasks are idempotent.** Each task posts a structured JSON comment to the PM issue on completion. On restart, `plan.md` reads these comments to determine what has already been done.
-4. **Sessions resume after a crash.** The active session ID is saved to `orchestrator-state.json` before polling. On restart, the orchestrator resumes polling the existing session.
+4. **Sessions resume after a crash.** The active session ID is saved before polling. On restart, the orchestrator resumes polling the existing session.
 5. **A branch is created per issue and cleaned up automatically.** `plan.md` creates a branch for each issue and pushes it. Each Synthup session checks out that branch at the start. After the PR merges, the next planning cycle deletes the local branch.
+
+The orchestrator never `cd`s into your project on disk — all git/file work happens inside the Synthup session against the GitHub repo derived from `project_url`.
 
 ## Web UI
 
 The orchestrator UI at `http://localhost:4242` lets you:
 
-- **Pause / Resume** — Stop the orchestrator between tasks without killing the process
-- **Triage Now** — Force an immediate re-triage (useful after manually resolving a blocker)
-- **Cancel** — Abort the current running task
-- **Approve / Redirect** — The approval gate for demo review. Approve records your consent and lets the orchestrator move on; Redirect sends your feedback back through the code task
-- **Escalation banner** — Shown when a task fails; includes error details and a Triage Now button to reset
+- **Switch active project** — header dropdown. Disabled while a task is in flight.
+- **Pause / Resume** — stop the orchestrator between tasks without killing the process.
+- **Triage Now** — force an immediate re-triage (useful after manually resolving a blocker).
+- **Cancel** — abort the current running task.
+- **Approve / Redirect** — the approval gate for demo review. Approve records your consent and lets the orchestrator move on; Redirect sends your feedback back through the code task.
+- **Escalation banner** — shown when a task fails; includes error details and a Triage Now button to reset.
+
+## Multiple projects
+
+The first cut runs **one active project at a time**. Add as many as you like; pick which one drives the loop via the header dropdown. Each project's state, history, and escalations are isolated in its own `data/projects/<slug>.json`.
+
+Switching projects is disabled while a task is in flight — wait for it to finish (or cancel it) before swapping.
+
+Synthup credentials are global today: two projects on different tenants require manually changing `SYNTHUP_TENANT` (or the saved config) between runs.
+
+## Updating
+
+```bash
+git pull
+./bin/start
+```
+
+If `bundle install` fails after a pull, see [Troubleshooting](#troubleshooting).
+
+## Troubleshooting
+
+### `Could not find puma-X, mustermann-X in locally installed gems`
+
+Bundler couldn't resolve gems for your platform. Run `bundle install` directly to see the underlying error.
+
+### Missing platform entry in `Gemfile.lock`
+
+If `bundle install` complains your platform is unsupported (typical on a fresh Linux x86_64 clone of an older revision):
+
+```bash
+bundle lock --add-platform x86_64-linux   # or arm64-darwin for Apple Silicon
+bundle install
+```
+
+### Ruby version mismatch
+
+If `ruby --version` is below 3.0, pin a supported version locally with rbenv / asdf and re-run `bundle install`.
+
+### Bundler version too old
+
+```bash
+gem install bundler
+```
 
 ## Contributing
 
 ### Making changes
 
-When modifying task definitions (`tasks/*.md`), run the eval suite to verify nothing is broken:
+When modifying task definitions (`tasks/*.md`), run the eval suite:
 
 ```bash
 # Fast structural checks (no API key required)

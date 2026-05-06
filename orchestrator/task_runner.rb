@@ -24,8 +24,10 @@ module TaskRunner
     "#{body}\n## Context\n\n#{context_lines.join("\n")}\n"
   end
 
-  def self.find_task_file(task, project_root)
-    path = File.join(project_root, 'tasks', task)
+  TASKS_DIR = File.expand_path('../tasks', __dir__)
+
+  def self.find_task_file(task)
+    path = File.join(TASKS_DIR, task)
     raise "Task file not found: #{task}" unless File.exist?(path)
     path
   end

@@ -1,17 +1,17 @@
 require 'sinatra/base'
 require 'json'
 require_relative 'state'
+require_relative 'config'
+require_relative 'projects'
 require_relative 'synthup'
 
 class OrchestratorServer < Sinatra::Base
   set :server, :puma
   set :logging, false
 
-  CONFIG_KEYS = %w[project_url tenant api_key].freeze
-
   # Class-level state — shared across all per-request instances
   class << self
-    attr_accessor :project_root, :paused, :pending_approval, :triage_requested, :cancel_requested, :pending_next_action
+    attr_accessor :paused, :pending_approval, :triage_requested, :cancel_requested, :pending_next_action
   end
 
   @paused              = false
@@ -21,7 +21,10 @@ class OrchestratorServer < Sinatra::Base
   @pending_next_action = nil
 
   def self.build_state_payload
-    s = State.load(project_root) || State.initial
+    cfg     = Config.load
+    project = Projects.find(cfg.active_project_id)
+    s       = project ? (State.load(project.id) || {}) : {}
+
     approval_meta = pending_approval && {
       issue_title: pending_approval[:issue_title],
       issue_id:    pending_approval[:issue_id],
@@ -29,26 +32,22 @@ class OrchestratorServer < Sinatra::Base
       summary:     pending_approval[:summary],
       kind:        pending_approval[:kind]
     }
+
     {
+      synthup_configured:  cfg.synthup_configured?,
+      synthup:             { tenant: cfg.tenant,
+                             tenant_from_env: Config.tenant_from_env?,
+                             api_key_from_env: Config.api_key_from_env? },
+      projects:            Projects.list.map(&:to_h),
+      active_project_id:   cfg.active_project_id,
       status:              s['status'],
       paused:              paused,
-      configured:          config_complete?(s['config']),
-      config:              redacted_config(s['config']),
       currentTask:         s['currentTask'],
       history:             (s['history'] || []).last(20),
       escalation:          s['escalation'],
       pending_approval:    approval_meta,
       pending_next_action: pending_next_action
     }
-  end
-
-  def self.config_complete?(cfg)
-    cfg.is_a?(Hash) && CONFIG_KEYS.all? { |k| cfg[k].to_s.strip != '' }
-  end
-
-  def self.redacted_config(cfg)
-    return nil unless cfg.is_a?(Hash)
-    cfg.merge('api_key' => cfg['api_key'] ? '••••' : nil)
   end
 
   # ── Routes ─────────────────────────────────────────────────────────────────
@@ -81,12 +80,59 @@ class OrchestratorServer < Sinatra::Base
     json_ok
   end
 
+  # Save global Synthup credentials (tenant + api_key only).
   post '/api/config' do
     body_params = JSON.parse(request.body.read) rescue {}
-    cfg = CONFIG_KEYS.each_with_object({}) { |k, h| h[k] = body_params[k].to_s.strip }
-    return json_error(400, 'All fields are required') unless self.class.config_complete?(cfg)
-    State.patch(self.class.project_root, 'config' => cfg)
-    Synthup.api_key = cfg['api_key']
+    tenant  = body_params['tenant'].to_s.strip
+    api_key = body_params['api_key'].to_s.strip
+    return json_error(400, 'tenant and api_key are required') if tenant.empty? || api_key.empty?
+    Config.save_synthup_credentials(tenant: tenant, api_key: api_key)
+    Synthup.api_key = api_key
+    json_ok
+  end
+
+  # ── Projects ───────────────────────────────────────────────────────────────
+
+  get '/api/projects' do
+    content_type :json
+    { projects: Projects.list.map(&:to_h),
+      active_project_id: Config.load.active_project_id }.to_json
+  end
+
+  post '/api/projects' do
+    body_params = JSON.parse(request.body.read) rescue {}
+    url        = body_params['project_url'].to_s.strip
+    local_path = body_params['local_path'].to_s.strip
+    return json_error(400, 'project_url is required') if url.empty?
+    project = Projects.create(project_url: url, local_path: local_path.empty? ? nil : local_path)
+    # Activate immediately if there's no active project yet.
+    Config.set_active_project_id(project.id) if Config.load.active_project_id.to_s.empty?
+    content_type :json
+    project.to_h.to_json
+  rescue ArgumentError => e
+    json_error(400, e.message)
+  end
+
+  delete '/api/projects/:id' do |id|
+    cfg = Config.load
+    if cfg.active_project_id == id
+      state = State.load(id)
+      return json_error(409, 'Cannot delete the active project while a task is running') if state && state['currentTask']
+      Config.set_active_project_id(nil)
+    end
+    Projects.delete(id)
+    json_ok
+  end
+
+  post '/api/projects/:id/activate' do |id|
+    project = Projects.find(id)
+    return json_error(404, 'Project not found') unless project
+    cfg = Config.load
+    if cfg.active_project_id && cfg.active_project_id != id
+      active_state = State.load(cfg.active_project_id)
+      return json_error(409, 'Cannot switch projects while a task is running') if active_state && active_state['currentTask']
+    end
+    Config.set_active_project_id(id)
     json_ok
   end
 
@@ -96,7 +142,8 @@ class OrchestratorServer < Sinatra::Base
   end
 
   post '/api/cancel' do
-    state = State.load(self.class.project_root)
+    cfg = Config.load
+    state = cfg.active_project_id ? State.load(cfg.active_project_id) : nil
     ct = state&.dig('currentTask')
     return json_ok unless ct || self.class.pending_next_action
 

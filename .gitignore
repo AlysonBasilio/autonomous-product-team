@@ -7,5 +7,6 @@ __pycache__/
 tmp/
 
 # autonomous-product-team
-orchestrator-state.json
-
+data/
+.bundle/
+vendor/

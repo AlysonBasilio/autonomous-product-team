@@ -40,6 +40,7 @@
     padding-bottom: var(--gap);
     border-bottom: 1px solid var(--border);
     margin-bottom: var(--gap);
+    gap: .75rem;
   }
 
   .title { color: var(--bright); font-size: 14px; }
@@ -58,7 +59,7 @@
   .badge-done      { background: #1e3a5f; color: var(--blue); }
   .badge-escalated { background: #450a0a; color: var(--red); }
 
-  .controls { display: flex; gap: .5rem; }
+  .controls { display: flex; gap: .5rem; align-items: center; }
 
   button {
     font-family: inherit;
@@ -72,10 +73,23 @@
     transition: background .1s;
   }
   button:hover { background: #2a2a2a; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
   button.primary { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
   button.primary:hover { background: #1e40af; }
   button.danger { background: #7f1d1d; color: #fca5a5; border-color: #7f1d1d; }
   button.danger:hover { background: #991b1b; }
+
+  select {
+    font-family: inherit;
+    font-size: 12px;
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 3px 6px;
+    max-width: 220px;
+  }
+  select:disabled { opacity: .5; cursor: not-allowed; }
 
   /* ── Sections ── */
   section {
@@ -95,7 +109,7 @@
     margin-bottom: .75rem;
   }
 
-  .row { display: flex; gap: .5rem; margin-bottom: .35rem; }
+  .row { display: flex; gap: .5rem; margin-bottom: .35rem; align-items: center; }
   .label { color: var(--muted); min-width: 100px; flex-shrink: 0; }
   .value { color: var(--bright); word-break: break-all; }
 
@@ -172,6 +186,19 @@
   a.history-task:hover { text-decoration: underline; }
   .history-meta { color: var(--muted); font-size: 11px; white-space: nowrap; }
 
+  /* ── Projects list ── */
+  .project-item {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    padding: .3rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .project-item:last-child { border-bottom: none; }
+  .project-url { color: var(--bright); flex: 1; word-break: break-all; }
+  .project-active-marker { color: var(--green); font-weight: 600; font-size: 11px; }
+  .project-meta { color: var(--muted); font-size: 11px; }
+
   /* ── Escalation ── */
   #escalation { border-color: #b91c1c; }
   #escalation h2 { color: var(--red); }
@@ -194,7 +221,8 @@
 
 <header>
   <span class="title">autonomous-product-team</span>
-  <div style="display:flex;align-items:center;gap:.75rem">
+  <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;justify-content:flex-end">
+    <select id="project-switcher" onchange="switchProject(this.value)" title="Active project"></select>
     <span id="status-badge" class="badge badge-running">running</span>
     <div class="controls">
       <button id="btn-triage" onclick="triggerTriage()">Triage now</button>
@@ -203,15 +231,27 @@
   </div>
 </header>
 
-<!-- Setup -->
-<section id="setup" class="hidden">
-  <h2>Setup</h2>
-  <div style="color:var(--muted);margin-bottom:.75rem">Configure the orchestrator before it starts running.</div>
-  <div class="row"><span class="label">project_url</span><input id="cfg-project_url" placeholder="https://linear.app/your-team/issues" style="flex:1"></div>
+<!-- Global config (Synthup credentials) -->
+<section id="setup-global" class="hidden">
+  <h2>Global Config</h2>
+  <div style="color:var(--muted);margin-bottom:.75rem">Configure your Synthup credentials. These are shared across all projects.</div>
   <div class="row"><span class="label">tenant</span><input id="cfg-tenant" placeholder="your-tenant-id" style="flex:1"></div>
   <div class="row"><span class="label">api_key</span><input id="cfg-api_key" type="password" placeholder="Synthup API key" style="flex:1"></div>
   <div id="cfg-error" style="color:var(--red);margin-top:.5rem;display:none"></div>
   <div class="btn-row"><button class="primary" onclick="saveConfig()">Save</button></div>
+</section>
+
+<!-- Projects -->
+<section id="projects" class="hidden">
+  <h2>Projects</h2>
+  <div id="projects-list"></div>
+  <div style="margin-top:.75rem;border-top:1px solid var(--border);padding-top:.75rem">
+    <div style="color:var(--muted);margin-bottom:.5rem">Add a project</div>
+    <div class="row"><span class="label">project_url</span><input id="proj-url" placeholder="https://linear.app/your-team/issues" style="flex:1"></div>
+    <div class="row"><span class="label">local_path</span><input id="proj-local_path" placeholder="/Users/you/projects/your-repo (optional)" style="flex:1"></div>
+    <div id="proj-error" style="color:var(--red);margin-top:.5rem;display:none"></div>
+    <div class="btn-row"><button class="primary" onclick="addProject()">Add project</button></div>
+  </div>
 </section>
 
 <!-- Current task -->
@@ -282,22 +322,37 @@
   function applyState(s) {
     state = s;
 
-    // Setup form (shown until configured)
-    const setup = document.getElementById('setup');
-    if (s.configured) {
-      setup.classList.add('hidden');
-    } else {
-      setup.classList.remove('hidden');
-    }
+    const synthupOk = !!s.synthup_configured;
+    const projects = s.projects || [];
+    const activeId = s.active_project_id;
+    const hasActive = !!projects.find(p => p.id === activeId);
+    const taskInFlight = !!s.currentTask;
+
+    // Global config form: hide once Synthup is configured.
+    document.getElementById('setup-global').classList.toggle('hidden', synthupOk);
+
+    // Projects section: show once Synthup is configured.
+    document.getElementById('projects').classList.toggle('hidden', !synthupOk);
+    renderProjects(projects, activeId, taskInFlight);
+
+    // Project switcher in header
+    renderSwitcher(projects, activeId, taskInFlight);
 
     // Status badge
     const badge = document.getElementById('status-badge');
-    badge.textContent = s.paused ? 'paused' : s.status;
-    badge.className = 'badge badge-' + (s.paused ? 'paused' : s.status);
+    if (!hasActive) {
+      badge.textContent = 'setup';
+      badge.className = 'badge badge-paused';
+    } else {
+      badge.textContent = s.paused ? 'paused' : (s.status || 'running');
+      badge.className = 'badge badge-' + (s.paused ? 'paused' : (s.status || 'running'));
+    }
 
     // Pause/resume button
     const pauseBtn = document.getElementById('btn-pause');
     pauseBtn.textContent = s.paused ? 'Resume' : 'Pause';
+    pauseBtn.disabled = !hasActive;
+    document.getElementById('btn-triage').disabled = !hasActive;
 
     // Current task
     const ct = s.currentTask;
@@ -368,6 +423,43 @@
     renderHistory(s.history || []);
   }
 
+  function renderSwitcher(projects, activeId, taskInFlight) {
+    const sel = document.getElementById('project-switcher');
+    if (!projects.length) { sel.classList.add('hidden'); return; }
+    sel.classList.remove('hidden');
+    const opts = projects.map(p => {
+      const selected = p.id === activeId ? ' selected' : '';
+      return `<option value="${esc(p.id)}"${selected}>${esc(p.project_url)}</option>`;
+    });
+    if (!activeId) opts.unshift('<option value="" selected>— select project —</option>');
+    sel.innerHTML = opts.join('');
+    sel.disabled = taskInFlight;
+    sel.title = taskInFlight ? 'Cannot switch projects while a task is running' : 'Active project';
+  }
+
+  function renderProjects(projects, activeId, taskInFlight) {
+    const el = document.getElementById('projects-list');
+    if (!projects.length) {
+      el.innerHTML = '<span class="empty">No projects yet — add one below.</span>';
+      return;
+    }
+    el.innerHTML = projects.map(p => {
+      const isActive = p.id === activeId;
+      const activate = isActive
+        ? `<span class="project-active-marker">ACTIVE</span>`
+        : `<button onclick="activateProject('${esc(p.id)}')" ${taskInFlight ? 'disabled title="Cannot switch while a task is running"' : ''}>Activate</button>`;
+      const localPath = p.local_path ? `<div class="project-meta">${esc(p.local_path)}</div>` : '';
+      return `<div class="project-item">
+        <div style="flex:1">
+          <div class="project-url">${esc(p.project_url)}</div>
+          ${localPath}
+        </div>
+        ${activate}
+        <button class="danger" onclick="deleteProject('${esc(p.id)}')" ${isActive && taskInFlight ? 'disabled' : ''}>Delete</button>
+      </div>`;
+    }).join('');
+  }
+
   function renderHistory(items) {
     const el = document.getElementById('history-list');
     if (!items.length) { el.innerHTML = '<span class="empty">No completed tasks yet</span>'; return; }
@@ -392,13 +484,12 @@
 
   function saveConfig() {
     const cfg = {
-      project_url: document.getElementById('cfg-project_url').value.trim(),
-      tenant:      document.getElementById('cfg-tenant').value.trim(),
-      api_key:     document.getElementById('cfg-api_key').value.trim()
+      tenant:  document.getElementById('cfg-tenant').value.trim(),
+      api_key: document.getElementById('cfg-api_key').value.trim()
     };
     const err = document.getElementById('cfg-error');
     if (Object.values(cfg).some(v => !v)) {
-      err.textContent = 'All fields are required.';
+      err.textContent = 'tenant and api_key are required.';
       err.style.display = 'block';
       return;
     }
@@ -411,6 +502,43 @@
       if (j.error) { err.textContent = j.error; err.style.display = 'block'; }
       else { document.getElementById('cfg-api_key').value = ''; }
     }).catch(() => {});
+  }
+
+  function addProject() {
+    const body = {
+      project_url: document.getElementById('proj-url').value.trim(),
+      local_path:  document.getElementById('proj-local_path').value.trim()
+    };
+    const err = document.getElementById('proj-error');
+    if (!body.project_url) {
+      err.textContent = 'project_url is required.';
+      err.style.display = 'block';
+      return;
+    }
+    err.style.display = 'none';
+    fetch('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(r => r.json().then(j => ({ ok: r.ok, j }))).then(({ ok, j }) => {
+      if (!ok || j.error) { err.textContent = j.error || 'Failed to add project'; err.style.display = 'block'; return; }
+      document.getElementById('proj-url').value = '';
+      document.getElementById('proj-local_path').value = '';
+    }).catch(() => {});
+  }
+
+  function activateProject(id) {
+    api('POST', `/api/projects/${encodeURIComponent(id)}/activate`);
+  }
+
+  function deleteProject(id) {
+    if (!confirm('Delete this project? Its history and state will be removed.')) return;
+    api('DELETE', `/api/projects/${encodeURIComponent(id)}`);
+  }
+
+  function switchProject(id) {
+    if (!id || id === state.active_project_id) return;
+    activateProject(id);
   }
 
   function approve() {
@@ -474,7 +602,7 @@
   }
 
   function sessionUrl(sessionId) {
-    const tenant = state.config?.tenant;
+    const tenant = state.synthup?.tenant;
     if (!tenant || !sessionId) return null;
     return `https://www.synthup.dev/t/${encodeURIComponent(tenant)}/s/${encodeURIComponent(sessionId)}`;
   }

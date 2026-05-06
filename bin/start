@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+set -e
+cd "$(dirname "$0")/.."
+if [ ! -f Gemfile.lock ] || ! bundle check >/dev/null 2>&1; then
+  bundle install
+fi
+exec bundle exec ruby orchestrator/run.rb "$@"
