@@ -131,6 +131,17 @@
   }
   textarea:focus { outline: 1px solid var(--blue); }
 
+  input[type="text"], input[type="password"], input:not([type]) {
+    font-family: inherit;
+    font-size: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    padding: .35rem .5rem;
+  }
+  input:focus { outline: 1px solid var(--blue); }
+
   .follow-ups-toggle {
     font-size: 11px;
     color: var(--muted);
@@ -185,6 +196,17 @@
     </div>
   </div>
 </header>
+
+<!-- Setup -->
+<section id="setup" class="hidden">
+  <h2>Setup</h2>
+  <div style="color:var(--muted);margin-bottom:.75rem">Configure the orchestrator before it starts running.</div>
+  <div class="row"><span class="label">project_url</span><input id="cfg-project_url" placeholder="https://linear.app/your-team/issues" style="flex:1"></div>
+  <div class="row"><span class="label">tenant</span><input id="cfg-tenant" placeholder="your-tenant-id" style="flex:1"></div>
+  <div class="row"><span class="label">api_key</span><input id="cfg-api_key" type="password" placeholder="Synthup API key" style="flex:1"></div>
+  <div id="cfg-error" style="color:var(--red);margin-top:.5rem;display:none"></div>
+  <div class="btn-row"><button class="primary" onclick="saveConfig()">Save</button></div>
+</section>
 
 <!-- Current task -->
 <section id="current-task-section">
@@ -243,6 +265,14 @@
 
   function applyState(s) {
     state = s;
+
+    // Setup form (shown until configured)
+    const setup = document.getElementById('setup');
+    if (s.configured) {
+      setup.classList.add('hidden');
+    } else {
+      setup.classList.remove('hidden');
+    }
 
     // Status badge
     const badge = document.getElementById('status-badge');
@@ -314,6 +344,29 @@
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
+
+  function saveConfig() {
+    const cfg = {
+      project_url: document.getElementById('cfg-project_url').value.trim(),
+      tenant:      document.getElementById('cfg-tenant').value.trim(),
+      api_key:     document.getElementById('cfg-api_key').value.trim()
+    };
+    const err = document.getElementById('cfg-error');
+    if (Object.values(cfg).some(v => !v)) {
+      err.textContent = 'All fields are required.';
+      err.style.display = 'block';
+      return;
+    }
+    err.style.display = 'none';
+    fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cfg)
+    }).then(r => r.json()).then(j => {
+      if (j.error) { err.textContent = j.error; err.style.display = 'block'; }
+      else { document.getElementById('cfg-api_key').value = ''; }
+    }).catch(() => {});
+  }
 
   function approve() {
     const followUpsRaw = document.getElementById('dr-followups').value.trim();

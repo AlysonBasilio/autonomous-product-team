@@ -1,10 +1,13 @@
 require 'sinatra/base'
 require 'json'
 require_relative 'state'
+require_relative 'synthup'
 
 class OrchestratorServer < Sinatra::Base
   set :server, :puma
   set :logging, false
+
+  CONFIG_KEYS = %w[project_url tenant api_key].freeze
 
   # Class-level state — shared across all per-request instances
   class << self
@@ -27,11 +30,22 @@ class OrchestratorServer < Sinatra::Base
     {
       status:           s['status'],
       paused:           paused,
+      configured:       config_complete?(s['config']),
+      config:           redacted_config(s['config']),
       currentTask:      s['currentTask'],
       history:          (s['history'] || []).last(20),
       escalation:       s['escalation'],
       pending_approval: approval_meta
     }
+  end
+
+  def self.config_complete?(cfg)
+    cfg.is_a?(Hash) && CONFIG_KEYS.all? { |k| cfg[k].to_s.strip != '' }
+  end
+
+  def self.redacted_config(cfg)
+    return nil unless cfg.is_a?(Hash)
+    cfg.merge('api_key' => cfg['api_key'] ? '••••' : nil)
   end
 
   # ── Routes ─────────────────────────────────────────────────────────────────
@@ -61,6 +75,15 @@ class OrchestratorServer < Sinatra::Base
     pa[:resolve].call('outcome' => 'redirect',
                       'user_feedback' => body_params['user_feedback'] || '',
                       'follow_up_issues' => nil)
+    json_ok
+  end
+
+  post '/api/config' do
+    body_params = JSON.parse(request.body.read) rescue {}
+    cfg = CONFIG_KEYS.each_with_object({}) { |k, h| h[k] = body_params[k].to_s.strip }
+    return json_error(400, 'All fields are required') unless self.class.config_complete?(cfg)
+    State.patch(self.class.project_root, 'config' => cfg)
+    Synthup.api_key = cfg['api_key']
     json_ok
   end
 

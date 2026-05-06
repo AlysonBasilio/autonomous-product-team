@@ -16,31 +16,9 @@ require_relative 'task_runner'
 require_relative 'demo_review'
 require_relative 'server'
 
-# ── Startup checks ────────────────────────────────────────────────────────────
-
-project_root = Dir.pwd
-config_path  = File.join(project_root, 'product-team.config.json')
-
-unless File.exist?(config_path)
-  abort "config not found: #{config_path}\nRun: npx autonomous-product-team init"
-end
-
-config = JSON.parse(File.read(config_path))
-
-unless ENV['SYNTHUP_API_KEY']
-  abort 'Set the SYNTHUP_API_KEY environment variable before running the orchestrator.'
-end
-
-unless ENV['SYNTHUP_TENANT']
-  abort 'Set the SYNTHUP_TENANT environment variable before running the orchestrator.'
-end
-
-unless config['project_url']
-  abort "project_url is not set in #{config_path}"
-end
-
 # ── Start web server ──────────────────────────────────────────────────────────
 
+project_root = Dir.pwd
 port   = (ENV['ORCHESTRATOR_PORT'] || 4242).to_i
 OrchestratorServer.project_root = project_root
 server = OrchestratorServer  # class used as handle; state is class-level
@@ -61,6 +39,19 @@ end
 # ── Load or initialise state ──────────────────────────────────────────────────
 
 state = State.load(project_root) || State.initial
+
+# ── Wait for configuration via UI ─────────────────────────────────────────────
+
+unless OrchestratorServer.config_complete?(state['config'])
+  puts "Waiting for configuration at http://localhost:#{port} …"
+  until OrchestratorServer.config_complete?(state['config'])
+    sleep 1
+    state = State.load(project_root) || State.initial
+  end
+end
+
+config = state['config']
+Synthup.api_key = config['api_key']
 
 if state['status'] == 'escalated'
   esc = state['escalation'] || {}
@@ -94,14 +85,11 @@ def dispatch_task(config, project_root, task, context)
 
   task_path = TaskRunner.find_task_file(task, project_root)
   model     = TaskRunner.parse_model(task_path)
-  full_context = {
-    'system'      => config['system'],
-    'project_url' => config['project_url']
-  }.merge(context)
+  full_context = { 'project_url' => config['project_url'] }.merge(context)
   prompt = TaskRunner.compose_prompt(task_path, full_context)
 
   session = Synthup.create_session(
-    tenant:  ENV['SYNTHUP_TENANT'],
+    tenant:  config['tenant'],
     project: github_repo(config['project_url']),
     prompt:  prompt,
     model:   model
