@@ -50,6 +50,12 @@ To preview what would be installed without making changes:
 npx @alysonbasilio/autonomous-product-team run --dry-run
 ```
 
+To pause for manual approval before each routed action (useful for supervised runs and debugging):
+
+```bash
+npx @alysonbasilio/autonomous-product-team run --interactive
+```
+
 To check what's installed:
 
 ```bash

@@ -11,13 +11,14 @@ class OrchestratorServer < Sinatra::Base
 
   # Class-level state — shared across all per-request instances
   class << self
-    attr_accessor :project_root, :paused, :pending_approval, :triage_requested, :cancel_requested
+    attr_accessor :project_root, :paused, :pending_approval, :triage_requested, :cancel_requested, :pending_next_action
   end
 
-  @paused           = false
-  @triage_requested = false
-  @cancel_requested = false
-  @pending_approval = nil
+  @paused              = false
+  @triage_requested    = false
+  @cancel_requested    = false
+  @pending_approval    = nil
+  @pending_next_action = nil
 
   def self.build_state_payload
     s = State.load(project_root) || State.initial
@@ -28,14 +29,15 @@ class OrchestratorServer < Sinatra::Base
       summary:     pending_approval[:summary]
     }
     {
-      status:           s['status'],
-      paused:           paused,
-      configured:       config_complete?(s['config']),
-      config:           redacted_config(s['config']),
-      currentTask:      s['currentTask'],
-      history:          (s['history'] || []).last(20),
-      escalation:       s['escalation'],
-      pending_approval: approval_meta
+      status:              s['status'],
+      paused:              paused,
+      configured:          config_complete?(s['config']),
+      config:              redacted_config(s['config']),
+      currentTask:         s['currentTask'],
+      history:             (s['history'] || []).last(20),
+      escalation:          s['escalation'],
+      pending_approval:    approval_meta,
+      pending_next_action: pending_next_action
     }
   end
 
@@ -95,12 +97,13 @@ class OrchestratorServer < Sinatra::Base
   post '/api/cancel' do
     state = State.load(self.class.project_root)
     ct = state&.dig('currentTask')
-    return json_ok unless ct
+    return json_ok unless ct || self.class.pending_next_action
 
     pa = self.class.pending_approval
     pa[:resolve].call('outcome' => 'cancelled') if pa
 
     self.class.cancel_requested = true
+    self.class.paused = false  # release any interactive gate
     json_ok
   end
 

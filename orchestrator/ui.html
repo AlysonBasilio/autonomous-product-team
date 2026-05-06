@@ -106,6 +106,10 @@
   #demo-review { border-color: #d97706; }
   #demo-review h2 { color: var(--yellow); }
 
+  /* ── Interactive next-action panel ── */
+  #next-action { border-color: #2563eb; }
+  #next-action h2 { color: var(--blue); }
+
   .summary-box {
     background: var(--bg);
     border: 1px solid var(--border);
@@ -216,6 +220,16 @@
   </div>
 </section>
 
+<!-- Interactive next-action -->
+<section id="next-action" class="hidden">
+  <h2>Next Action — Awaiting Your Approval</h2>
+  <div id="na-summary" class="summary-box"></div>
+  <div class="btn-row">
+    <button class="primary" onclick="continueAction()">Continue</button>
+    <button class="danger" onclick="cancelTask()">Cancel</button>
+  </div>
+</section>
+
 <!-- Demo-review -->
 <section id="demo-review" class="hidden">
   <h2>Demo Review — Awaiting Your Approval</h2>
@@ -298,6 +312,17 @@
       `;
     } else {
       ctSection.innerHTML = '<span class="empty">Idle</span>';
+    }
+
+    // Interactive next-action gate
+    const na = document.getElementById('next-action');
+    if (s.pending_next_action) {
+      na.classList.remove('hidden');
+      const a = s.pending_next_action;
+      document.getElementById('na-summary').innerHTML =
+        `<strong>${esc(a.summary || a.type)}</strong>`;
+    } else {
+      na.classList.add('hidden');
     }
 
     // Demo review
@@ -394,8 +419,12 @@
   }
 
   function cancelTask() {
-    if (!state.currentTask) return;
+    if (!state.currentTask && !state.pending_next_action) return;
     api('POST', '/api/cancel');
+  }
+
+  function continueAction() {
+    api('POST', '/api/resume');
   }
 
   function toggleFollowUps() {

@@ -20,8 +20,33 @@ require_relative 'server'
 
 project_root = Dir.pwd
 port   = (ENV['ORCHESTRATOR_PORT'] || 4242).to_i
+interactive = ENV['ORCHESTRATOR_INTERACTIVE'] == '1'
 OrchestratorServer.project_root = project_root
 server = OrchestratorServer  # class used as handle; state is class-level
+
+puts "Interactive mode: orchestrator will pause for approval before each action." if interactive
+
+# Returns a compact, human-readable summary of a routed action for UI display.
+def describe_action(action)
+  case action[:type]
+  when 'run-task'
+    ctx     = action[:context] || {}
+    issue   = ctx[:issue_id] ? " (issue #{ctx[:issue_id]})" : ''
+    "run-task → #{action[:task]}#{issue}"
+  when 'run-tasks-parallel'
+    tasks = (action[:tasks] || []).map { |t| t[:task] }
+    "run-tasks-parallel → #{tasks.join(', ')}"
+  when 'wait-approval'
+    title = action.dig(:context, :issue_title) || action.dig(:context, :issue_id)
+    "wait-approval → demo review#{title ? " for #{title}" : ''}"
+  when 'escalate'
+    "escalate → #{action[:reason]}"
+  when 'done'
+    'done — all issues complete'
+  else
+    action[:type].to_s
+  end
+end
 
 Thread.new do
   OrchestratorServer.run!(port: port, bind: '127.0.0.1', quiet: true)
@@ -185,6 +210,17 @@ loop do
   State.clear_current_task(project_root)
 
   action = Router.route(report, state)
+
+  if interactive && action[:type] != 'noop'
+    server.pending_next_action = { type: action[:type], summary: describe_action(action) }
+    server.paused = true
+    loop { break unless server.paused; sleep 1 }
+    server.pending_next_action = nil
+    if server.cancel_requested
+      server.cancel_requested = false
+      next
+    end
+  end
 
   case action[:type]
   when 'run-task'

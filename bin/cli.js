@@ -9,6 +9,7 @@ const args = process.argv.slice(2);
 const command = args.find(a => !a.startsWith('--')) ?? 'run';
 const force = args.includes('--force');
 const dryRun = args.includes('--dry-run');
+const interactive = args.includes('--interactive');
 
 switch (command) {
   case 'run': {
@@ -28,7 +29,11 @@ switch (command) {
 
     const proc = spawn('ruby', [script], {
       stdio: 'inherit',
-      env: { ...process.env, BUNDLE_GEMFILE: path.join(orchestratorDir, 'Gemfile') },
+      env: {
+        ...process.env,
+        BUNDLE_GEMFILE: path.join(orchestratorDir, 'Gemfile'),
+        ORCHESTRATOR_INTERACTIVE: interactive ? '1' : '',
+      },
     });
     proc.on('exit', code => process.exit(code ?? 0));
     break;
@@ -38,6 +43,6 @@ switch (command) {
     break;
   default:
     console.error(`Unknown command: ${command}`);
-    console.error('Usage: npx autonomous-product-team [run|status] [--force] [--dry-run]');
+    console.error('Usage: npx autonomous-product-team [run|status] [--force] [--dry-run] [--interactive]');
     process.exit(1);
 }
