@@ -121,9 +121,14 @@ def dispatch_task(project, cfg, task, context)
   full_context = { 'project_url' => project.project_url }.merge(context)
   prompt = TaskRunner.compose_prompt(task_path, full_context)
 
+  unless project.github_repo
+    return { 'type' => 'task-failed', 'task' => task,
+             'details' => 'project missing github_repo — recreate via the UI with a GitHub repo URL or explicit github_repo' }
+  end
+
   session = Synthup.create_session(
     tenant:  cfg.tenant,
-    project: github_repo(project.project_url),
+    project: project.github_repo,
     prompt:  prompt,
     model:   model
   )
@@ -143,10 +148,6 @@ rescue TaskRunner::TimeoutError => e
 rescue Synthup::Error => e
   { 'type' => 'task-failed', 'task' => task,
     'details' => "Synthup API error #{e.status}: #{e.body}" }
-end
-
-def github_repo(url)
-  url.match(%r{github\.com/([^/]+/[^/]+)})&.then { |m| m[1].sub(/\.git$/, '') } || url
 end
 
 # Translates an approval result from the wait-approval gate into a typed report

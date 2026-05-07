@@ -8,6 +8,7 @@ gem 'bundler', '>= 2'
 
 group :test do
   gem 'minitest'
+  gem 'rack-test'
   gem 'ruby_llm'
   gem 'dotenv'
 end

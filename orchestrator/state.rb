@@ -6,11 +6,12 @@ require_relative 'storage'
 module State
   HISTORY_CAP = 100
 
-  def self.initial(id:, project_url:, local_path: nil)
+  def self.initial(id:, project_url:, github_repo: nil, local_path: nil)
     {
       'version'     => 2,
       'id'          => id,
       'project_url' => project_url,
+      'github_repo' => github_repo,
       'local_path'  => local_path,
       'created_at'  => Time.now.utc.iso8601,
       'status'      => 'running',

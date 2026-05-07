@@ -101,10 +101,15 @@ class OrchestratorServer < Sinatra::Base
 
   post '/api/projects' do
     body_params = JSON.parse(request.body.read) rescue {}
-    url        = body_params['project_url'].to_s.strip
-    local_path = body_params['local_path'].to_s.strip
+    url         = body_params['project_url'].to_s.strip
+    github_repo = body_params['github_repo'].to_s.strip
+    local_path  = body_params['local_path'].to_s.strip
     return json_error(400, 'project_url is required') if url.empty?
-    project = Projects.create(project_url: url, local_path: local_path.empty? ? nil : local_path)
+    project = Projects.create(
+      project_url: url,
+      github_repo: github_repo.empty? ? nil : github_repo,
+      local_path:  local_path.empty? ? nil : local_path
+    )
     # Activate immediately if there's no active project yet.
     Config.set_active_project_id(project.id) if Config.load.active_project_id.to_s.empty?
     content_type :json

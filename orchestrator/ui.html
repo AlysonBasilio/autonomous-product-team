@@ -248,6 +248,7 @@
   <div style="margin-top:.75rem;border-top:1px solid var(--border);padding-top:.75rem">
     <div style="color:var(--muted);margin-bottom:.5rem">Add a project</div>
     <div class="row"><span class="label">project_url</span><input id="proj-url" placeholder="https://linear.app/your-team/issues" style="flex:1"></div>
+    <div class="row"><span class="label">github_repo</span><input id="proj-github_repo" placeholder="owner/repo (required if project_url is not a GitHub URL)" style="flex:1"></div>
     <div class="row"><span class="label">local_path</span><input id="proj-local_path" placeholder="/Users/you/projects/your-repo (optional)" style="flex:1"></div>
     <div id="proj-error" style="color:var(--red);margin-top:.5rem;display:none"></div>
     <div class="btn-row"><button class="primary" onclick="addProject()">Add project</button></div>
@@ -507,6 +508,7 @@
   function addProject() {
     const body = {
       project_url: document.getElementById('proj-url').value.trim(),
+      github_repo: document.getElementById('proj-github_repo').value.trim(),
       local_path:  document.getElementById('proj-local_path').value.trim()
     };
     const err = document.getElementById('proj-error');
@@ -523,6 +525,7 @@
     }).then(r => r.json().then(j => ({ ok: r.ok, j }))).then(({ ok, j }) => {
       if (!ok || j.error) { err.textContent = j.error || 'Failed to add project'; err.style.display = 'block'; return; }
       document.getElementById('proj-url').value = '';
+      document.getElementById('proj-github_repo').value = '';
       document.getElementById('proj-local_path').value = '';
     }).catch(() => {});
   }
