@@ -136,31 +136,31 @@ gem install bundler
 
 ### Making changes
 
-When modifying task definitions (`tasks/*.md`), run the eval suite:
+When modifying task definitions (`tasks/*.md`), run the test suite:
 
 ```bash
 # Fast structural checks (no API key required)
-evals/.venv/bin/python -m pytest evals/test_static.py -v
+bundle exec ruby tests/test_static.rb
 
-# Full suite including LLM-as-judge evals (requires OPENROUTER_API_KEY in evals/.env)
-evals/.venv/bin/python -m pytest evals/ -v
+# Full suite including LLM-as-judge evals (requires OPENROUTER_API_KEY in tests/.env)
+bundle exec ruby tests/run.rb
 ```
 
 ### Setup
 
 ```bash
-python3 -m venv evals/.venv && evals/.venv/bin/pip install -r evals/requirements.txt
-echo "OPENROUTER_API_KEY=sk-or-..." > evals/.env
+bundle install
+echo "OPENROUTER_API_KEY=sk-or-..." > tests/.env
 ```
 
-### Adding evals
+### Adding tests
 
 | File | What to add |
 |---|---|
-| `evals/test_static.py` | Structural checks — new fields, new task references, new report types |
-| `evals/test_triage.py` | New triage edge cases (blocker definitions, priority rules) |
-| `evals/test_plan_routing.py` | New routing table rows or state combinations |
-| `evals/test_demo_review.py` | New demo-review scenarios or approval/redirect edge cases |
-| `evals/test_discovery.py` | New discovery scenarios or issue analysis edge cases |
+| `tests/test_static.rb` | Structural checks — new fields, new task references, new report types |
+| `tests/test_triage.rb` | New triage edge cases (blocker definitions, priority rules) |
+| `tests/test_plan_routing.rb` | New routing table rows or state combinations |
+| `tests/test_demo_review.rb` | New demo-review scenarios or approval/redirect edge cases |
+| `tests/test_discovery.rb` | New discovery scenarios or issue analysis edge cases |
 
-Each LLM eval is a scenario dict with `name`, `description`, `mock_context`, and `rubric` — see any existing scenario in those files for the pattern.
+Each LLM eval is a scenario hash with `:name`, `:description`, `:mock_context`, and `:rubric` — see any existing scenario in those files for the pattern.

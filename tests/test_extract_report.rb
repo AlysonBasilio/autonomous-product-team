@@ -5,8 +5,7 @@
 # Synthup task agents and the orchestrator. The agent emits a fenced JSON
 # block; extract_report must match it (and only it).
 #
-# Run:    ruby evals/test_extract_report.rb
-# Or via: pytest evals/test_extract_report.rb (delegates from a Python wrapper)
+# Run: ruby tests/test_extract_report.rb
 
 require 'minitest/autorun'
 

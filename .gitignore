@@ -1,9 +1,5 @@
 node_modules/
-evals/.env
-evals/.venv/
-__pycache__/
-*.pyc
-.pytest_cache/
+tests/.env
 tmp/
 
 # autonomous-product-team
