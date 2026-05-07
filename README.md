@@ -164,3 +164,28 @@ echo "OPENROUTER_API_KEY=sk-or-..." > tests/.env
 | `tests/test_discovery.rb` | New discovery scenarios or issue analysis edge cases |
 
 Each LLM eval is a scenario hash with `:name`, `:description`, `:mock_context`, and `:rubric` — see any existing scenario in those files for the pattern.
+
+### End-to-end test
+
+`tests/e2e/` boots the orchestrator in interactive mode, drives it through a real browser, and walks the full `triage → plan → code → test → demo-review` lifecycle against a configured GitHub repo.
+
+```bash
+bundle exec ruby tests/e2e/run.rb
+```
+
+Prereqs:
+
+- Chrome or Chromium installed and on `$PATH` (Ferrum drives it via CDP — no Node toolchain).
+- `gh` CLI authenticated for the sandbox repo.
+- `tests/.env` populated:
+  ```
+  SYNTHUP_TENANT=...
+  SYNTHUP_API_KEY=...
+  E2E_GITHUB_REPO=owner/sandbox-repo
+  ```
+
+Optional: `E2E_PORT`, `E2E_TIMEOUT_S` (default `1800`), `E2E_HEADLESS=0` to run headed.
+
+> **Warning:** this opens a real PR against `E2E_GITHUB_REPO` and burns Synthup credits. Always point it at a sandbox repo, never the canonical `alysonbasilio/autonomous-product-team`. The test closes the issue and PR in teardown, but a hard-killed run may leave artifacts.
+
+See [AGENTS.md](AGENTS.md) for the testing directives — in particular, e2e tests assert on the rendered DOM only, never on `/api/*` responses.

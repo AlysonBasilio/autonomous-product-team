@@ -11,4 +11,5 @@ group :test do
   gem 'rack-test'
   gem 'ruby_llm'
   gem 'dotenv'
+  gem 'ferrum'
 end
