@@ -24,9 +24,17 @@ Check out the PR branch locally:
 gh pr checkout <pr_url>
 ```
 
-### 3. Start the application and test
+### 3. Environment
+
+You are already running inside a Linux container with Ruby, Node, Python, and the usual language toolchains preinstalled. There is no nested Docker, Docker Compose, or Kubernetes available. When a repo documents `docker compose up` or similar as the way to run things, treat that as instructions for a developer on their own machine; in your container, install and run the project natively instead (`bundle install && bundle exec …`, `npm install && npm run …`, `pip install -r requirements.txt && …`). Don't try to start Docker.
+
+If the native path hits a missing dependency, **try to install it first** before handing off. You have a normal Linux container with package managers — `apt-get install` for system libraries (libpq, imagemagick, build-essential, etc.), `gem install` / `npm install` / `pip install` for language packages. If a service like Postgres or Redis is required, install and start it inside this container (`apt-get install postgresql && service postgresql start`, or run the binary directly). Only after a real attempt to install the dependency fails — or the missing piece is something you fundamentally can't provide (cloud credentials, a third-party API key, a proprietary binary) — should you hand off as `test-blocked`.
+
+### 4. Start the application and test
 
 Try to start the application from the branch and exercise the change. Use whatever cues the repo gives you, any setup notes you happen across, or sensible defaults for the stack.
+
+**What "exercise the change" means.** You must drive the change from the outside through its real interface: hit the HTTP endpoint with `curl`, click through the UI, run the CLI command, observe the database row / log line / file the change is supposed to produce. Running the repo's existing test suite (`rake test`, `pytest`, `npm test`, `go test`, etc.) does **not** count and is not a substitute. Those tests only prove the implementer's own assertions still pass; they cannot catch anything the implementer didn't already think to check, and the whole point of adversarial QA is to find what they missed. If you genuinely cannot drive the change end-to-end (the app won't start, the endpoint isn't reachable, the UI won't render), hand off as `test-blocked` — do **not** fall back to running the test suite and reporting `pass`.
 
 If you genuinely cannot run the app yourself (commands fail with missing dependencies, no obvious entry point, the environment refuses to start, required services are unavailable, etc.), stop and hand the test off to the user. Do NOT post a test-complete comment in this case. Output your final response as a single fenced ```json code block — and nothing else — containing this object:
 
@@ -41,9 +49,9 @@ If you genuinely cannot run the app yourself (commands fail with missing depende
 
 The orchestrator will pause and ask the user to verify the change manually. This is a request for human testing, not a request to write setup documentation — do not propose creating env-setup issues or similar follow-ups.
 
-If the app starts, continue to step 4.
+If the app starts, continue to step 5.
 
-### 4. Test with three lenses
+### 5. Test with three lenses
 
 **Acceptance criteria** — Verify each criterion is demonstrably met from the outside (API calls, UI interaction, observable side effects). Do not verify by reading source code.
 
@@ -51,7 +59,7 @@ If the app starts, continue to step 4.
 
 **Regression** — Spot-check adjacent features that share code paths with this change. Confirm they still work.
 
-### 5. Report
+### 6. Report
 
 First, post a comment to the PM issue using the product development management system tool. The comment body must be a single fenced ```json block containing this object:
 
@@ -93,4 +101,5 @@ Either a `test-report` (after running the tests yourself) or a `test-blocked` (h
 - Do not read the PR diff or implementation code before testing — test as an external user would.
 - Test from the branch, not from main.
 - Try to run the app yourself before handing off to the user.
+- The repo's existing test suite is not a valid substitute for exercising the change. If you can't drive the change as a user, hand off — don't run `rake test` / `pytest` / `npm test` and call it pass.
 - Every finding must include enough detail for the implementer to reproduce and fix it.
