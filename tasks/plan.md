@@ -1,5 +1,5 @@
 ---
-model: anthropic/claude-sonnet-4-6
+model: google/gemini-3.1-pro-preview
 ---
 
 # Task: Assess and Plan
