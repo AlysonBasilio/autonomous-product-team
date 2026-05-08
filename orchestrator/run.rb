@@ -114,7 +114,7 @@ end
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def dispatch_task(project, cfg, task, context)
+def dispatch_task(project, cfg, task, context, server:)
   started_at = Time.now.utc.iso8601
   State.patch(project.id, 'currentTask' => {
     'task'       => task,
@@ -147,7 +147,7 @@ def dispatch_task(project, cfg, task, context)
     'context'    => context
   })
 
-  report = TaskRunner.poll_for_report(session['id'])
+  report = TaskRunner.poll_for_report(session['id'], cancel_check: -> { server.cancel_requested })
   Synthup.archive_session(session['id']) rescue nil
   report
 rescue TaskRunner::TimeoutError => e
@@ -243,7 +243,7 @@ loop do
       Synthup.archive_session(sid) rescue nil if r['type'] == 'cancelled'
       r
     else
-      dispatch_task(project, cfg, 'issue-triage.md', {})
+      dispatch_task(project, cfg, 'issue-triage.md', {}, server: server)
     end
 
   # Handle cancel
@@ -288,12 +288,12 @@ loop do
 
   case action[:type]
   when 'run-task'
-    new_report     = dispatch_task(project, cfg, action[:task], action[:context] || {})
+    new_report     = dispatch_task(project, cfg, action[:task], action[:context] || {}, server: server)
     pending_report = new_report
 
   when 'run-tasks-parallel'
     threads = action[:tasks].map do |t|
-      Thread.new { dispatch_task(project, cfg, t[:task], t[:context] || {}) }
+      Thread.new { dispatch_task(project, cfg, t[:task], t[:context] || {}, server: server) }
     end
     reports        = threads.map(&:value)
     pending_report = reports.find { |r| r['type'] != 'create-issue-complete' } || reports.first
