@@ -11,14 +11,16 @@ class OrchestratorServer < Sinatra::Base
 
   # Class-level state — shared across all per-request instances
   class << self
-    attr_accessor :paused, :pending_approval, :triage_requested, :cancel_requested, :pending_next_action
+    attr_accessor :paused, :pending_approval, :triage_requested, :cancel_requested, :pending_next_action,
+                  :resume_polling_requested
   end
 
-  @paused              = false
-  @triage_requested    = false
-  @cancel_requested    = false
-  @pending_approval    = nil
-  @pending_next_action = nil
+  @paused                    = false
+  @triage_requested          = false
+  @cancel_requested          = false
+  @resume_polling_requested  = false
+  @pending_approval          = nil
+  @pending_next_action       = nil
 
   def self.build_state_payload
     cfg     = Config.load
@@ -143,6 +145,15 @@ class OrchestratorServer < Sinatra::Base
 
   post '/api/triage' do
     self.class.triage_requested = true
+    json_ok
+  end
+
+  post '/api/resume-polling' do
+    cfg = Config.load
+    state = cfg.active_project_id ? State.load(cfg.active_project_id) : nil
+    sid = state&.dig('escalation', 'resumable_task', 'session_id')
+    return json_error(409, 'No resumable session on the current escalation') unless sid
+    self.class.resume_polling_requested = true
     json_ok
   end
 

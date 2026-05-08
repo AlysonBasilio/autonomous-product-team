@@ -298,6 +298,9 @@
   <h2>Escalation</h2>
   <div id="esc-reason" class="row"></div>
   <div id="esc-details" class="escalation-details"></div>
+  <div class="btn-row">
+    <button id="btn-resume-polling" class="hidden" onclick="resumePolling()">Resume polling</button>
+  </div>
 </section>
 
 <!-- History -->
@@ -416,8 +419,11 @@
       document.getElementById('esc-reason').innerHTML =
         `<span class="label">reason</span><span class="value">${esc(s.escalation.reason)}</span>`;
       document.getElementById('esc-details').textContent = s.escalation.details || '';
+      const resumable = !!(s.escalation.resumable_task && s.escalation.resumable_task.session_id);
+      document.getElementById('btn-resume-polling').classList.toggle('hidden', !resumable);
     } else {
       esc_section.classList.add('hidden');
+      document.getElementById('btn-resume-polling').classList.add('hidden');
     }
 
     // History
@@ -567,6 +573,10 @@
 
   function triggerTriage() {
     api('POST', '/api/triage');
+  }
+
+  function resumePolling() {
+    api('POST', '/api/resume-polling');
   }
 
   function cancelTask() {

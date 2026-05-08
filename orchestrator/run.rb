@@ -88,13 +88,20 @@ state = State.load(project.id)
 
 if state['status'] == 'escalated'
   esc = state['escalation'] || {}
+  resumable_task = esc['resumable_task']
   warn "\nOrchestrator is in an escalated state and needs your attention."
   warn "Reason:  #{esc['reason']}"
   warn "Details: #{esc['details']}"
-  puts "\nUI: http://localhost:#{port} — click 'Triage now' to reset and retry."
-  loop { sleep 1; break if server.triage_requested }
-  server.triage_requested = false
-  state = State.patch(project.id, 'status' => 'running', 'escalation' => nil, 'currentTask' => nil)
+  hint = resumable_task ? "click 'Triage now' to reset, or 'Resume polling' to keep watching the existing session" : "click 'Triage now' to reset and retry"
+  puts "\nUI: http://localhost:#{port} — #{hint}."
+  loop { sleep 1; break if server.triage_requested || (resumable_task && server.resume_polling_requested) }
+  if server.resume_polling_requested
+    server.resume_polling_requested = false
+    state = State.patch(project.id, 'status' => 'running', 'escalation' => nil, 'currentTask' => resumable_task)
+  else
+    server.triage_requested = false
+    state = State.patch(project.id, 'status' => 'running', 'escalation' => nil, 'currentTask' => nil)
+  end
 end
 
 if state['status'] == 'done'
@@ -251,12 +258,12 @@ loop do
   # Reload state here so we capture the currentTask that was set by dispatch_task —
   # the local `state` variable may be stale if dispatch_task ran in the current iteration.
   current_task_state = State.load(project.id)
-  started_at = current_task_state.dig('currentTask', 'started_at') ||
-               state.dig('currentTask', 'started_at')
+  current_task_snapshot = current_task_state['currentTask'] || state['currentTask']
+  started_at = current_task_snapshot&.dig('started_at')
   duration   = started_at ? (Time.now - Time.parse(started_at)).round : nil
   State.record_history(project.id, {
-    'task'         => current_task_state.dig('currentTask', 'task') || state.dig('currentTask', 'task'),
-    'session_id'   => current_task_state.dig('currentTask', 'session_id') || state.dig('currentTask', 'session_id'),
+    'task'         => current_task_snapshot&.dig('task'),
+    'session_id'   => current_task_snapshot&.dig('session_id'),
     'completed_at' => Time.now.utc.iso8601,
     'duration_s'   => duration,
     'report'       => { 'type'     => report['type'],
@@ -315,18 +322,27 @@ loop do
     # nothing — loop again to dispatch triage
 
   when 'escalate'
+    resumable_task = (action[:reason] == 'recovery-exhausted' &&
+                      current_task_snapshot&.dig('session_id')) ? current_task_snapshot : nil
     State.patch(project.id, 'status' => 'escalated',
       'escalation' => {
-        'reason'    => action[:reason],
-        'details'   => action[:details],
-        'timestamp' => Time.now.utc.iso8601
-      })
+        'reason'         => action[:reason],
+        'details'        => action[:details],
+        'resumable_task' => resumable_task,
+        'timestamp'      => Time.now.utc.iso8601
+      }.compact)
     warn "\nOrchestrator escalated: #{action[:reason]}"
     warn action[:details]
-    puts "\nUI: http://localhost:#{port} — click 'Triage now' to retry."
-    loop { sleep 1; break if server.triage_requested }
-    server.triage_requested = false
-    State.patch(project.id, 'status' => 'running', 'escalation' => nil, 'currentTask' => nil)
+    hint = resumable_task ? "click 'Triage now' to retry, or 'Resume polling' to keep watching the existing session" : "click 'Triage now' to retry"
+    puts "\nUI: http://localhost:#{port} — #{hint}."
+    loop { sleep 1; break if server.triage_requested || (resumable_task && server.resume_polling_requested) }
+    if server.resume_polling_requested
+      server.resume_polling_requested = false
+      State.patch(project.id, 'status' => 'running', 'escalation' => nil, 'currentTask' => resumable_task)
+    else
+      server.triage_requested = false
+      State.patch(project.id, 'status' => 'running', 'escalation' => nil, 'currentTask' => nil)
+    end
 
   when 'done'
     State.patch(project.id, 'status' => 'done')
