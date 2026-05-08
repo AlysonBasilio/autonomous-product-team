@@ -1,19 +1,19 @@
 ---
 model: deepseek/deepseek-v4-pro
+inputs:
+  required: [issue_id]
+  optional: []
 ---
 
 # Task: Discovery
 
-## Input
-
-The orchestrator provides as context:
-- `issue_id` — the issue to explore
+You are exploring issue **{{ issue_id }}** in the project at `{{ project_url }}`.
 
 ## Workflow
 
 ### 1. Fetch the issue
 
-Retrieve the issue from the product development management system. Read its title, description, and any comments to understand the request, idea, bug, or feature to explore.
+Retrieve issue `{{ issue_id }}` from the product development management system. Read its title, description, and any comments to understand the request, idea, bug, or feature to explore.
 
 ### 2. Research
 
@@ -35,7 +35,7 @@ Based on your research, identify:
 For each piece of work identified in step 3, draft a follow-up issue with:
 - **Title** — concise, action-oriented
 - **Description** containing:
-  - **Background** — why this work exists, referencing the discovery issue (`<issue_id>`) and what was learned
+  - **Background** — why this work exists, referencing the discovery issue (`{{ issue_id }}`) and what was learned
   - **What needs to be done** — concrete description of the work, written so a future implementer can understand it without reading the discovery issue
   - **Acceptance criteria** — specific, verifiable conditions that define Done
 

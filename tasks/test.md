@@ -1,27 +1,26 @@
 ---
 model: openai/gpt-5.4
+inputs:
+  required: [issue_id, pr_url]
+  optional: []
 ---
 
 # Task: Test
 
-Adversarial QA from the branch, before any merge. You are testing as a user — do not read the implementation code or PR diff.
-
-## Input
-
-You will receive `issue_id` and `pr_url` from the implementation task-complete report.
+Adversarial QA on PR **{{ pr_url }}** for issue **{{ issue_id }}** in the project at `{{ project_url }}`, before any merge. You are testing as a user — do not read the implementation code or PR diff.
 
 ## Workflow
 
 ### 1. Fetch the issue
 
-Fetch the issue from the product development management system to understand the acceptance criteria. Do NOT read the implementation code or PR diff — test blind as a user would.
+Fetch issue `{{ issue_id }}` from the product development management system to understand the acceptance criteria. Do NOT read the implementation code or PR diff — test blind as a user would.
 
 ### 2. Check out the branch
 
 Check out the PR branch locally:
 
 ```bash
-gh pr checkout <pr_url>
+gh pr checkout {{ pr_url }}
 ```
 
 ### 3. Environment

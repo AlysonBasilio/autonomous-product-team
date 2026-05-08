@@ -27,11 +27,17 @@ class DiscoveryScenarioTest < Minitest::Test
 
     %<mock_context>s
 
-    Do two things in order:
+    Do two things in order. Both are required — do not skip either.
 
-    1. For each follow-up issue you would create, output its full content: title and complete description (Background, What needs to be done, Acceptance criteria). Use placeholder IDs (e.g. PROJ-51, PROJ-52).
+    1. For each follow-up issue you would create, output a compact block (use placeholder IDs like PROJ-51, PROJ-52):
 
-    2. Then output the final discovery-complete report exactly as defined in the task (type, issue_id, summary, created_issues list).
+       Title: <title>
+       ID: <PROJ-XX>
+       Background: <one sentence referencing the discovery issue ID>
+       What: <one or two sentences naming the concrete work and any specific files/systems involved>
+       Acceptance criteria: <one short bulleted list>
+
+    2. After ALL issue blocks, output the final discovery-complete report — a single fenced ```json code block with fields {type, issue_id, summary, created_issues:[{id,title}]} as defined in the task. The fenced JSON block is mandatory and must be the last thing in your output.
 
     No other preamble or explanation.
   PROMPT

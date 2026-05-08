@@ -33,7 +33,7 @@ class PlanRoutingScenarioTest < Minitest::Test
 
     Focus on Phase 0: state assessment and routing. Determine the correct next_task from the routing table.
 
-    If your routing decision is an implement-* task, produce the plan-report with a brief placeholder plan (e.g., "1. Implement per issue spec and acceptance criteria"). The focus of this eval is the routing decision.
+    If your routing decision is `code`, you may produce a brief one- or two-step plan that names the issue's acceptance criteria directly (e.g., "1. Add 'Forgot password?' link to login page"). Do NOT emit generic boilerplate like "implement per spec" — plan.md forbids it. When routing to `code`, populate `findings` with the reason for the routing decision (test findings on failure, user_feedback on demo redirect, or a note about staleness when the issue was updated after the test passed).
 
     Produce the complete plan-report. Output ONLY the report — no preamble, no explanation.
   PROMPT
@@ -449,7 +449,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         model: TASK_MODEL,
         user: prompt,
         temperature: 0,
-        max_tokens: 768,
+        max_tokens: 2048,
       )
       result = Judge.grade(scenario: scenario, agent_output: agent_output, task_content: task_content)
       assert result.passed, result.failure_reasons.join("\n")

@@ -1,19 +1,20 @@
 ---
 model: google/gemini-3.1-pro-preview
+inputs:
+  required: [issue_id]
+  optional: []
 ---
 
 # Task: Assess and Plan
 
-## Input
-
-The orchestrator provides as context the issue ID.
+You are planning issue **{{ issue_id }}** in the project at `{{ project_url }}`.
 
 ## Phase 0 — State Assessment
 
 Before doing any planning, assess the actual current state of the issue to determine where work stands.
 
 ### 1. Fetch the issue
-Read the issue from the product development management system. Understand the requirements and acceptance criteria. Note the issue's last-updated timestamp for use in the stale-implementation check below.
+Read issue `{{ issue_id }}` from the product development management system. Understand the requirements and acceptance criteria. Note the issue's last-updated timestamp for use in the stale-implementation check below.
 
 ### 2. Read PM issue task history
 Read all comments on the PM issue using the product development management system tool. Collect the most recent comment of each of these types:
@@ -27,8 +28,8 @@ Read all comments on the PM issue using the product development management syste
 **Stale-implementation check**: If a `test-complete` comment with `outcome: pass` exists, compare its timestamp against the issue's last-updated timestamp. If the issue description or acceptance criteria appear to have been edited after the `test-complete` was posted, flag the implementation as **stale**.
 
 ### 3. Check git/PR state
-- Check if a branch for this issue already exists locally (e.g. `git branch --list "*<issue-id>*"`).
-- Check if a PR is already open on the remote: `gh pr list --search "<issue-id>" --state open`.
+- Check if a branch for this issue already exists locally (e.g. `git branch --list "*{{ issue_id }}*"`).
+- Check if a PR is already open on the remote: `gh pr list --search "{{ issue_id }}" --state open`.
 - For each associated PR in the multi-PR set (from Step 2), check its state individually: `gh pr view <pr_url> --json state` to determine if it is open, merged, or closed. Build a summary: count how many are merged/closed vs. still open. All associated PRs must be merged or closed for the issue to be considered fully complete.
 - If a PR exists and is open, check CI status: `gh pr checks <pr_url>`.
 - If a PR exists and is open, check for merge conflicts:

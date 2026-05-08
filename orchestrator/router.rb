@@ -14,9 +14,10 @@ module Router
       next_issue = report['next_issue']
       return { type: 'done' } unless next_issue
 
+      issue_id = next_issue.is_a?(Hash) ? next_issue['id'] : next_issue
       issue_type = report['issue_type']
       task = issue_type == 'discovery' ? 'discovery.md' : 'plan.md'
-      { type: 'run-task', task: task, context: { issue_id: next_issue } }
+      { type: 'run-task', task: task, context: { issue_id: issue_id } }
 
     when 'plan-report'
       next_task = report['next_task']

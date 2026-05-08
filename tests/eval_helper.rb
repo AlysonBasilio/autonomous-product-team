@@ -27,8 +27,7 @@ module EvalHelper
       end_idx = content.index("\n---", 3)
       if end_idx
         if (match = content[3...end_idx].match(/^model:\s*(\S+)/m))
-          model = match[1]
-          return model.start_with?('anthropic/') ? model : "anthropic/#{model}"
+          return match[1]
         end
       end
     end

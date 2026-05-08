@@ -1,16 +1,15 @@
 ---
 model: google/gemini-3.1-flash-lite-preview
+inputs:
+  required: []
+  optional: []
 ---
 
 # Task: Issue Triage
 
 ## Objective
 
-Scan the project in the configured product development management system and produce a report of which issues are ready for work.
-
-## Input
-
-The orchestrator provides as context the product development management system name and project URL.
+Scan the project at `{{ project_url }}` and produce a report of which issues are ready for work.
 
 ## Definition of Blocked
 

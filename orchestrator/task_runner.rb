@@ -1,4 +1,5 @@
 require_relative 'synthup'
+require_relative 'template'
 
 module TaskRunner
   POLL_INTERVAL   = 8
@@ -25,13 +26,7 @@ module TaskRunner
   ].freeze
 
   def self.compose_prompt(task_file, context = {})
-    raw = File.read(task_file)
-    body = raw.sub(/\A---\n.*?\n---\n/m, '')
-
-    return body if context.nil? || context.empty?
-
-    context_lines = context.map { |k, v| "#{k}: #{v.is_a?(Hash) || v.is_a?(Array) ? v.to_json : v}" }
-    "#{body}\n## Context\n\n#{context_lines.join("\n")}\n"
+    Template.render(task_file, context || {})
   end
 
   TASKS_DIR = File.expand_path('../tasks', __dir__)

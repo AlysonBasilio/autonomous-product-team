@@ -1,20 +1,19 @@
 ---
 model: google/gemini-3.1-flash-lite-preview
+inputs:
+  required: [issue_id, pr_url]
+  optional: []
 ---
 
 # Task: Demo Review
 
-Customer collaboration touchpoint. Only reached after the tester passes. On approval, this task notifies the user the PR is ready to merge — the user owns the merge action.
-
-## Input
-
-You will receive `issue_id` and `pr_url` from the test-report.
+Customer collaboration touchpoint for PR **{{ pr_url }}** (issue **{{ issue_id }}** in `{{ project_url }}`). Only reached after the tester passes. On approval, this task notifies the user the PR is ready to merge — the user owns the merge action.
 
 ## Workflow
 
 ### 1. Fetch the issue
 
-Fetch the issue from the product development management system: title, description, acceptance criteria.
+Fetch issue `{{ issue_id }}` from the product development management system: title, description, acceptance criteria.
 
 ### 2. Fetch PR details
 

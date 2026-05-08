@@ -1,18 +1,26 @@
 ---
 model: google/gemini-3.1-flash-lite-preview
+inputs:
+  required: []
+  optional: [issue_id, scope]
 ---
 
 # Task: Status Correction
 
 ## Objective
 
-Audit a set of issues in the product development management system and correct any status that is inconsistent with ground truth.
+Audit issues in the project at `{{ project_url }}` and correct any status that is inconsistent with ground truth.
 
-## Input
+## Scope
 
-The orchestrator provides as context either:
-- A specific issue ID to audit, or
-- A scope (e.g. "all issues in the project") to audit broadly.
+{{#issue_id}}
+Audit a single issue: **{{ . }}**.
+{{/issue_id}}
+{{#scope}}
+Audit the following scope: {{ . }}
+{{/scope}}
+
+If neither an `issue_id` nor a `scope` was provided, audit all open issues in the project.
 
 ## Workflow
 

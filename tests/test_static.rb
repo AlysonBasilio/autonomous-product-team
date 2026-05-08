@@ -17,9 +17,14 @@ require_relative 'eval_helper'
 REPO_ROOT = EvalHelper::REPO_ROOT
 
 VALID_MODELS = [
-  'anthropic/claude-opus-4-7',
+  'anthropic/claude-opus-4.7',
   'anthropic/claude-sonnet-4-6',
   'anthropic/claude-haiku-4.5',
+  'openai/gpt-5.4',
+  'openai/gpt-5.4-mini',
+  'google/gemini-3.1-pro-preview',
+  'google/gemini-3.1-flash-lite-preview',
+  'deepseek/deepseek-v4-pro',
 ].freeze
 
 TASK_FILES = Dir[File.join(REPO_ROOT, 'tasks/*.md')].sort.map do |abs|
@@ -451,6 +456,164 @@ class TestReportFormatIsJson < Minitest::Test
                  "#{task_path} still has a YAML-style report block (`type: #{match && match[1]}` " \
                  "inside a non-json fence). The orchestrator's extract_report only matches " \
                  'fenced ```json blocks — convert this to JSON.'
+    end
+  end
+end
+
+require_relative '../orchestrator/template'
+require_relative '../orchestrator/router'
+
+class TestTaskInputsFrontmatter < Minitest::Test
+  # Every tasks/*.md must declare an `inputs:` frontmatter block listing
+  # the keys the orchestrator may pass in. The block makes the dispatch
+  # contract between router and task explicit and statically checkable.
+
+  def test_every_task_declares_inputs
+    TASK_FILES.each do |path|
+      content = load_file(path)
+      assert content.start_with?('---'),
+             "#{path} is missing YAML frontmatter"
+      end_idx = content.index("\n---", 3)
+      refute_nil end_idx, "#{path} has unterminated frontmatter"
+      frontmatter = content[3...end_idx]
+      assert_match(/^inputs:/, frontmatter,
+                   "#{path} must declare an `inputs:` block in frontmatter (use empty " \
+                   '`required: []`/`optional: []` arrays when there are no inputs)')
+    end
+  end
+
+  def test_inputs_block_parses_to_arrays
+    TASK_FILES.each do |path|
+      spec = Template.parse(File.join(REPO_ROOT, path))
+      assert_kind_of Array, spec.required, "#{path}: inputs.required must be an array"
+      assert_kind_of Array, spec.optional, "#{path}: inputs.optional must be an array"
+      (spec.required + spec.optional).each do |k|
+        assert_match(/\A[a-z][a-z0-9_]*\z/, k,
+                     "#{path}: input name '#{k}' must be snake_case")
+      end
+    end
+  end
+
+  def test_no_undeclared_placeholders
+    # Every {{ key }} reference in a task body must be declared in inputs
+    # (required or optional) or be an implicit key like project_url.
+    TASK_FILES.each do |path|
+      spec = Template.parse(File.join(REPO_ROOT, path))
+      declared = (spec.required + spec.optional + Template::IMPLICIT_KEYS).to_set
+      placeholders = spec.body.scan(/\{\{\s*(\w+|\.)\s*\}\}/).map(&:first)
+      sections    = spec.body.scan(/\{\{#\s*(\w+)\s*\}\}/).map(&:first)
+      (placeholders + sections).uniq.each do |k|
+        next if k == '.'
+        assert declared.include?(k),
+               "#{path}: {{#{k}}} is not in inputs (#{declared.to_a.sort.join(', ')})"
+      end
+    end
+  end
+end
+
+class TestRouterSuppliesRequiredInputs < Minitest::Test
+  # For every router branch that dispatches a task, confirm the supplied
+  # context includes every key the task declares as required. This catches
+  # dispatch bugs at static-test time — if a future change adds a required
+  # input but the router still calls the task without it, this fails.
+
+  # Sample reports exercising each branch in Router.route. Use the same field
+  # shapes the producer tasks actually emit — in particular triage-report's
+  # `next_issue` is a `{id, title, summary}` object, not a bare ID string —
+  # so that the rendered prompt picks up dispatch-time type bugs.
+  ROUTER_FIXTURES = [
+    { 'type' => 'triage-report',
+      'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
+      'issue_type' => 'implementation' },
+    { 'type' => 'triage-report',
+      'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
+      'issue_type' => 'discovery' },
+    { 'type' => 'plan-report', 'next_task' => 'code',
+      'issue_id' => 'ENG-1', 'branch' => 'b', 'plan' => 'p' },
+    { 'type' => 'plan-report', 'next_task' => 'test',
+      'issue_id' => 'ENG-1', 'pr_url' => 'u' },
+    { 'type' => 'plan-report', 'next_task' => 'demo-review',
+      'issue_id' => 'ENG-1', 'pr_url' => 'u' },
+    { 'type' => 'split-report',
+      'source_issue_id' => 'ENG-1', 'issues' => [{ 'title' => 't' }] },
+    { 'type' => 'task-complete',
+      'issue_id' => 'ENG-1', 'pr_url' => 'u' },
+    { 'type' => 'task-complete',
+      'issue_id' => 'ENG-1', 'pr_url' => 'u',
+      'follow_up_issues' => [{ 'title' => 't' }] },
+    { 'type' => 'discovery-complete' },
+    { 'type' => 'test-report', 'outcome' => 'pass',
+      'issue_id' => 'ENG-1', 'pr_url' => 'u' },
+    { 'type' => 'test-report', 'outcome' => 'fail',
+      'issue_id' => 'ENG-1', 'pr_url' => 'u',
+      'findings' => [{ 'description' => 'd', 'severity' => 'critical' }] },
+    { 'type' => 'demo-review-report', 'outcome' => 'approved',
+      'issue_id' => 'ENG-1', 'pr_url' => 'u' },
+    { 'type' => 'demo-review-report', 'outcome' => 'redirect',
+      'issue_id' => 'ENG-1', 'pr_url' => 'u', 'user_feedback' => 'f' }
+  ].freeze
+
+  def each_dispatched_task(action)
+    case action[:type]
+    when 'run-task'
+      yield action[:task], action[:context] || {}
+    when 'run-tasks-parallel'
+      action[:tasks].each { |t| yield t[:task], t[:context] || {} }
+    end
+  end
+
+  def test_router_branches_supply_required_inputs
+    ROUTER_FIXTURES.each do |report|
+      action = Router.route(report)
+      each_dispatched_task(action) do |task, context|
+        path = File.join(REPO_ROOT, 'tasks', task)
+        spec = Template.parse(path)
+        ctx_keys = context.keys.map(&:to_s)
+        missing = spec.required - ctx_keys
+        assert missing.empty?,
+               "Router.route(#{report['type']}, outcome=#{report['outcome'].inspect}) " \
+               "→ #{task}: missing required input(s) #{missing.inspect} " \
+               "(context supplied: #{ctx_keys.sort.inspect})"
+      end
+    end
+  end
+
+  def test_router_dispatched_tasks_render_without_errors
+    # End-to-end: take each fixture report, route it, and actually render
+    # the resulting task with the supplied context. Catches type bugs the
+    # required-keys check misses (e.g. passing a Hash where a scalar is
+    # expected).
+    ROUTER_FIXTURES.each do |report|
+      action = Router.route(report)
+      each_dispatched_task(action) do |task, context|
+        path = File.join(REPO_ROOT, 'tasks', task)
+        full_ctx = { 'project_url' => 'https://example/p/x' }.merge(
+          context.each_with_object({}) { |(k, v), h| h[k.to_s] = v }
+        )
+        Template.render(path, full_ctx)
+      rescue Template::Error => e
+        flunk "Router.route(#{report['type']}, outcome=#{report['outcome'].inspect}) " \
+              "→ #{task}: render failed with #{e.class.name.split('::').last}: #{e.message}"
+      end
+    end
+  end
+
+  def test_router_does_not_pass_unknown_keys
+    # Every key the router supplies must be declared in inputs (required
+    # or optional). project_url is added by dispatch_task, not the router,
+    # so it doesn't appear in router branches.
+    ROUTER_FIXTURES.each do |report|
+      action = Router.route(report)
+      each_dispatched_task(action) do |task, context|
+        path = File.join(REPO_ROOT, 'tasks', task)
+        spec = Template.parse(path)
+        declared = (spec.required + spec.optional).to_set
+        ctx_keys = context.keys.map(&:to_s)
+        unknown = ctx_keys - declared.to_a
+        assert unknown.empty?,
+               "Router.route(#{report['type']}) → #{task} passes undeclared key(s) " \
+               "#{unknown.inspect}; add them to inputs.optional or stop passing them"
+      end
     end
   end
 end
