@@ -53,7 +53,15 @@ module TaskRunner
       raise TimeoutError, "Session #{session_id} timed out after #{timeout}s" if Time.now > deadline
 
       elapsed = (Time.now - started_at).round
-      msg = Synthup.get_last_message(session_id)
+      msg = begin
+        Synthup.get_last_message(session_id)
+      rescue Synthup::Error
+        raise
+      rescue StandardError => e
+        warn "[poll #{sid_short}] +#{elapsed}s transient error: #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
+        sleep interval
+        next
+      end
 
       if msg.nil?
         warn "[poll #{sid_short}] +#{elapsed}s no message yet"
