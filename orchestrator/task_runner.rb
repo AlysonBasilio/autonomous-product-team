@@ -5,13 +5,23 @@ module TaskRunner
   TIMEOUT         = 1800 # 30 minutes
   STALE_THRESHOLD = 600  # 10 min of identical content = session is stuck
 
+  # Fractions of TIMEOUT at which to nudge the agent for the current JSON
+  # report. Synthup may inject prompts (PR comments, failed checks) that
+  # displace `last-message` after the agent emitted a report; the nudge asks
+  # the agent to send the report reflecting current state.
+  RECOVERY_THRESHOLDS = [0.5, 0.75, 0.9].freeze
+
+  RECOVERY_PROMPT = <<~PROMPT.strip
+    Please send your final JSON report reflecting the current state of the work, as the last fenced ```json block of your reply. If you are still working, continue — and remember to end the session with the JSON report.
+  PROMPT
+
   class TimeoutError < StandardError; end
 
   KNOWN_REPORT_TYPES = %w[
     triage-report plan-report task-complete split-report test-report
     demo-review-pending demo-review-report discovery-complete
     create-issue-complete status-correction-report
-    test-blocked task-failed blocked
+    test-blocked task-failed blocked recovery-exhausted
   ].freeze
 
   def self.compose_prompt(task_file, context = {})
@@ -42,17 +52,30 @@ module TaskRunner
   end
 
   def self.poll_for_report(session_id, interval: POLL_INTERVAL, timeout: TIMEOUT, cancel_check: nil)
-    deadline        = Time.now + timeout
-    last_content    = nil
-    last_changed_at = nil
-    started_at      = Time.now
-    sid_short       = session_id.to_s.slice(0, 8)
+    deadline         = Time.now + timeout
+    last_content     = nil
+    last_changed_at  = nil
+    started_at       = Time.now
+    sid_short        = session_id.to_s.slice(0, 8)
+    reminders_sent   = 0
+    fired_thresholds = []
 
     loop do
       return { 'type' => 'cancelled' } if cancel_check&.call
-      raise TimeoutError, "Session #{session_id} timed out after #{timeout}s" if Time.now > deadline
 
       elapsed = (Time.now - started_at).round
+
+      if Time.now > deadline
+        warn "[poll #{sid_short}] +#{elapsed}s TIMEOUT after #{timeout}s — escalating to user"
+        return recovery_exhausted_report(
+          session_id:     session_id,
+          reason:         "Session timed out after #{timeout}s without producing a JSON report",
+          elapsed_s:      elapsed,
+          reminders_sent: reminders_sent,
+          last_content:   last_content
+        )
+      end
+
       msg = begin
         Synthup.get_last_message(session_id)
       rescue Synthup::Error
@@ -89,14 +112,56 @@ module TaskRunner
           last_content    = content
           last_changed_at = Time.now
         elsif last_changed_at && Time.now - last_changed_at > STALE_THRESHOLD
-          warn "[poll #{sid_short}] +#{elapsed}s STALL — no new content for #{STALE_THRESHOLD}s"
-          return { 'type' => 'task-failed',
-                   'details' => "Session #{session_id} stalled — no new output for #{STALE_THRESHOLD}s" }
+          warn "[poll #{sid_short}] +#{elapsed}s STALL — no new content for #{STALE_THRESHOLD}s — escalating to user"
+          return recovery_exhausted_report(
+            session_id:     session_id,
+            reason:         "Session stalled — no new output for #{STALE_THRESHOLD}s",
+            elapsed_s:      elapsed,
+            reminders_sent: reminders_sent,
+            last_content:   last_content
+          )
+        end
+      end
+
+      due_threshold = next_recovery_threshold(elapsed: elapsed, timeout: timeout, fired: fired_thresholds)
+      if due_threshold
+        fired_thresholds << due_threshold
+        if send_recovery_reminder(session_id, sid_short, elapsed, due_threshold)
+          reminders_sent += 1
         end
       end
 
       sleep interval
     end
+  end
+
+  def self.next_recovery_threshold(elapsed:, timeout:, fired:)
+    RECOVERY_THRESHOLDS.find do |t|
+      !fired.include?(t) && elapsed >= (timeout * t)
+    end
+  end
+
+  def self.send_recovery_reminder(session_id, sid_short, elapsed, threshold)
+    pct = (threshold * 100).round
+    warn "[poll #{sid_short}] +#{elapsed}s sending recovery reminder (#{pct}% of timeout)"
+    Synthup.send_message(session_id, prompt: RECOVERY_PROMPT)
+    true
+  rescue StandardError => e
+    warn "[poll #{sid_short}] +#{elapsed}s reminder failed: #{e.class}: #{e.message}"
+    false
+  end
+
+  def self.recovery_exhausted_report(session_id:, reason:, elapsed_s:, reminders_sent:, last_content:)
+    tail = last_content.is_a?(String) ? last_content.slice(-500, 500) || last_content : nil
+    details = +"#{reason}\n"
+    details << "session_id: #{session_id}\n"
+    details << "elapsed: #{elapsed_s}s\n"
+    details << "reminders_sent: #{reminders_sent}\n"
+    if tail && !tail.empty?
+      details << "\nLast observed content (tail, up to 500 chars):\n"
+      details << tail
+    end
+    { 'type' => 'recovery-exhausted', 'details' => details }
   end
 
   private

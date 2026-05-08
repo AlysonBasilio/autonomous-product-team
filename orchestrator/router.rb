@@ -142,6 +142,11 @@ module Router
         reason:  'blocked',
         details: report['what_is_blocked'] || report.to_json }
 
+    when 'recovery-exhausted'
+      { type: 'escalate',
+        reason:  'recovery-exhausted',
+        details: report['details'] || report.to_json }
+
     else
       { type: 'escalate',
         reason:  'unknown-report',
