@@ -95,13 +95,11 @@ if state['status'] == 'escalated'
   hint = resumable_task ? "click 'Triage now' to reset, or 'Resume polling' to keep watching the existing session" : "click 'Triage now' to reset and retry"
   puts "\nUI: http://localhost:#{port} — #{hint}."
   loop { sleep 1; break if server.triage_requested || (resumable_task && server.resume_polling_requested) }
-  if server.resume_polling_requested
-    server.resume_polling_requested = false
-    state = State.patch(project.id, 'status' => 'running', 'escalation' => nil, 'currentTask' => resumable_task)
-  else
-    server.triage_requested = false
-    state = State.patch(project.id, 'status' => 'running', 'escalation' => nil, 'currentTask' => nil)
-  end
+  resume = resumable_task && server.resume_polling_requested
+  server.resume_polling_requested = false
+  server.triage_requested = false
+  state = State.patch(project.id, 'status' => 'running', 'escalation' => nil,
+    'currentTask' => resume ? resumable_task : nil)
 end
 
 if state['status'] == 'done'
@@ -336,13 +334,11 @@ loop do
     hint = resumable_task ? "click 'Triage now' to retry, or 'Resume polling' to keep watching the existing session" : "click 'Triage now' to retry"
     puts "\nUI: http://localhost:#{port} — #{hint}."
     loop { sleep 1; break if server.triage_requested || (resumable_task && server.resume_polling_requested) }
-    if server.resume_polling_requested
-      server.resume_polling_requested = false
-      State.patch(project.id, 'status' => 'running', 'escalation' => nil, 'currentTask' => resumable_task)
-    else
-      server.triage_requested = false
-      State.patch(project.id, 'status' => 'running', 'escalation' => nil, 'currentTask' => nil)
-    end
+    resume = resumable_task && server.resume_polling_requested
+    server.resume_polling_requested = false
+    server.triage_requested = false
+    State.patch(project.id, 'status' => 'running', 'escalation' => nil,
+      'currentTask' => resume ? resumable_task : nil)
 
   when 'done'
     State.patch(project.id, 'status' => 'done')
