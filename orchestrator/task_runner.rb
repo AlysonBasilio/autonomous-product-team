@@ -4,7 +4,7 @@ require_relative 'template'
 module TaskRunner
   POLL_INTERVAL   = 8
   TIMEOUT         = 1800 # 30 minutes
-  STALE_THRESHOLD = 600  # 10 min of identical content = session is stuck
+  STALE_THRESHOLD = (TIMEOUT * 0.8).to_i # identical content for this long = stuck
 
   # Fractions of TIMEOUT at which to nudge the agent for the current JSON
   # report. Synthup may inject prompts (PR comments, failed checks) that
@@ -12,7 +12,7 @@ module TaskRunner
   # the agent to send the report reflecting current state.
   RECOVERY_THRESHOLDS = [0.5, 0.75, 0.9].freeze
 
-  RECOVERY_PROMPT = <<~PROMPT.strip
+  RECOVERY_PROMPT_BASE = <<~PROMPT.strip
     Please send your final JSON report reflecting the current state of the work, as the last fenced ```json block of your reply. If you are still working, continue — and remember to end the session with the JSON report.
   PROMPT
 
@@ -46,7 +46,7 @@ module TaskRunner
     model_match ? model_match[1].strip : nil
   end
 
-  def self.poll_for_report(session_id, interval: POLL_INTERVAL, timeout: TIMEOUT, cancel_check: nil)
+  def self.poll_for_report(session_id, interval: POLL_INTERVAL, timeout: TIMEOUT, cancel_check: nil, task_path: nil)
     deadline         = Time.now + timeout
     last_content     = nil
     last_changed_at  = nil
@@ -121,7 +121,7 @@ module TaskRunner
       due_threshold = next_recovery_threshold(elapsed: elapsed, timeout: timeout, fired: fired_thresholds)
       if due_threshold
         fired_thresholds << due_threshold
-        if send_recovery_reminder(session_id, sid_short, elapsed, due_threshold)
+        if send_recovery_reminder(session_id, sid_short, elapsed, due_threshold, task_path)
           reminders_sent += 1
         end
       end
@@ -136,14 +136,46 @@ module TaskRunner
     end
   end
 
-  def self.send_recovery_reminder(session_id, sid_short, elapsed, threshold)
+  def self.send_recovery_reminder(session_id, sid_short, elapsed, threshold, task_path)
     pct = (threshold * 100).round
     warn "[poll #{sid_short}] +#{elapsed}s sending recovery reminder (#{pct}% of timeout)"
-    Synthup.send_message(session_id, prompt: RECOVERY_PROMPT)
+    Synthup.send_message(session_id, prompt: recovery_prompt(task_path))
     true
   rescue StandardError => e
     warn "[poll #{sid_short}] +#{elapsed}s reminder failed: #{e.class}: #{e.message}"
     false
+  end
+
+  def self.recovery_prompt(task_path)
+    examples = extract_report_examples(task_path)
+    return RECOVERY_PROMPT_BASE if examples.empty?
+    blocks = examples.map { |e| "```json\n#{e}\n```" }.join("\n\n")
+    "#{RECOVERY_PROMPT_BASE}\n\nThe expected JSON shape for this task is one of:\n\n#{blocks}"
+  end
+
+  # Extract fenced ```json examples from a task file whose `type` matches a known
+  # report type. The reminder uses these so the agent emits a shape the poller
+  # actually recognizes (rather than inventing a new type).
+  def self.extract_report_examples(task_path)
+    return [] unless task_path && File.exist?(task_path)
+    raw = File.read(task_path)
+    examples = []
+    raw.scan(/^[ \t]*```json[ \t]*\n(.*?)\n[ \t]*```/m).each do |match|
+      body = dedent(match[0])
+      parsed = safe_parse_json(body)
+      next unless parsed.is_a?(Hash) && KNOWN_REPORT_TYPES.include?(parsed['type'])
+      examples << body
+    end
+    examples
+  end
+
+  def self.dedent(text)
+    lines = text.split("\n", -1)
+    indents = lines.reject { |l| l.strip.empty? }.map { |l| l[/^[ \t]*/].length }
+    return text if indents.empty?
+    min_indent = indents.min
+    return text if min_indent.zero?
+    lines.map { |l| l.length >= min_indent && l.start_with?(' ' * min_indent) ? l[min_indent..] : l }.join("\n")
   end
 
   def self.recovery_exhausted_report(session_id:, reason:, elapsed_s:, reminders_sent:, last_content:)

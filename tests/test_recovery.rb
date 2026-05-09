@@ -127,7 +127,7 @@ class SendRecoveryReminderTest < Minitest::Test
       captured << { session_id: session_id, prompt: prompt }
       nil
     end
-    result = TaskRunner.send_recovery_reminder('sess-1', 'sess-1', 900, 0.5)
+    result = TaskRunner.send_recovery_reminder('sess-1', 'sess-1', 900, 0.5, nil)
     assert_equal true, result
     assert_equal 1, captured.length
     assert_equal 'sess-1', captured[0][:session_id]
@@ -138,7 +138,7 @@ class SendRecoveryReminderTest < Minitest::Test
     Synthup.define_singleton_method(:send_message) do |*_args, **_kwargs|
       raise Synthup::Error.new(500, 'boom')
     end
-    result = TaskRunner.send_recovery_reminder('sess-1', 'sess-1', 900, 0.5)
+    result = TaskRunner.send_recovery_reminder('sess-1', 'sess-1', 900, 0.5, nil)
     assert_equal false, result
   end
 
@@ -147,7 +147,7 @@ class SendRecoveryReminderTest < Minitest::Test
       raise Net::OpenTimeout, 'connect timed out'
     end
     require 'net/http'
-    result = TaskRunner.send_recovery_reminder('sess-1', 'sess-1', 900, 0.5)
+    result = TaskRunner.send_recovery_reminder('sess-1', 'sess-1', 900, 0.5, nil)
     assert_equal false, result
   end
 end
@@ -155,5 +155,212 @@ end
 class KnownReportTypesTest < Minitest::Test
   def test_recovery_exhausted_is_known
     assert_includes TaskRunner::KNOWN_REPORT_TYPES, 'recovery-exhausted'
+  end
+end
+
+class ExtractReportExamplesTest < Minitest::Test
+  require 'tempfile'
+
+  def with_task_file(body)
+    Tempfile.create(['task', '.md']) do |f|
+      f.write(body)
+      f.flush
+      yield f.path
+    end
+  end
+
+  def test_returns_empty_when_path_nil
+    assert_equal [], TaskRunner.extract_report_examples(nil)
+  end
+
+  def test_returns_empty_when_file_missing
+    assert_equal [], TaskRunner.extract_report_examples('/nonexistent/task.md')
+  end
+
+  def test_extracts_unindented_block
+    body = <<~MD
+      Some prose.
+
+      ```json
+      {
+        "type": "test-report",
+        "outcome": "pass"
+      }
+      ```
+    MD
+    with_task_file(body) do |path|
+      examples = TaskRunner.extract_report_examples(path)
+      assert_equal 1, examples.length
+      assert_includes examples[0], '"type": "test-report"'
+      # Round-trips through JSON parse cleanly.
+      assert_equal 'pass', JSON.parse(examples[0])['outcome']
+    end
+  end
+
+  def test_extracts_indented_block_and_dedents
+    # Mirrors tasks/issue-triage.md: fenced block sits inside a numbered list.
+    body = <<~MD
+      1. **Report** — output:
+
+         ```json
+         {
+           "type": "triage-report",
+           "next_issue": null
+         }
+         ```
+    MD
+    with_task_file(body) do |path|
+      examples = TaskRunner.extract_report_examples(path)
+      assert_equal 1, examples.length
+      # Dedented body must parse as JSON (would fail with leading 3-space indent
+      # only if JSON.parse rejected it — it doesn't, but verify dedent ran).
+      refute_match(/\A   /, examples[0])
+      assert_equal 'triage-report', JSON.parse(examples[0])['type']
+    end
+  end
+
+  def test_skips_non_json_fenced_blocks
+    body = <<~MD
+      ```bash
+      gh pr checkout x
+      ```
+
+      ```json
+      { "type": "test-report", "outcome": "pass" }
+      ```
+    MD
+    with_task_file(body) do |path|
+      examples = TaskRunner.extract_report_examples(path)
+      assert_equal 1, examples.length
+    end
+  end
+
+  def test_skips_unknown_types
+    body = <<~MD
+      ```json
+      { "type": "pr-update-report" }
+      ```
+
+      ```json
+      { "type": "test-report", "outcome": "pass" }
+      ```
+    MD
+    with_task_file(body) do |path|
+      examples = TaskRunner.extract_report_examples(path)
+      assert_equal 1, examples.length
+      assert_includes examples[0], '"test-report"'
+    end
+  end
+
+  def test_skips_invalid_json
+    body = <<~MD
+      ```json
+      { "type": "test-report", broken
+      ```
+
+      ```json
+      { "type": "test-report", "outcome": "pass" }
+      ```
+    MD
+    with_task_file(body) do |path|
+      examples = TaskRunner.extract_report_examples(path)
+      assert_equal 1, examples.length
+    end
+  end
+
+  def test_real_task_files_yield_at_least_one_example_each
+    tasks_dir = File.expand_path('../tasks', __dir__)
+    Dir["#{tasks_dir}/*.md"].each do |path|
+      examples = TaskRunner.extract_report_examples(path)
+      refute_empty examples, "expected #{File.basename(path)} to have at least one recognized JSON example"
+    end
+  end
+end
+
+class DedentTest < Minitest::Test
+  def test_no_indent_returns_unchanged
+    text = "foo\nbar"
+    assert_equal text, TaskRunner.dedent(text)
+  end
+
+  def test_strips_common_indent
+    text = "  foo\n  bar"
+    assert_equal "foo\nbar", TaskRunner.dedent(text)
+  end
+
+  def test_preserves_relative_indent
+    text = "  foo\n    bar"
+    assert_equal "foo\n  bar", TaskRunner.dedent(text)
+  end
+
+  def test_blank_lines_do_not_affect_min_indent
+    text = "  foo\n\n  bar"
+    assert_equal "foo\n\n  bar".sub('  bar', 'bar'), TaskRunner.dedent(text)
+  end
+
+  def test_handles_empty_input
+    assert_equal '', TaskRunner.dedent('')
+  end
+end
+
+class RecoveryPromptTest < Minitest::Test
+  require 'tempfile'
+
+  def test_returns_base_prompt_when_no_path
+    prompt = TaskRunner.recovery_prompt(nil)
+    assert_equal TaskRunner::RECOVERY_PROMPT_BASE, prompt
+  end
+
+  def test_returns_base_prompt_when_no_examples_extracted
+    Tempfile.create(['task', '.md']) do |f|
+      f.write("# Task with no JSON examples\n\nJust prose.\n")
+      f.flush
+      assert_equal TaskRunner::RECOVERY_PROMPT_BASE, TaskRunner.recovery_prompt(f.path)
+    end
+  end
+
+  def test_appends_examples_when_present
+    tasks_dir = File.expand_path('../tasks', __dir__)
+    prompt = TaskRunner.recovery_prompt(File.join(tasks_dir, 'test.md'))
+    assert_includes prompt, TaskRunner::RECOVERY_PROMPT_BASE
+    assert_includes prompt, 'expected JSON shape for this task'
+    assert_includes prompt, '"type": "test-report"'
+    assert_includes prompt, '"type": "test-blocked"'
+    # Examples are wrapped as fenced json blocks.
+    assert_match(/```json\n\{/, prompt)
+  end
+end
+
+class SendRecoveryReminderWithTaskPathTest < Minitest::Test
+  def setup
+    @original_send_message = Synthup.method(:send_message)
+  end
+
+  def teardown
+    Synthup.define_singleton_method(:send_message, @original_send_message)
+  end
+
+  def test_prompt_includes_task_examples_when_task_path_given
+    captured = nil
+    Synthup.define_singleton_method(:send_message) do |_sid, prompt:, model: nil|
+      captured = prompt
+      nil
+    end
+    task_path = File.expand_path('../tasks/test.md', __dir__)
+    TaskRunner.send_recovery_reminder('sess-1', 'sess-1', 900, 0.5, task_path)
+    refute_nil captured
+    assert_includes captured, 'expected JSON shape for this task'
+    assert_includes captured, '"type": "test-report"'
+    assert_includes captured, '"type": "test-blocked"'
+  end
+
+  def test_prompt_falls_back_to_base_when_task_path_nil
+    captured = nil
+    Synthup.define_singleton_method(:send_message) do |_sid, prompt:, model: nil|
+      captured = prompt
+      nil
+    end
+    TaskRunner.send_recovery_reminder('sess-1', 'sess-1', 900, 0.5, nil)
+    assert_equal TaskRunner::RECOVERY_PROMPT_BASE, captured
   end
 end

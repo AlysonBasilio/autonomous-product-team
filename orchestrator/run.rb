@@ -145,7 +145,7 @@ def dispatch_task(project, cfg, task, context, server:)
     'context'    => context
   })
 
-  report = TaskRunner.poll_for_report(session['id'], cancel_check: -> { server.cancel_requested })
+  report = TaskRunner.poll_for_report(session['id'], cancel_check: -> { server.cancel_requested }, task_path: task_path)
   Synthup.archive_session(session['id']) rescue nil
   report
 rescue TaskRunner::TimeoutError => e
@@ -233,8 +233,10 @@ loop do
       )
       approval_to_report(approval, kind: ctx['kind'], issue_id: ctx['issue_id'], pr_url: ctx['pr_url'])
     elsif (sid = state.dig('currentTask', 'session_id'))
+      task_name = state.dig('currentTask', 'task')
+      task_path = task_name ? (TaskRunner.find_task_file(task_name) rescue nil) : nil
       r = begin
-        TaskRunner.poll_for_report(sid, cancel_check: -> { server.cancel_requested })
+        TaskRunner.poll_for_report(sid, cancel_check: -> { server.cancel_requested }, task_path: task_path)
       rescue TaskRunner::TimeoutError => e
         { 'type' => 'task-failed', 'details' => e.message }
       end
