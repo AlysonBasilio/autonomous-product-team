@@ -158,6 +158,73 @@ class KnownReportTypesTest < Minitest::Test
   end
 end
 
+# Regression: a recovery nudge (role=user) embeds example JSON of every known
+# report type. If the poller treats that nudge as the agent's reply, it pulls
+# the placeholder example out and dispatches on it — landing on demo-review
+# with `<PR URL>` and `<issue ID>` strings (real incident, ENG-1886 session).
+# Reports must only come from role=assistant messages.
+class PollRoleFilterTest < Minitest::Test
+  def setup
+    @original_get = Synthup.method(:get_last_message)
+    @original_send = Synthup.method(:send_message)
+    Synthup.define_singleton_method(:send_message) { |*_a, **_k| nil }
+  end
+
+  def teardown
+    Synthup.define_singleton_method(:get_last_message, @original_get)
+    Synthup.define_singleton_method(:send_message, @original_send)
+  end
+
+  def stub_sequence(messages)
+    queue = messages.dup
+    Synthup.define_singleton_method(:get_last_message) do |_sid|
+      queue.length > 1 ? queue.shift : queue.first
+    end
+  end
+
+  def example_test_blocked_content
+    <<~MD
+      Please send your final JSON report. Expected shape:
+
+      ```json
+      {
+        "type": "test-blocked",
+        "issue_id": "<issue ID>",
+        "pr_url": "<PR URL>",
+        "summary": "<one sentence: what you tried and what blocked you>"
+      }
+      ```
+    MD
+  end
+
+  def test_user_message_with_example_json_is_not_extracted
+    stub_sequence([
+      { 'role' => 'user', 'content' => example_test_blocked_content },
+      { 'role' => 'assistant', 'content' => "```json\n{\"type\":\"test-report\",\"outcome\":\"fail\",\"findings\":[]}\n```" }
+    ])
+    report = TaskRunner.poll_for_report('sess-1', interval: 0, timeout: 5)
+    assert_equal 'test-report', report['type']
+    assert_equal 'fail', report['outcome']
+  end
+
+  def test_assistant_message_still_extracts
+    stub_sequence([
+      { 'role' => 'assistant', 'content' => "```json\n{\"type\":\"test-report\",\"outcome\":\"pass\",\"findings\":[]}\n```" }
+    ])
+    report = TaskRunner.poll_for_report('sess-1', interval: 0, timeout: 5)
+    assert_equal 'test-report', report['type']
+    assert_equal 'pass', report['outcome']
+  end
+
+  def test_failed_status_escalates_even_on_non_assistant_role
+    stub_sequence([
+      { 'role' => 'user', 'status' => 'failed', 'content' => 'boom' }
+    ])
+    report = TaskRunner.poll_for_report('sess-2', interval: 0, timeout: 5)
+    assert_equal 'task-failed', report['type']
+  end
+end
+
 class ExtractReportExamplesTest < Minitest::Test
   require 'tempfile'
 

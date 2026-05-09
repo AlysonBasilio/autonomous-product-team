@@ -83,12 +83,12 @@ module TaskRunner
 
       if msg.nil?
         warn "[poll #{sid_short}] +#{elapsed}s no message yet"
+      elsif session_failed?(msg)
+        warn "[poll #{sid_short}] +#{elapsed}s session failed (status=#{msg['status'].inspect})"
+        return failed_report(session_id, msg)
+      elsif msg['role'] != 'assistant'
+        warn "[poll #{sid_short}] +#{elapsed}s last message role=#{msg['role'].inspect} — waiting for assistant reply"
       else
-        if session_failed?(msg)
-          warn "[poll #{sid_short}] +#{elapsed}s session failed (status=#{msg['status'].inspect})"
-          return failed_report(session_id, msg)
-        end
-
         content     = msg['content']
         len         = content.is_a?(String) ? content.length : 0
         fence_count = content.is_a?(String) ? content.scan(/```/).length / 2 : 0
