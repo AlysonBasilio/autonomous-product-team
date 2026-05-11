@@ -45,9 +45,10 @@ module Router
 
     when 'split-report'
       { type: 'run-task', task: 'create-issue.md', context: {
-        issues:       report['issues'],
-        split_context: true
-      } }
+        issues:           report['issues'],
+        source_issue_id:  report['source_issue_id'],
+        split_context:    true
+      }.compact }
 
     when 'create-issue-complete'
       if report['split_context']

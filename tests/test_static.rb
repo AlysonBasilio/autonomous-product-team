@@ -383,6 +383,55 @@ class TestSplitReport < Minitest::Test
     assert_includes load_file('tasks/create-issue.md'), 'context',
                     'create-issue.md must accept and echo the optional context field'
   end
+
+  def test_router_forwards_source_issue_id_on_split
+    # The router must propagate `source_issue_id` from a split-report into the
+    # create-issue.md context, so create-issue.md knows which issue to close
+    # after the sub-issues are created.
+    report = {
+      'type'            => 'split-report',
+      'source_issue_id' => 'ENG-1987',
+      'reason'          => 'too big',
+      'issues'          => [{ 'title' => 'sub' }]
+    }
+    action = Router.route(report)
+    assert_equal 'run-task', action[:type]
+    assert_equal 'create-issue.md', action[:task]
+    assert_equal 'ENG-1987', action[:context][:source_issue_id],
+                 'router must forward source_issue_id from split-report so create-issue.md can mark the parent Done'
+    assert_equal true, action[:context][:split_context]
+  end
+
+  def test_create_issue_marks_source_done_when_split_context
+    # When invoked from a split, create-issue.md must instruct the agent to
+    # mark the source issue Done — the source's goal is now tracked by the
+    # newly created sub-issues, so it shouldn't remain open.
+    path = File.join(REPO_ROOT, 'tasks/create-issue.md')
+    rendered = Template.render(path, {
+      'project_url'     => 'https://example/p/x',
+      'issues'          => [{ 'title' => 'sub' }],
+      'source_issue_id' => 'ENG-1987',
+      'split_context'   => true
+    })
+    assert_match(/mark .*source issue.*\bDone\b/i, rendered,
+                 'create-issue.md must instruct the agent to mark the source issue Done when split_context is set')
+    assert_includes rendered, 'ENG-1987',
+                    'create-issue.md must echo the source issue ID into the rendered prompt'
+  end
+
+  def test_create_issue_does_not_mark_source_done_without_split_context
+    # The split-context "mark Done" instruction is a carve-out from the
+    # general rule against modifying the source issue's status. Without
+    # split_context the instruction must NOT appear.
+    path = File.join(REPO_ROOT, 'tasks/create-issue.md')
+    rendered = Template.render(path, {
+      'project_url'     => 'https://example/p/x',
+      'issues'          => [{ 'title' => 'sub' }],
+      'source_issue_id' => 'ENG-1987'
+    })
+    refute_match(/source issue is being .*split/i, rendered,
+                 'create-issue.md must not render the split-context "mark Done" block when split_context is absent')
+  end
 end
 
 # Mirrored from orchestrator/task_runner.rb — keep in sync.

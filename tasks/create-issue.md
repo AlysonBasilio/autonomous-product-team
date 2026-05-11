@@ -24,6 +24,9 @@ Assign priority **{{ . }}** to every created issue.
 {{#block_source}}
 After creating the issues, link the source issue as **blocked by** every newly created issue.
 {{/block_source}}
+{{#split_context}}
+The source issue is being **split** — the newly created issues collectively replace it. After all issues are created and dependencies are linked, mark the source issue as **Done** in the product management system. The source issue's goal is achieved by completing the new issues, so it should not remain open.
+{{/split_context}}
 {{#context}}
 Caller-provided context (echo unchanged in the report):
 
@@ -96,6 +99,6 @@ All issues in the input list have been created, any clear dependencies between n
 
 ## Rules
 
-- Do not modify the source issue's status, priority, or any other fields — only add a comment.
+- Do not modify the source issue's status, priority, or any other fields — only add a comment. Exception: when `split_context` is set, mark the source issue **Done** after the new issues are created (its work is now tracked by the split sub-issues).
 - Write descriptions for a future implementer who has zero context — do not assume they have read the source issue or PR.
 - Do not invent requirements. Acceptance criteria must be derivable from the source issue's product intent and the deferred work's nature.
