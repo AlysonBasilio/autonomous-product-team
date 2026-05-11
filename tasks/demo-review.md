@@ -31,11 +31,13 @@ gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRe
 
 **3b. Regular PR comments** (issue-style comments at the bottom of the PR):
 
+Use GraphQL so minimized comments (hidden via GitHub's "Hide → Resolved/Outdated/Off-topic" UI) are excluded — the REST `/issues/<n>/comments` endpoint does NOT expose minimization state and will surface resolved comments as if they were live.
+
 ```bash
-gh api /repos/<owner>/<repo>/issues/<n>/comments | jq '[.[] | {id, user: .user.login, body, created_at}]'
+gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRequest(number: <n>) { comments(first: 100) { nodes { databaseId author { login } body createdAt isMinimized minimizedReason } } } } }' | jq '[.data.repository.pullRequest.comments.nodes[] | select(.isMinimized == false) | {id: .databaseId, user: .author.login, body, created_at: .createdAt}]'
 ```
 
-Read all comments returned. If any comment appears to be requesting changes, raising a concern, or asking a question that has not been addressed — treat it as blocking feedback.
+Only the comments returned after the `isMinimized == false` filter count. If any of those comments appears to be requesting changes, raising a concern, or asking a question that has not been addressed — treat it as blocking feedback. Comments hidden by the user (any `minimizedReason`) are considered resolved and MUST be ignored.
 
 If **either** check finds unresolved threads or unaddressed comments: do NOT proceed to user presentation. Post a demo-review-complete comment, then output your final response as a single fenced ```json code block — and nothing else — containing this object, and stop here:
 
