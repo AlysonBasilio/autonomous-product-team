@@ -267,6 +267,31 @@ class TriageScenarioTest < Minitest::Test
       ],
     },
     {
+      name: 'deleted_issue_is_skipped',
+      description: 'Soft-deleted issue must be excluded from consideration even if its workflow state is in-flight',
+      mock_context: <<~CTX.chomp,
+        PM system returned 2 non-Done issues:
+
+        - PROJ-1001 "Account switcher component" — Status: In Review — Priority: High — Created: 2026-04-13
+          Per-issue detail lookup also reports: deleted=true (the issue has been soft-deleted; the workflow state is stale)
+          Dependencies: none
+          No unresolved decisions
+
+        - PROJ-1002 "Settings page header tweak" — Status: Todo — Priority: Medium — Created: 2026-04-20
+          Per-issue detail lookup reports: deleted=false
+          Dependencies: none
+          No unresolved decisions — READY
+
+        PROJ-1001 has a higher priority than PROJ-1002 but is soft-deleted and must not be picked. PROJ-1002 is the only eligible Ready issue.
+      CTX
+      rubric: [
+        "report type is 'triage-report'",
+        'next_issue is PROJ-1002 (the deleted PROJ-1001 must be excluded even though its priority is higher)',
+        'PROJ-1001 is NOT selected as next_issue',
+        'PROJ-1001 does NOT appear in the considered array (the deleted issue is dropped from consideration entirely)',
+      ],
+    },
+    {
       name: 'implementation_difficulty_is_not_a_blocker',
       description: 'Hard issue with no external blockers must be classified Ready, not Blocked',
       mock_context: <<~CTX.chomp,

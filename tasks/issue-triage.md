@@ -24,6 +24,8 @@ An issue is **not** blocked solely because its implementation is difficult or un
 
 1. **Fetch all issues** — Query the product development management system for every issue in the project that is not Done. Fetch issues with basic fields first (id, title, status, priority). Then check each issue's dependencies individually with a separate lookup per issue — do not attempt to fetch all issues and all their relations in a single query.
 
+   **Exclude deleted / trashed issues.** Some systems soft-delete issues into a trash bin; those issues may keep their old workflow state (e.g. "In Review") but should not be worked on. When fetching, do not pass any flag that opts into trashed or archived results, and when inspecting each issue check for a deletion marker — any field indicating the issue is trashed, deleted, archived, cancelled, or a duplicate. If any such marker is set, drop the issue from consideration entirely: do not put it in `considered`, do not run dependency lookups on it, and never pick it as `next_issue`.
+
    **A zero-result listing is suspicious, not authoritative.** Projects worth triaging almost always have open issues; an empty list usually means the filter shape was wrong (e.g. passing a project URL slug where a UUID was required, or scoping to the wrong team). If your initial listing returns 0 issues, do not conclude the project is empty. Instead, perform both of the following retries before reporting anything:
 
    - **Retry A — resolve the project identifier explicitly.** Look up the project by URL or slug to obtain its canonical ID, then re-run the listing with that ID. If this retry returns ≥1 non-Done issue, proceed to step 2 with those issues.

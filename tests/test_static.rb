@@ -222,6 +222,14 @@ class TestReportSchemas < Minitest::Test
     assert_includes content, 'failure'
   end
 
+  def test_triage_excludes_deleted_issues
+    content = load_file('tasks/issue-triage.md')
+    assert_match(/deleted|trashed/i, content,
+                 'tasks/issue-triage.md must instruct the agent to skip deleted/trashed issues')
+    assert_match(/considered/i, content,
+                 'tasks/issue-triage.md must clarify that excluded issues do not enter `considered`')
+  end
+
   def test_demo_review_defines_pending_report
     assert_includes load_file('tasks/demo-review.md'), 'demo-review-pending'
   end
