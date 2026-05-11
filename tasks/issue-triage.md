@@ -36,6 +36,8 @@ For the purposes of this task, an issue is **Ready** if it is non-Done, non-Excl
 
 **Workflow status does not affect Ready.** This system is the sole worker on the project — no status signals "someone else is doing this," because there is no one else. An issue's workflow state (`Todo`, `In Progress`, `In Review`, `Waiting for review`, or anything else short of `Done`) describes where the work currently sits, not whether it's available. An in-flight issue is Ready the same as a fresh one; the system will resume from whatever state it's in rather than restart cold. Do not drop in-flight issues from `considered` or treat them as ineligible — the only gates on candidacy are Excluded and Blocked.
 
+This rule applies only to the issue being evaluated, not to its dependencies. A dependency's status still gates Ready per the Definition of Blocked above — if A depends on B and B is not `Done` or Excluded, A is Blocked, regardless of whether B is in-flight.
+
 ## Workflow
 
 1. **Fetch all issues** — Query the product development management system for every issue in the project that is not Done. Fetch issues with basic fields first (id, title, status, priority). Then check each issue's dependencies individually with a separate lookup per issue — do not attempt to fetch all issues and all their relations in a single query. Drop Excluded issues from the run per the Definition of Excluded above.
@@ -66,6 +68,8 @@ For the purposes of this task, an issue is **Ready** if it is non-Done, non-Excl
 4. **Rank ready issues** — Sort the ready issues by priority (highest first), using the priority assigned in the product development management system. If priorities are equal, prefer the issue with the earliest creation date. Note: formal PM-system dependency links, text-inferred cross-references, and semantic dependencies all count equally when determining whether an issue is Blocked or Ready.
 
 5. **Report** — Output your final response as a single fenced ```json code block — and nothing else — containing this object:
+
+   **Hard rule before picking `next_issue`:** for the issue you are about to select, walk its dependency list and confirm that every dependency has status `Done` or is Excluded. If even one dependency is in any other state (`Todo`, `In Progress`, `In Review`, `Waiting`, etc.), that issue is Blocked — do **not** put it in `next_issue`. Pick the next-highest-priority Ready candidate, or set `next_issue` to `null` if no candidate passes this check. Never set `next_issue` to an issue whose own summary acknowledges it is blocked.
 
    ```json
    {

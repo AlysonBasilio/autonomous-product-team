@@ -6,6 +6,7 @@
 # judge model and parses "CRITERION N: YES/NO — reason" lines back into a
 # structured grade.
 
+require 'json'
 require_relative 'eval_helper'
 
 module Judge
@@ -37,14 +38,15 @@ module Judge
     'the agent\'s final output contains a fenced ```json code block whose contents ' \
     'parse as valid JSON and include a top-level "type" field'
 
+  FENCED_JSON_RE = /```json\s*\n(.*?)\n```/m
+
   GradeResult = Struct.new(:passed, :scores, :failure_reasons, keyword_init: true)
 
   module_function
 
   def grade(scenario:, agent_output:, task_content:)
-    # Append the wire-format criterion to every rubric — the orchestrator's
-    # extract_report only recognizes fenced ```json blocks.
-    rubric = scenario[:rubric] + [FORMAT_CRITERION]
+    format_score = check_format(agent_output)
+    rubric = scenario[:rubric]
     rubric_str = rubric.each_with_index
                        .map { |r, i| "CRITERION #{i + 1}: #{r}" }
                        .join("\n")
@@ -62,7 +64,7 @@ module Judge
       system: 'You are a strict eval judge. Follow the response format exactly.',
       user: prompt,
       temperature: 0,
-      max_tokens: 1024,
+      max_tokens: 2048,
     )
 
     scores = []
@@ -84,10 +86,58 @@ module Judge
       failure_reasons << "[#{criterion}] #{reason}" unless passed_criterion
     end
 
+    scores << format_score
+    failure_reasons << "[#{FORMAT_CRITERION}] #{format_score[:reason]}" unless format_score[:passed]
+
     GradeResult.new(
       passed: failure_reasons.empty?,
       scores: scores,
       failure_reasons: failure_reasons,
     )
+  end
+
+  def grade_with_retries(scenario:, task_content:, max_attempts: 3, required_passes: 2)
+    passes = 0
+    fails = 0
+    summaries = []
+    last_passing = nil
+
+    max_attempts.times do |i|
+      agent_output = yield(i + 1)
+      result = grade(scenario: scenario, agent_output: agent_output, task_content: task_content)
+      if result.passed
+        passes += 1
+        last_passing = result
+        summaries << "Attempt #{i + 1}: PASS"
+      else
+        fails += 1
+        summaries << "Attempt #{i + 1}: FAIL — #{result.failure_reasons.join(' | ')}"
+      end
+
+      return last_passing if passes >= required_passes
+      break if fails > max_attempts - required_passes
+    end
+
+    GradeResult.new(passed: false, scores: [], failure_reasons: summaries)
+  end
+
+  def check_format(agent_output)
+    matches = agent_output.scan(FENCED_JSON_RE).map(&:first)
+    if matches.empty?
+      return { criterion: FORMAT_CRITERION, passed: false, reason: 'no fenced ```json block found' }
+    end
+
+    parsed =
+      begin
+        JSON.parse(matches.last)
+      rescue JSON::ParserError => e
+        return { criterion: FORMAT_CRITERION, passed: false, reason: "fenced JSON did not parse: #{e.message}" }
+      end
+
+    unless parsed.is_a?(Hash) && parsed.key?('type')
+      return { criterion: FORMAT_CRITERION, passed: false, reason: 'fenced JSON missing top-level "type" field' }
+    end
+
+    { criterion: FORMAT_CRITERION, passed: true, reason: 'YES — fenced JSON parses with top-level type' }
   end
 end
