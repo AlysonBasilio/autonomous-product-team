@@ -24,6 +24,13 @@ An issue is **not** blocked solely because its implementation is difficult or un
 
 1. **Fetch all issues** — Query the product development management system for every issue in the project that is not Done. Fetch issues with basic fields first (id, title, status, priority). Then check each issue's dependencies individually with a separate lookup per issue — do not attempt to fetch all issues and all their relations in a single query.
 
+   **A zero-result listing is suspicious, not authoritative.** Projects worth triaging almost always have open issues; an empty list usually means the filter shape was wrong (e.g. passing a project URL slug where a UUID was required, or scoping to the wrong team). If your initial listing returns 0 issues, do not conclude the project is empty. Instead, perform both of the following retries before reporting anything:
+
+   - **Retry A — resolve the project identifier explicitly.** Look up the project by URL or slug to obtain its canonical ID, then re-run the listing with that ID. If this retry returns ≥1 non-Done issue, proceed to step 2 with those issues.
+   - **Retry B — re-query without any status filter.** Use the canonical project ID from Retry A but drop the status filter, so the call would return issues in *any* state including Done. Interpret the result as follows:
+     - If Retry A returned 0 non-Done issues **and** Retry B returns ≥1 issues (i.e. the project has Done issues but no open ones), the project is complete — emit a normal `triage-report` with `next_issue: null`.
+     - If Retry B *also* returns 0 issues — meaning the project contains literally no issues in any state — the listing is misconfigured. Real projects do not exist with zero issues. Emit a `task-failed` report whose `failure` field includes the exact tool name, the exact arguments you passed, and the exact response you received on each of the retries. Do not summarize ("returned no issues") — quote each call and response verbatim so the failure is debuggable.
+
 2. **Check blockers** — For each issue, determine whether it is blocked using all of the following methods:
 
    a. **Formal dependencies** — Check the PM system's dependency links. An issue is blocked if any linked dependency is not Done.

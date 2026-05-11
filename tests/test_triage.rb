@@ -213,6 +213,60 @@ class TriageScenarioTest < Minitest::Test
       ],
     },
     {
+      name: 'zero_results_trigger_retry_not_emptiness',
+      description: 'Initial listing returns 0 — agent must retry with a resolved project ID before concluding empty',
+      mock_context: <<~CTX.chomp,
+        First tool call:
+          list_issues({ project: "identity-permissions-and-team-admin-828469115565", state: "non-done" })
+          → []  (zero results)
+
+        The project URL slug above is NOT the project's canonical ID. The PM system accepts the call but silently returns 0 results when the filter shape is wrong.
+
+        After resolving the project's canonical ID via a project-lookup call, a second listing returned 3 non-Done issues:
+
+          - PROJ-901 "Wire up SSO callback handler" — Status: Todo — Priority: High — Created: 2026-04-12
+            Dependencies (per-issue lookup): none
+            No unresolved decisions — READY
+
+          - PROJ-902 "Add audit log retention policy" — Status: In Progress — Priority: Medium — Created: 2026-04-09
+            Dependencies (per-issue lookup): none
+            No unresolved decisions — READY
+
+          - PROJ-903 "Rename internal team field"   — Status: Todo — Priority: Low — Created: 2026-04-01
+            Dependencies (per-issue lookup): none
+            No unresolved decisions — READY
+      CTX
+      rubric: [
+        "report type is 'triage-report' (NOT 'task-failed' — the zero-result initial listing is not authoritative)",
+        'next_issue is PROJ-901 (High priority, the highest-ranked Ready issue from the retry)',
+        'considered array includes PROJ-901, PROJ-902, and PROJ-903',
+      ],
+    },
+    {
+      name: 'zero_results_persist_after_retries_produces_task_failed',
+      description: 'Both initial and retry listings return 0 — agent must emit task-failed and quote the calls verbatim',
+      mock_context: <<~CTX.chomp,
+        First tool call:
+          list_issues({ project: "identity-permissions-and-team-admin-828469115565", state: "non-done" })
+          → []
+
+        Second tool call (after resolving the canonical project ID):
+          list_issues({ project: "8f3e1c92-4d20-4b88-9a55-0e1f4e7a2b91", state: "non-done" })
+          → []
+
+        Third tool call (Retry B — re-query without any status filter, per the task's zero-result protocol):
+          list_issues({ project: "8f3e1c92-4d20-4b88-9a55-0e1f4e7a2b91" })
+          → []
+
+        Retry B also returned 0 issues — no issues exist in this project under any status filter.
+      CTX
+      rubric: [
+        "report type is 'task-failed' (NOT 'triage-report')",
+        "task field is 'tasks/issue-triage.md'",
+        'failure field includes the exact tool name (list_issues) and the exact arguments passed on at least one retry attempt — not just a summary like "returned no issues"',
+      ],
+    },
+    {
       name: 'implementation_difficulty_is_not_a_blocker',
       description: 'Hard issue with no external blockers must be classified Ready, not Blocked',
       mock_context: <<~CTX.chomp,
