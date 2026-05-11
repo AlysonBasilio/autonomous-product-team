@@ -11,20 +11,34 @@ inputs:
 
 Scan the project at `{{ project_url }}` and produce a report of which issues are ready for work.
 
+## Definition of Excluded
+
+An issue is **Excluded** if it has been soft-deleted, trashed, archived, canceled, or marked as a duplicate. All of these mean the issue is settled and not work the team will pick up.
+
+When fetching, do not pass any flag that opts into results from the definition above. When inspecting each issue, check every field that could indicate exclusion — `deleted`, `trashed`, `archived`, `duplicate_of`, `canceled`, or equivalent. If any such marker is set, drop the issue entirely: do not put it in `considered`, do not run dependency lookups on it, and never pick it as `next_issue`.
+
+Excluded is distinct from Blocked. Blocked issues are inspected and reported (they appear in `considered`); Excluded issues are removed from the run as if they never existed.
+
 ## Definition of Blocked
 
+A dependency is **resolved** when its status is `Done` or it is Excluded (per the definition above). Any other state is **unresolved** and blocks the dependent issue.
+
 An issue is **Blocked** if any of the following are true:
-- It has one or more dependencies that are not yet Done
+- It has one or more unresolved dependencies
 - A required product or architectural decision has not been made
 - A spec ambiguity exists that cannot be resolved from project documentation without user input
 
 An issue is **not** blocked solely because its implementation is difficult or uncertain — only external dependencies or missing decisions constitute a blocker.
 
+## Definition of Ready
+
+For the purposes of this task, an issue is **Ready** if it is non-Done, non-Excluded, and all its dependencies are resolved (per the Definition of Blocked above). A Ready issue is eligible to be picked as `next_issue`.
+
+**Workflow status does not affect Ready.** This system is the sole worker on the project — no status signals "someone else is doing this," because there is no one else. An issue's workflow state (`Todo`, `In Progress`, `In Review`, `Waiting for review`, or anything else short of `Done`) describes where the work currently sits, not whether it's available. An in-flight issue is Ready the same as a fresh one; the system will resume from whatever state it's in rather than restart cold. Do not drop in-flight issues from `considered` or treat them as ineligible — the only gates on candidacy are Excluded and Blocked.
+
 ## Workflow
 
-1. **Fetch all issues** — Query the product development management system for every issue in the project that is not Done. Fetch issues with basic fields first (id, title, status, priority). Then check each issue's dependencies individually with a separate lookup per issue — do not attempt to fetch all issues and all their relations in a single query.
-
-   **Exclude deleted / trashed issues.** Some systems soft-delete issues into a trash bin; those issues may keep their old workflow state (e.g. "In Review") but should not be worked on. When fetching, do not pass any flag that opts into trashed or archived results, and when inspecting each issue check for a deletion marker — any field indicating the issue is trashed, deleted, archived, cancelled, or a duplicate. If any such marker is set, drop the issue from consideration entirely: do not put it in `considered`, do not run dependency lookups on it, and never pick it as `next_issue`.
+1. **Fetch all issues** — Query the product development management system for every issue in the project that is not Done. Fetch issues with basic fields first (id, title, status, priority). Then check each issue's dependencies individually with a separate lookup per issue — do not attempt to fetch all issues and all their relations in a single query. Drop Excluded issues from the run per the Definition of Excluded above.
 
    **A zero-result listing is suspicious, not authoritative.** Projects worth triaging almost always have open issues; an empty list usually means the filter shape was wrong (e.g. passing a project URL slug where a UUID was required, or scoping to the wrong team). If your initial listing returns 0 issues, do not conclude the project is empty. Instead, perform both of the following retries before reporting anything:
 
@@ -35,17 +49,15 @@ An issue is **not** blocked solely because its implementation is difficult or un
 
 2. **Check blockers** — For each issue, determine whether it is blocked using all of the following methods:
 
-   a. **Formal dependencies** — Check the PM system's dependency links. An issue is blocked if any linked dependency is not Done.
+   a. **Formal dependencies** — Check the PM system's dependency links. An issue is blocked if any linked dependency is unresolved.
 
-   b. **Text-inferred dependencies** — Scan each issue's body for cross-reference patterns such as "Depends on #N", "Blocked by #N", "Requires #N", "After #N", or any mention of another issue as a prerequisite. When found, check whether referenced issue #N is Done; if not, the current issue is Blocked.
+   b. **Text-inferred dependencies** — Scan each issue's body for cross-reference patterns such as "Depends on #N", "Blocked by #N", "Requires #N", "After #N", or any mention of another issue as a prerequisite. When found, check the referenced issue; if it's unresolved, the current issue is Blocked.
 
-   c. **Semantic dependencies** — Reason about what each issue describes. If issue A describes *running, using, or exercising* a capability, and issue B describes *creating, building, or implementing* that same capability, then A depends on B. If B is not Done, classify A as Blocked by B.
+   c. **Semantic dependencies** — Reason about what each issue describes. If issue A describes *running, using, or exercising* a capability, and issue B describes *creating, building, or implementing* that same capability, then A depends on B. If B is unresolved, classify A as Blocked by B.
 
    d. **Unresolved decisions** — An issue is also blocked if it requires an unresolved product or architectural decision.
 
-3. **Classify each issue** as one of:
-   - **Ready** — All dependencies are Done (or no dependencies). Can be assigned immediately.
-   - **Blocked** — One or more dependencies are not Done, or an external decision is pending. Note what is blocking it.
+3. **Classify each issue** as **Ready** or **Blocked** per the definitions above. Workflow status alone never disqualifies an issue from Ready — see the Definition of Ready.
 
    For each Ready issue, also determine its **issue type**:
    - `discovery` — The issue itself asks for research, investigation, or breakdown of a vague idea. Key signal: the deliverable is a set of findings or follow-up issues, not working software. There are no concrete acceptance criteria describing what to build.

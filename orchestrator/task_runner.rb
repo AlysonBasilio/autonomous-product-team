@@ -25,6 +25,11 @@ module TaskRunner
     test-blocked task-failed blocked recovery-exhausted
   ].freeze
 
+  # Dependency statuses that do NOT block a dependent issue: Done plus the
+  # Excluded terminal states (Canceled, deleted). Anything else (In Progress,
+  # In Review, Todo, Backlog, ...) blocks.
+  NON_BLOCKING_DEP_STATUSES = %w[done canceled cancelled deleted].freeze
+
   def self.compose_prompt(task_file, context = {})
     Template.render(task_file, context || {})
   end
@@ -254,6 +259,11 @@ module TaskRunner
   # `considered`. The agent populates `considered` with every issue it ran a
   # dependency lookup on; if `next_issue` isn't there, the agent picked an
   # issue it never actually inspected.
+  #
+  # The report must also be internally consistent: if `dependencies_checked`
+  # lists a dep that's unresolved (not Done and not Excluded), then by the
+  # task's own Definition of Blocked the next_issue is Blocked — the agent
+  # contradicted itself and must re-pick.
   def self.triage_validation_failure(parsed)
     next_issue = parsed['next_issue']
     return nil if next_issue.nil?
@@ -269,8 +279,28 @@ module TaskRunner
         "That means you never ran the per-issue dependency lookup on #{id} — it may actually be blocked. " \
         "Run the per-issue dependency lookup on #{id} now (including formal links, body cross-references, and " \
         "semantic dependencies), verify every dependency is Done, then re-emit the report with #{id} in `considered` " \
-        "and the verified dependencies in `dependencies_checked`. If any dependency is not Done, pick a different " \
-        "next_issue."
+        "and the verified dependencies in `dependencies_checked`. If any dependency is unresolved (not Done and not Excluded), " \
+        "pick a different next_issue."
+    else
+      blocking = blocking_dependencies(parsed['dependencies_checked'])
+      return nil if blocking.empty?
+      noun = blocking.length == 1 ? 'a dependency' : 'dependencies'
+      verb = blocking.length == 1 ? 'is' : 'are'
+      "Your triage-report named next_issue #{id.inspect} but its `dependencies_checked` lists #{noun} that #{verb} " \
+        "unresolved (not Done and not Excluded): #{blocking.join(', ')}. Per the task's Definition of Blocked, any " \
+        "unresolved dependency blocks the issue — so #{id} is Blocked. Pick a different next_issue whose dependencies " \
+        "are all resolved (Done or Excluded; Canceled counts as Excluded), or emit `next_issue: null` if no Ready issue exists."
+    end
+  end
+
+  def self.blocking_dependencies(deps)
+    return [] unless deps.is_a?(Array)
+    deps.each_with_object([]) do |entry, acc|
+      next unless entry.is_a?(String)
+      _dep_id, status = entry.split(':', 2)
+      next if status.nil?
+      next if NON_BLOCKING_DEP_STATUSES.include?(status.strip.downcase)
+      acc << entry
     end
   end
 

@@ -238,4 +238,109 @@ class ExtractReportTest < Minitest::Test
     MD
     assert_nil reason(content)
   end
+
+  # Dependency-status consistency — a triage-report that names a `next_issue`
+  # while listing an In Progress / Todo / etc. dep in `dependencies_checked`
+  # has contradicted itself. The validator must catch this before the report
+  # is accepted. This is the failure mode that picked ENG-2271 while its dep
+  # ENG-2130 was still In Progress.
+  def test_extract_rejects_in_progress_dependency
+    content = <<~MD
+      ```json
+      {
+        "type": "triage-report",
+        "next_issue": { "id": "ENG-2271", "title": "X", "summary": "Y" },
+        "issue_type": "implementation",
+        "considered": ["ENG-2271", "ENG-2130"],
+        "dependencies_checked": ["ENG-2130:In Progress", "ENG-1998:Canceled"]
+      }
+      ```
+    MD
+    assert_nil extract(content)
+  end
+
+  def test_rejection_reason_names_the_blocking_dependency
+    content = <<~MD
+      ```json
+      {
+        "type": "triage-report",
+        "next_issue": { "id": "ENG-2271", "title": "X", "summary": "Y" },
+        "issue_type": "implementation",
+        "considered": ["ENG-2271", "ENG-2130"],
+        "dependencies_checked": ["ENG-2130:In Progress"]
+      }
+      ```
+    MD
+    msg = reason(content)
+    refute_nil msg
+    assert_includes msg, 'ENG-2130:In Progress'
+    assert_includes msg, 'ENG-2271'
+  end
+
+  def test_canceled_dependency_is_not_blocking
+    # Canceled is terminal — the dep will never reach Done, but it also won't
+    # change. Treat it as resolved, same as Done.
+    content = <<~MD
+      ```json
+      {
+        "type": "triage-report",
+        "next_issue": { "id": "ENG-1", "title": "X", "summary": "Y" },
+        "issue_type": "implementation",
+        "considered": ["ENG-1"],
+        "dependencies_checked": ["ENG-2:Canceled", "ENG-3:Done"]
+      }
+      ```
+    MD
+    assert_equal 'triage-report', extract(content)['type']
+    assert_nil reason(content)
+  end
+
+  def test_dependency_status_match_is_case_insensitive
+    content = <<~MD
+      ```json
+      {
+        "type": "triage-report",
+        "next_issue": { "id": "ENG-1", "title": "X", "summary": "Y" },
+        "issue_type": "implementation",
+        "considered": ["ENG-1"],
+        "dependencies_checked": ["ENG-2:DONE", "ENG-3:canceled"]
+      }
+      ```
+    MD
+    assert_equal 'triage-report', extract(content)['type']
+  end
+
+  def test_multiple_blocking_deps_all_named_in_rejection
+    content = <<~MD
+      ```json
+      {
+        "type": "triage-report",
+        "next_issue": { "id": "ENG-1", "title": "X", "summary": "Y" },
+        "issue_type": "implementation",
+        "considered": ["ENG-1"],
+        "dependencies_checked": ["ENG-2:In Progress", "ENG-3:Todo", "ENG-4:Done"]
+      }
+      ```
+    MD
+    msg = reason(content)
+    refute_nil msg
+    assert_includes msg, 'ENG-2:In Progress'
+    assert_includes msg, 'ENG-3:Todo'
+    refute_includes msg, 'ENG-4'
+  end
+
+  def test_empty_dependencies_checked_is_accepted
+    content = <<~MD
+      ```json
+      {
+        "type": "triage-report",
+        "next_issue": { "id": "ENG-1", "title": "X", "summary": "Y" },
+        "issue_type": "implementation",
+        "considered": ["ENG-1"],
+        "dependencies_checked": []
+      }
+      ```
+    MD
+    assert_equal 'triage-report', extract(content)['type']
+  end
 end

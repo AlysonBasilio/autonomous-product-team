@@ -207,7 +207,7 @@ class TriageScenarioTest < Minitest::Test
       CTX
       rubric: [
         "report type is 'triage-report'",
-        'next_issue is PROJ-803 (PROJ-801 is blocked by PROJ-802 via per-issue relation; PROJ-802 is itself In Progress so still not Done; only PROJ-803 is Ready)',
+        'next_issue is PROJ-802 (PROJ-801 is blocked by PROJ-802 via per-issue relation; PROJ-802 itself has no deps and is Ready — the system is the sole worker so In Progress does not disqualify it; PROJ-802 wins on priority over PROJ-803)',
         'PROJ-801 is NOT selected as next_issue',
         "considered array includes all three issue IDs (PROJ-801, PROJ-802, PROJ-803) — the agent attests to having run per-issue lookups on each",
       ],
@@ -289,6 +289,58 @@ class TriageScenarioTest < Minitest::Test
         'next_issue is PROJ-1002 (the deleted PROJ-1001 must be excluded even though its priority is higher)',
         'PROJ-1001 is NOT selected as next_issue',
         'PROJ-1001 does NOT appear in the considered array (the deleted issue is dropped from consideration entirely)',
+      ],
+    },
+    {
+      name: 'high_priority_in_progress_dep_blocks',
+      description: 'High-priority issue whose only dep is In Progress must NOT be picked, even with several distractors — the production-failure shape',
+      mock_context: <<~CTX.chomp,
+        PM system returned 4 non-Done issues:
+
+        - PROJ-1101 "Fix payor multi-borrower queries" — Status: Todo — Priority: Urgent — Created: 2026-04-01
+          Per-issue detail lookup: dependencies = [PROJ-1102]
+          PROJ-1102 status: In Progress (NOT Done, NOT Canceled)
+
+        - PROJ-1102 "Rewrite borrower migration workflow" — Status: In Progress — Priority: Medium — Created: 2026-03-15
+          Per-issue detail lookup: dependencies = []
+          No unresolved decisions
+
+        - PROJ-1103 "Add audit log entry for role change" — Status: Todo — Priority: High — Created: 2026-04-15
+          Per-issue detail lookup: dependencies = []
+          No unresolved decisions — READY
+
+        - PROJ-1104 "Update settings copy" — Status: Todo — Priority: Low — Created: 2026-04-10
+          Per-issue detail lookup: dependencies = []
+          No unresolved decisions — READY
+
+        PROJ-1101 has the highest priority but its dependency PROJ-1102 is In Progress — therefore Blocked. PROJ-1103 is the highest-priority Ready issue.
+      CTX
+      rubric: [
+        "report type is 'triage-report'",
+        'next_issue is PROJ-1103 (highest-priority Ready issue, NOT PROJ-1101)',
+        'PROJ-1101 is NOT selected (its dep PROJ-1102 is In Progress — In Progress is not Done and not Canceled, so PROJ-1101 is Blocked)',
+      ],
+    },
+    {
+      name: 'canceled_dependency_does_not_block',
+      description: 'A dep with status Canceled is treated the same as Done — the dependent issue is Ready',
+      mock_context: <<~CTX.chomp,
+        PM system returned 2 non-Done issues:
+
+        - PROJ-1201 "Wire up the new audit pipeline" — Status: Todo — Priority: High — Created: 2026-04-20
+          Per-issue detail lookup: dependencies = [PROJ-1200]
+          PROJ-1200 status: Canceled (terminal — work will never happen, but it's settled)
+
+        - PROJ-1202 "Refresh the settings copy" — Status: Todo — Priority: Low — Created: 2026-04-22
+          Per-issue detail lookup: dependencies = []
+          No unresolved decisions — READY
+
+        Per the Definitions of Excluded and Blocked, Canceled is an Excluded state and counts as resolved — PROJ-1201 is Ready.
+      CTX
+      rubric: [
+        "report type is 'triage-report'",
+        'next_issue is PROJ-1201 (highest-priority Ready issue; its Canceled dep does NOT block it)',
+        'PROJ-1201 is classified as Ready, not Blocked',
       ],
     },
     {
