@@ -246,7 +246,7 @@ def run_project_loop(project_id, port:, interactive:)
         rescue TaskRunner::TimeoutError => e
           { 'type' => 'task-failed', 'details' => e.message }
         end
-        Synthup.archive_session(sid) rescue nil if r['type'] == 'cancelled'
+        Synthup.archive_session(sid) rescue nil
         r
       else
         dispatch_task(project, cfg, 'issue-triage.md', {}, control: control)
