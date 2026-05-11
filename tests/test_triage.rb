@@ -186,6 +186,33 @@ class TriageScenarioTest < Minitest::Test
       ],
     },
     {
+      name: 'dependency_only_visible_via_per_issue_lookup',
+      description: "Listing endpoint hides relations — agent must do per-issue lookups to find the blocker",
+      mock_context: <<~CTX.chomp,
+        The PM system's list endpoint returned 3 non-Done issues with basic fields only.
+        Dependency relations are NOT included in the listing — you must call the
+        per-issue detail endpoint (one call per issue) to retrieve them.
+
+        Listing result (basic fields only):
+          - PROJ-801 "Account switcher UI for payor section" — Status: Todo — Priority: High — Created: 2026-04-10
+          - PROJ-802 "Backend payor user-linking workflow"   — Status: In Progress — Priority: High — Created: 2026-04-08
+          - PROJ-803 "Refactor settings page header"          — Status: Todo — Priority: Low  — Created: 2026-04-02
+
+        Per-issue detail lookups (what you receive when you call the detail endpoint for each ID):
+          - PROJ-801 detail → blocked_by: ["PROJ-802"]. Body: "Extend the account switcher to surface the payor section."
+          - PROJ-802 detail → blocked_by: []. Body: "Implement the Temporal workflow that links payor users to businesses."
+          - PROJ-803 detail → blocked_by: []. Body: "Tighten spacing on the settings page header."
+
+        Important: an agent that skips per-issue detail lookups (e.g. only fetches the listing) will incorrectly classify PROJ-801 as Ready.
+      CTX
+      rubric: [
+        "report type is 'triage-report'",
+        'next_issue is PROJ-803 (PROJ-801 is blocked by PROJ-802 via per-issue relation; PROJ-802 is itself In Progress so still not Done; only PROJ-803 is Ready)',
+        'PROJ-801 is NOT selected as next_issue',
+        "considered array includes all three issue IDs (PROJ-801, PROJ-802, PROJ-803) — the agent attests to having run per-issue lookups on each",
+      ],
+    },
+    {
       name: 'implementation_difficulty_is_not_a_blocker',
       description: 'Hard issue with no external blockers must be classified Ready, not Blocked',
       mock_context: <<~CTX.chomp,

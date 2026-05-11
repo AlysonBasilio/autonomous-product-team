@@ -47,13 +47,14 @@ module TaskRunner
   end
 
   def self.poll_for_report(session_id, interval: POLL_INTERVAL, timeout: TIMEOUT, cancel_check: nil, task_path: nil)
-    deadline         = Time.now + timeout
-    last_content     = nil
-    last_changed_at  = nil
-    started_at       = Time.now
-    sid_short        = session_id.to_s.slice(0, 8)
-    reminders_sent   = 0
-    fired_thresholds = []
+    deadline               = Time.now + timeout
+    last_content           = nil
+    last_changed_at        = nil
+    started_at             = Time.now
+    sid_short              = session_id.to_s.slice(0, 8)
+    reminders_sent         = 0
+    fired_thresholds       = []
+    last_rejection_content = nil
 
     loop do
       return { 'type' => 'cancelled' } if cancel_check&.call
@@ -102,6 +103,14 @@ module TaskRunner
         changed = content != last_content
         warn "[poll #{sid_short}] +#{elapsed}s no report match (content=#{len}c, fences=#{fence_count}, " \
              "changed=#{changed}, stale=#{last_changed_at ? (Time.now - last_changed_at).round : 0}s)"
+
+        rejection = report_rejection_reason(content)
+        if rejection && content != last_rejection_content
+          warn "[poll #{sid_short}] +#{elapsed}s rejecting report: #{rejection}"
+          if send_rejection_feedback(session_id, sid_short, elapsed, rejection)
+            last_rejection_content = content
+          end
+        end
 
         if changed
           last_content    = content
@@ -210,10 +219,67 @@ module TaskRunner
     content.scan(/```(?:json)?\n(.*?)\n```/m).each do |match|
       parsed = safe_parse_json(match[0])
       next unless parsed.is_a?(Hash) && KNOWN_REPORT_TYPES.include?(parsed['type'])
+      next if validation_failure(parsed)
       return parsed
     end
 
     nil
+  end
+
+  # Walk the same fenced JSON blocks as extract_report. If we find one whose
+  # type matches a known report but it fails validation, return the message
+  # we should send back to the session so the agent knows what to fix. Returns
+  # nil if no rejectable block is present (e.g. the agent is still mid-work
+  # and hasn't emitted a report yet).
+  def self.report_rejection_reason(content)
+    return nil unless content.is_a?(String)
+    content.scan(/```(?:json)?\n(.*?)\n```/m).each do |match|
+      parsed = safe_parse_json(match[0])
+      next unless parsed.is_a?(Hash) && KNOWN_REPORT_TYPES.include?(parsed['type'])
+      reason = validation_failure(parsed)
+      return reason if reason
+    end
+    nil
+  end
+
+  # Per-type validation. Returns a human-readable failure message (which is
+  # sent back to the agent verbatim) or nil if the report is acceptable.
+  def self.validation_failure(parsed)
+    case parsed['type']
+    when 'triage-report' then triage_validation_failure(parsed)
+    end
+  end
+
+  # A triage-report that names a `next_issue` must list that issue's ID in
+  # `considered`. The agent populates `considered` with every issue it ran a
+  # dependency lookup on; if `next_issue` isn't there, the agent picked an
+  # issue it never actually inspected.
+  def self.triage_validation_failure(parsed)
+    next_issue = parsed['next_issue']
+    return nil if next_issue.nil?
+    id = next_issue.is_a?(Hash) ? next_issue['id'] : next_issue
+    considered = parsed['considered']
+    if !considered.is_a?(Array)
+      "Your triage-report named next_issue #{id.inspect} but is missing the required `considered` array. " \
+        "Add `considered`: every non-Done issue ID for which you ran the per-issue dependency lookup (step 2a), " \
+        "including #{id}. Also include `dependencies_checked` listing the dependencies you verified for #{id}. " \
+        "If you have not actually run those lookups, run them now before re-emitting the report."
+    elsif !considered.include?(id)
+      "Your triage-report named next_issue #{id.inspect} but #{id} is not listed in `considered`. " \
+        "That means you never ran the per-issue dependency lookup on #{id} — it may actually be blocked. " \
+        "Run the per-issue dependency lookup on #{id} now (including formal links, body cross-references, and " \
+        "semantic dependencies), verify every dependency is Done, then re-emit the report with #{id} in `considered` " \
+        "and the verified dependencies in `dependencies_checked`. If any dependency is not Done, pick a different " \
+        "next_issue."
+    end
+  end
+
+  def self.send_rejection_feedback(session_id, sid_short, elapsed, reason)
+    Synthup.send_message(session_id, prompt: reason)
+    true
+  rescue StandardError => e
+    warn "[poll #{sid_short}] +#{elapsed}s rejection feedback failed: #{e.class}: #{e.message}"
+    false
   end
 
   def self.safe_parse_json(str)

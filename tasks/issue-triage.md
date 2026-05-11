@@ -1,5 +1,5 @@
 ---
-model: google/gemini-3.1-flash-lite-preview
+model: anthropic/claude-haiku-4.5
 inputs:
   required: []
   optional: []
@@ -50,13 +50,19 @@ An issue is **not** blocked solely because its implementation is difficult or un
    {
      "type": "triage-report",
      "next_issue": { "id": "<id>", "title": "<title>", "summary": "<summary>" },
-     "issue_type": "implementation"
+     "issue_type": "implementation",
+     "considered": ["<id>", "<id>", "..."],
+     "dependencies_checked": ["<dep-id>:<status>", "..."]
    }
    ```
 
    `next_issue` is the highest-priority ready issue — the one the team should work on next. If no issues are ready, set `next_issue` to `null` and omit `issue_type`.
 
    `issue_type` is `"discovery"` when the issue is exploratory (no concrete acceptance criteria), or `"implementation"` (the default) when the issue has concrete acceptance criteria and can proceed to planning.
+
+   `considered` MUST list every non-Done issue ID returned in step 1 — one entry per issue, even those you classified Blocked. The presence of an ID in this list is your attestation that you ran the per-issue dependency lookup from step 2a on it. If you did not run that lookup for an issue, do not include it; instead, treat the run as incomplete and emit a `task-failed` report explaining which issues you were unable to inspect.
+
+   `dependencies_checked` MUST list every dependency you verified for the chosen `next_issue`, formatted `"<dep-id>:<status>"` (for example `"ENG-1980:In Progress"`). Include formal PM-system links, text-inferred references, and semantic dependencies you identified. If `next_issue` is null, set `dependencies_checked` to `[]`. The `next_issue` MUST itself appear in `considered`.
 
    If the product development management system returns an error at any step, stop and output your final response as a single fenced ```json code block containing this object — and nothing else:
 
