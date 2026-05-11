@@ -1,5 +1,5 @@
 ---
-model: anthropic/claude-opus-4.7
+model: anthropic/claude-sonnet-4-6
 inputs:
   required: [issue_id]
   optional: [branch, plan, pr_url, findings, user_feedback]

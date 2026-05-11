@@ -1,5 +1,5 @@
 ---
-model: google/gemini-3.1-pro-preview
+model: anthropic/claude-opus-4.7
 inputs:
   required: [issue_id]
   optional: []
