@@ -9,46 +9,70 @@ class OrchestratorServer < Sinatra::Base
   set :server, :puma
   set :logging, false
 
-  # Class-level state — shared across all per-request instances
+  # Per-project control flags. One struct per project_id; the orchestration
+  # loop reads its own slot, so projects don't share pause/cancel/approval
+  # state.
+  ProjectControl = Struct.new(
+    :paused, :triage_requested, :cancel_requested,
+    :resume_polling_requested, :pending_approval, :pending_next_action,
+    keyword_init: true
+  )
+
   class << self
-    attr_accessor :paused, :pending_approval, :triage_requested, :cancel_requested, :pending_next_action,
-                  :resume_polling_requested
+    def controls
+      @controls ||= {}
+    end
+
+    def controls_guard
+      @controls_guard ||= Mutex.new
+    end
+
+    def ctl(project_id)
+      controls_guard.synchronize do
+        controls[project_id] ||= ProjectControl.new(
+          paused: false, triage_requested: false, cancel_requested: false,
+          resume_polling_requested: false, pending_approval: nil, pending_next_action: nil
+        )
+      end
+    end
+
+    def forget(project_id)
+      controls_guard.synchronize { controls.delete(project_id) }
+    end
   end
 
-  @paused                    = false
-  @triage_requested          = false
-  @cancel_requested          = false
-  @resume_polling_requested  = false
-  @pending_approval          = nil
-  @pending_next_action       = nil
-
   def self.build_state_payload
-    cfg     = Config.load
-    project = Projects.find(cfg.active_project_id)
-    s       = project ? (State.load(project.id) || {}) : {}
-
-    approval_meta = pending_approval && {
-      issue_title: pending_approval[:issue_title],
-      issue_id:    pending_approval[:issue_id],
-      pr_url:      pending_approval[:pr_url],
-      summary:     pending_approval[:summary],
-      kind:        pending_approval[:kind]
-    }
+    cfg          = Config.load
+    projects     = Projects.list
+    projects_state = projects.each_with_object({}) do |p, h|
+      s = State.load(p.id) || {}
+      c = ctl(p.id)
+      approval_meta = c.pending_approval && {
+        issue_title: c.pending_approval[:issue_title],
+        issue_id:    c.pending_approval[:issue_id],
+        pr_url:      c.pending_approval[:pr_url],
+        summary:     c.pending_approval[:summary],
+        kind:        c.pending_approval[:kind]
+      }
+      h[p.id] = {
+        status:              s['status'],
+        paused:              c.paused,
+        currentTask:         s['currentTask'],
+        history:             (s['history'] || []).last(20),
+        escalation:          s['escalation'],
+        pending_approval:    approval_meta,
+        pending_next_action: c.pending_next_action
+      }
+    end
 
     {
-      synthup_configured:  cfg.synthup_configured?,
-      synthup:             { tenant: cfg.tenant,
-                             tenant_from_env: Config.tenant_from_env?,
-                             api_key_from_env: Config.api_key_from_env? },
-      projects:            Projects.list.map(&:to_h),
-      active_project_id:   cfg.active_project_id,
-      status:              s['status'],
-      paused:              paused,
-      currentTask:         s['currentTask'],
-      history:             (s['history'] || []).last(20),
-      escalation:          s['escalation'],
-      pending_approval:    approval_meta,
-      pending_next_action: pending_next_action
+      synthup_configured: cfg.synthup_configured?,
+      synthup:            { tenant: cfg.tenant,
+                            tenant_from_env: Config.tenant_from_env?,
+                            api_key_from_env: Config.api_key_from_env? },
+      projects:           projects.map(&:to_h),
+      active_project_id:  cfg.active_project_id,
+      projects_state:     projects_state
     }
   end
 
@@ -64,21 +88,21 @@ class OrchestratorServer < Sinatra::Base
   end
 
   post '/api/approve' do
-    pa = self.class.pending_approval
-    return json_error(409, 'No pending approval') unless pa
     body_params = JSON.parse(request.body.read) rescue {}
-    pa[:resolve].call('outcome' => 'approved', 'user_feedback' => nil,
-                      'follow_up_issues' => body_params['follow_up_issues'])
+    c = control_for(body_params)
+    return json_error(409, 'No pending approval') unless c&.pending_approval
+    c.pending_approval[:resolve].call('outcome' => 'approved', 'user_feedback' => nil,
+                                      'follow_up_issues' => body_params['follow_up_issues'])
     json_ok
   end
 
   post '/api/redirect' do
-    pa = self.class.pending_approval
-    return json_error(409, 'No pending approval') unless pa
     body_params = JSON.parse(request.body.read) rescue {}
-    pa[:resolve].call('outcome' => 'redirect',
-                      'user_feedback' => body_params['user_feedback'] || '',
-                      'follow_up_issues' => nil)
+    c = control_for(body_params)
+    return json_error(409, 'No pending approval') unless c&.pending_approval
+    c.pending_approval[:resolve].call('outcome' => 'redirect',
+                                      'user_feedback' => body_params['user_feedback'] || '',
+                                      'follow_up_issues' => nil)
     json_ok
   end
 
@@ -112,7 +136,7 @@ class OrchestratorServer < Sinatra::Base
       github_repo: github_repo.empty? ? nil : github_repo,
       local_path:  local_path.empty? ? nil : local_path
     )
-    # Activate immediately if there's no active project yet.
+    # Set as the view default if none chosen yet — UI hint only.
     Config.set_active_project_id(project.id) if Config.load.active_project_id.to_s.empty?
     content_type :json
     project.to_h.to_json
@@ -121,67 +145,89 @@ class OrchestratorServer < Sinatra::Base
   end
 
   delete '/api/projects/:id' do |id|
+    state = State.load(id)
+    return json_error(409, 'Cannot delete a project while a task is running') if state && state['currentTask']
     cfg = Config.load
-    if cfg.active_project_id == id
-      state = State.load(id)
-      return json_error(409, 'Cannot delete the active project while a task is running') if state && state['currentTask']
-      Config.set_active_project_id(nil)
-    end
+    Config.set_active_project_id(nil) if cfg.active_project_id == id
     Projects.delete(id)
+    self.class.forget(id)
     json_ok
   end
 
+  # Selects which project's panel the UI shows. All projects run in parallel,
+  # so this no longer gates the orchestration loop.
   post '/api/projects/:id/activate' do |id|
     project = Projects.find(id)
     return json_error(404, 'Project not found') unless project
-    cfg = Config.load
-    if cfg.active_project_id && cfg.active_project_id != id
-      active_state = State.load(cfg.active_project_id)
-      return json_error(409, 'Cannot switch projects while a task is running') if active_state && active_state['currentTask']
-    end
     Config.set_active_project_id(id)
     json_ok
   end
 
   post '/api/triage' do
-    self.class.triage_requested = true
+    c = control_for_request
+    return json_error(404, 'project_id required') unless c
+    c.triage_requested = true
     json_ok
   end
 
   post '/api/resume-polling' do
-    cfg = Config.load
-    state = cfg.active_project_id ? State.load(cfg.active_project_id) : nil
+    body_params = JSON.parse(request.body.read) rescue {}
+    pid = resolve_project_id(body_params)
+    return json_error(404, 'project_id required') unless pid
+    state = State.load(pid)
     sid = state&.dig('escalation', 'resumable_task', 'session_id')
     return json_error(409, 'No resumable session on the current escalation') unless sid
-    self.class.resume_polling_requested = true
+    self.class.ctl(pid).resume_polling_requested = true
     json_ok
   end
 
   post '/api/cancel' do
-    cfg = Config.load
-    state = cfg.active_project_id ? State.load(cfg.active_project_id) : nil
+    body_params = JSON.parse(request.body.read) rescue {}
+    pid = resolve_project_id(body_params)
+    return json_error(404, 'project_id required') unless pid
+    c = self.class.ctl(pid)
+    state = State.load(pid)
     ct = state&.dig('currentTask')
-    return json_ok unless ct || self.class.pending_next_action
+    return json_ok unless ct || c.pending_next_action
 
-    pa = self.class.pending_approval
-    pa[:resolve].call('outcome' => 'cancelled') if pa
-
-    self.class.cancel_requested = true
-    self.class.paused = false  # release any interactive gate
+    c.pending_approval[:resolve].call('outcome' => 'cancelled') if c.pending_approval
+    c.cancel_requested = true
+    c.paused = false  # release any interactive gate
     json_ok
   end
 
   post '/api/pause' do
-    self.class.paused = true
+    c = control_for_request
+    return json_error(404, 'project_id required') unless c
+    c.paused = true
     json_ok
   end
 
   post '/api/resume' do
-    self.class.paused = false
+    c = control_for_request
+    return json_error(404, 'project_id required') unless c
+    c.paused = false
     json_ok
   end
 
   private
+
+  def control_for_request
+    body_params = JSON.parse(request.body.read) rescue {}
+    control_for(body_params)
+  end
+
+  def control_for(body_params)
+    pid = resolve_project_id(body_params)
+    pid && self.class.ctl(pid)
+  end
+
+  def resolve_project_id(body_params)
+    pid = body_params['project_id'].to_s.strip
+    pid = Config.load.active_project_id if pid.empty?
+    pid = pid.to_s.strip
+    pid.empty? ? nil : pid
+  end
 
   def json_ok
     content_type :json

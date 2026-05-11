@@ -22,7 +22,6 @@ require_relative 'server'
 
 port = (ENV['ORCHESTRATOR_PORT'] || 4242).to_i
 interactive = ENV['ORCHESTRATOR_INTERACTIVE'] == '1'
-server = OrchestratorServer
 
 puts "Interactive mode: orchestrator will pause for approval before each action." if interactive
 
@@ -62,57 +61,28 @@ rescue Errno::ECONNREFUSED, Errno::ETIMEDOUT
   sleep 0.1
 end
 
-# ── Wait for global config + an active project ───────────────────────────────
+# ── Wait for global config + at least one project ────────────────────────────
 
 def wait_for_setup(port)
   cfg = Config.load
-  needs_creds = !cfg.synthup_configured?
-  needs_project = Projects.find(cfg.active_project_id).nil?
-  return cfg unless needs_creds || needs_project
+  return cfg if cfg.synthup_configured? && Projects.list.any?
 
   puts "Waiting for setup at http://localhost:#{port} …"
   loop do
     sleep 1
     cfg = Config.load
     next unless cfg.synthup_configured?
-    next if Projects.find(cfg.active_project_id).nil?
+    next if Projects.list.empty?
     return cfg
   end
 end
 
 cfg = wait_for_setup(port)
-project = Projects.find(cfg.active_project_id)
 Synthup.api_key = cfg.api_key
-
-state = State.load(project.id)
-
-if state['status'] == 'escalated'
-  esc = state['escalation'] || {}
-  resumable_task = esc['resumable_task']
-  warn "\nOrchestrator is in an escalated state and needs your attention."
-  warn "Reason:  #{esc['reason']}"
-  warn "Details: #{esc['details']}"
-  hint = resumable_task ? "click 'Triage now' to reset, or 'Resume polling' to keep watching the existing session" : "click 'Triage now' to reset and retry"
-  puts "\nUI: http://localhost:#{port} — #{hint}."
-  loop { sleep 1; break if server.triage_requested || (resumable_task && server.resume_polling_requested) }
-  resume = resumable_task && server.resume_polling_requested
-  server.resume_polling_requested = false
-  server.triage_requested = false
-  state = State.patch(project.id, 'status' => 'running', 'escalation' => nil,
-    'currentTask' => resume ? resumable_task : nil)
-end
-
-if state['status'] == 'done'
-  puts 'All issues are Done. Nothing to do.'
-  puts "UI: http://localhost:#{port} — click 'Triage now' to start again."
-  loop { sleep 1; break if server.triage_requested }
-  server.triage_requested = false
-  state = State.patch(project.id, 'status' => 'running', 'currentTask' => nil)
-end
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def dispatch_task(project, cfg, task, context, server:)
+def dispatch_task(project, cfg, task, context, control:)
   started_at = Time.now.utc.iso8601
   State.patch(project.id, 'currentTask' => {
     'task'       => task,
@@ -145,7 +115,7 @@ def dispatch_task(project, cfg, task, context, server:)
     'context'    => context
   })
 
-  report = TaskRunner.poll_for_report(session['id'], cancel_check: -> { server.cancel_requested }, task_path: task_path)
+  report = TaskRunner.poll_for_report(session['id'], cancel_check: -> { control.cancel_requested }, task_path: task_path)
   Synthup.archive_session(session['id']) rescue nil
   report
 rescue TaskRunner::TimeoutError => e
@@ -184,170 +154,245 @@ def approval_to_report(approval, kind:, issue_id:, pr_url: nil)
   end
 end
 
-# ── Main orchestration loop ───────────────────────────────────────────────────
+# ── Per-project orchestration loop ────────────────────────────────────────────
+
+def run_project_loop(project_id, port:, interactive:)
+  control = OrchestratorServer.ctl(project_id)
+
+  project = Projects.find(project_id)
+  return unless project
+
+  state = State.load(project_id) || {}
+
+  if state['status'] == 'escalated'
+    esc = state['escalation'] || {}
+    resumable_task = esc['resumable_task']
+    warn "\n[#{project_id}] escalated and needs your attention."
+    warn "[#{project_id}] Reason:  #{esc['reason']}"
+    warn "[#{project_id}] Details: #{esc['details']}"
+    hint = resumable_task ? "click 'Triage now' to reset, or 'Resume polling' to keep watching the existing session" : "click 'Triage now' to reset and retry"
+    puts "\n[#{project_id}] UI: http://localhost:#{port} — #{hint}."
+    loop do
+      sleep 1
+      return unless Projects.find(project_id)
+      break if control.triage_requested || (resumable_task && control.resume_polling_requested)
+    end
+    resume = resumable_task && control.resume_polling_requested
+    control.resume_polling_requested = false
+    control.triage_requested = false
+    state = State.patch(project_id, 'status' => 'running', 'escalation' => nil,
+      'currentTask' => resume ? resumable_task : nil)
+  end
+
+  if state['status'] == 'done'
+    puts "[#{project_id}] All issues are Done. Nothing to do."
+    puts "[#{project_id}] UI: http://localhost:#{port} — click 'Triage now' to start again."
+    loop do
+      sleep 1
+      return unless Projects.find(project_id)
+      break if control.triage_requested
+    end
+    control.triage_requested = false
+    state = State.patch(project_id, 'status' => 'running', 'currentTask' => nil)
+  end
+
+  pending_report = nil
+
+  loop do
+    # Project was deleted — stop the loop cleanly.
+    project = Projects.find(project_id)
+    return unless project
+
+    # Pause gate — check before every iteration
+    loop { break unless control.paused; sleep 1 }
+
+    # Refresh global config (creds can change via UI).
+    cfg = Config.load
+    unless cfg.synthup_configured?
+      sleep 1
+      next
+    end
+    Synthup.api_key = cfg.api_key
+
+    state = State.load(project_id) || {}
+
+    # Handle manual triage trigger
+    if control.triage_requested
+      control.triage_requested = false
+      pending_report = nil
+      state = State.patch(project_id, 'currentTask' => nil)
+    end
+
+    # Obtain a report for the current state
+    report =
+      if pending_report
+        r = pending_report; pending_report = nil; r
+      elsif state.dig('currentTask', 'task') == 'demo-review.md'
+        ctx = state['currentTask']
+        approval = DemoReview.wait_for_approval(
+          control:     control,
+          pr_url:      ctx['pr_url'],
+          issue_title: ctx['issue_title'],
+          issue_id:    ctx['issue_id'],
+          summary:     ctx['summary'],
+          kind:        ctx['kind']
+        )
+        approval_to_report(approval, kind: ctx['kind'], issue_id: ctx['issue_id'], pr_url: ctx['pr_url'])
+      elsif (sid = state.dig('currentTask', 'session_id'))
+        task_name = state.dig('currentTask', 'task')
+        task_path = task_name ? (TaskRunner.find_task_file(task_name) rescue nil) : nil
+        r = begin
+          TaskRunner.poll_for_report(sid, cancel_check: -> { control.cancel_requested }, task_path: task_path)
+        rescue TaskRunner::TimeoutError => e
+          { 'type' => 'task-failed', 'details' => e.message }
+        end
+        Synthup.archive_session(sid) rescue nil if r['type'] == 'cancelled'
+        r
+      else
+        dispatch_task(project, cfg, 'issue-triage.md', {}, control: control)
+      end
+
+    # Handle cancel
+    if report['type'] == 'cancelled' || report['outcome'] == 'cancelled'
+      State.clear_current_task(project_id)
+      control.cancel_requested = false
+      pending_report = nil
+      next
+    end
+
+    # Record history (store only a compact summary of the report)
+    # Reload state here so we capture the currentTask that was set by dispatch_task —
+    # the local `state` variable may be stale if dispatch_task ran in the current iteration.
+    current_task_state = State.load(project_id)
+    current_task_snapshot = current_task_state['currentTask'] || state['currentTask']
+    started_at = current_task_snapshot&.dig('started_at')
+    duration   = started_at ? (Time.now - Time.parse(started_at)).round : nil
+    State.record_history(project_id, {
+      'task'         => current_task_snapshot&.dig('task'),
+      'session_id'   => current_task_snapshot&.dig('session_id'),
+      'completed_at' => Time.now.utc.iso8601,
+      'duration_s'   => duration,
+      'report'       => { 'type'     => report['type'],
+                          'outcome'  => report['outcome'],
+                          'issue_id' => report['issue_id'],
+                          'pr_url'   => report['pr_url'] }.compact
+    })
+    State.clear_current_task(project_id)
+
+    action = Router.route(report, state)
+
+    if interactive && action[:type] != 'noop'
+      control.pending_next_action = { type: action[:type], summary: describe_action(action) }
+      control.paused = true
+      loop { break unless control.paused; sleep 1 }
+      control.pending_next_action = nil
+      if control.cancel_requested
+        control.cancel_requested = false
+        next
+      end
+    end
+
+    case action[:type]
+    when 'run-task'
+      new_report     = dispatch_task(project, cfg, action[:task], action[:context] || {}, control: control)
+      pending_report = new_report
+
+    when 'run-tasks-parallel'
+      threads = action[:tasks].map do |t|
+        Thread.new { dispatch_task(project, cfg, t[:task], t[:context] || {}, control: control) }
+      end
+      reports        = threads.map(&:value)
+      pending_report = reports.find { |r| r['type'] != 'create-issue-complete' } || reports.first
+
+    when 'wait-approval'
+      ctx = action[:context] || {}
+      State.patch(project_id, 'currentTask' => {
+        'task'        => 'demo-review.md',
+        'session_id'  => nil,
+        'started_at'  => Time.now.utc.iso8601,
+        'pr_url'      => ctx[:pr_url],
+        'issue_title' => ctx[:issue_title],
+        'issue_id'    => ctx[:issue_id],
+        'summary'     => ctx[:summary],
+        'kind'        => ctx[:kind]
+      }.compact)
+      approval = DemoReview.wait_for_approval(control: control, **ctx)
+      pending_report = approval_to_report(
+        approval,
+        kind:     ctx[:kind],
+        issue_id: ctx[:issue_id],
+        pr_url:   ctx[:pr_url]
+      )
+
+    when 'noop'
+      # nothing — loop again to dispatch triage
+
+    when 'escalate'
+      resumable_task = (action[:reason] == 'recovery-exhausted' &&
+                        current_task_snapshot&.dig('session_id')) ? current_task_snapshot : nil
+      State.patch(project_id, 'status' => 'escalated',
+        'escalation' => {
+          'reason'         => action[:reason],
+          'details'        => action[:details],
+          'resumable_task' => resumable_task,
+          'timestamp'      => Time.now.utc.iso8601
+        }.compact)
+      warn "\n[#{project_id}] escalated: #{action[:reason]}"
+      warn action[:details]
+      hint = resumable_task ? "click 'Triage now' to retry, or 'Resume polling' to keep watching the existing session" : "click 'Triage now' to retry"
+      puts "\n[#{project_id}] UI: http://localhost:#{port} — #{hint}."
+      loop do
+        sleep 1
+        return unless Projects.find(project_id)
+        break if control.triage_requested || (resumable_task && control.resume_polling_requested)
+      end
+      resume = resumable_task && control.resume_polling_requested
+      control.resume_polling_requested = false
+      control.triage_requested = false
+      State.patch(project_id, 'status' => 'running', 'escalation' => nil,
+        'currentTask' => resume ? resumable_task : nil)
+
+    when 'done'
+      State.patch(project_id, 'status' => 'done')
+      puts "\n[#{project_id}] All issues Done."
+      puts "[#{project_id}] UI: http://localhost:#{port} — click 'Triage now' to start again."
+      loop do
+        sleep 1
+        return unless Projects.find(project_id)
+        break if control.triage_requested
+      end
+      control.triage_requested = false
+      State.patch(project_id, 'status' => 'running', 'currentTask' => nil)
+    end
+  end
+rescue => e
+  warn "[#{project_id}] loop crashed: #{e.class}: #{e.message}"
+  warn e.backtrace.first(20).join("\n")
+end
+
+# ── Supervisor: one orchestration thread per project ─────────────────────────
 
 trap('INT')  { puts "\nInterrupted."; exit 0 }
 trap('TERM') { puts "\nTerminated.";  exit 0 }
 
-pending_report = nil
+threads = {}  # project_id => Thread
 
 loop do
-  # Pause gate — check before every iteration
-  loop { break unless server.paused; sleep 1 }
+  ids = Projects.list.map(&:id)
 
-  # Refresh config + active project. Global config can change via UI mid-run.
-  cfg = Config.load
-  unless cfg.synthup_configured? && Projects.find(cfg.active_project_id)
-    cfg = wait_for_setup(port)
-  end
-  Synthup.api_key = cfg.api_key
-
-  # Detect active-project change: drop any pending report and resume cleanly.
-  if project.id != cfg.active_project_id
-    project = Projects.find(cfg.active_project_id)
-    pending_report = nil
+  # Spawn threads for newly added projects
+  ids.each do |id|
+    next if threads[id] && threads[id].alive?
+    threads[id] = Thread.new { run_project_loop(id, port: port, interactive: interactive) }
+    puts "[supervisor] started loop for #{id}"
   end
 
-  state = State.load(project.id)
-
-  # Handle manual triage trigger
-  if server.triage_requested
-    server.triage_requested = false
-    pending_report = nil
-    state = State.patch(project.id, 'currentTask' => nil)
+  # Reap dead/finished threads so they get re-spawned if the project still exists
+  threads.each_pair do |id, t|
+    next if t.alive?
+    t.join rescue nil
+    threads.delete(id)
   end
 
-  # Obtain a report for the current state
-  report =
-    if pending_report
-      r = pending_report; pending_report = nil; r
-    elsif state.dig('currentTask', 'task') == 'demo-review.md'
-      ctx = state['currentTask']
-      approval = DemoReview.wait_for_approval(
-        server:      server,
-        pr_url:      ctx['pr_url'],
-        issue_title: ctx['issue_title'],
-        issue_id:    ctx['issue_id'],
-        summary:     ctx['summary'],
-        kind:        ctx['kind']
-      )
-      approval_to_report(approval, kind: ctx['kind'], issue_id: ctx['issue_id'], pr_url: ctx['pr_url'])
-    elsif (sid = state.dig('currentTask', 'session_id'))
-      task_name = state.dig('currentTask', 'task')
-      task_path = task_name ? (TaskRunner.find_task_file(task_name) rescue nil) : nil
-      r = begin
-        TaskRunner.poll_for_report(sid, cancel_check: -> { server.cancel_requested }, task_path: task_path)
-      rescue TaskRunner::TimeoutError => e
-        { 'type' => 'task-failed', 'details' => e.message }
-      end
-      Synthup.archive_session(sid) rescue nil if r['type'] == 'cancelled'
-      r
-    else
-      dispatch_task(project, cfg, 'issue-triage.md', {}, server: server)
-    end
-
-  # Handle cancel
-  if report['type'] == 'cancelled' || report['outcome'] == 'cancelled'
-    State.clear_current_task(project.id)
-    server.cancel_requested = false
-    pending_report = nil
-    next
-  end
-
-  # Record history (store only a compact summary of the report)
-  # Reload state here so we capture the currentTask that was set by dispatch_task —
-  # the local `state` variable may be stale if dispatch_task ran in the current iteration.
-  current_task_state = State.load(project.id)
-  current_task_snapshot = current_task_state['currentTask'] || state['currentTask']
-  started_at = current_task_snapshot&.dig('started_at')
-  duration   = started_at ? (Time.now - Time.parse(started_at)).round : nil
-  State.record_history(project.id, {
-    'task'         => current_task_snapshot&.dig('task'),
-    'session_id'   => current_task_snapshot&.dig('session_id'),
-    'completed_at' => Time.now.utc.iso8601,
-    'duration_s'   => duration,
-    'report'       => { 'type'     => report['type'],
-                        'outcome'  => report['outcome'],
-                        'issue_id' => report['issue_id'],
-                        'pr_url'   => report['pr_url'] }.compact
-  })
-  State.clear_current_task(project.id)
-
-  action = Router.route(report, state)
-
-  if interactive && action[:type] != 'noop'
-    server.pending_next_action = { type: action[:type], summary: describe_action(action) }
-    server.paused = true
-    loop { break unless server.paused; sleep 1 }
-    server.pending_next_action = nil
-    if server.cancel_requested
-      server.cancel_requested = false
-      next
-    end
-  end
-
-  case action[:type]
-  when 'run-task'
-    new_report     = dispatch_task(project, cfg, action[:task], action[:context] || {}, server: server)
-    pending_report = new_report
-
-  when 'run-tasks-parallel'
-    threads = action[:tasks].map do |t|
-      Thread.new { dispatch_task(project, cfg, t[:task], t[:context] || {}, server: server) }
-    end
-    reports        = threads.map(&:value)
-    pending_report = reports.find { |r| r['type'] != 'create-issue-complete' } || reports.first
-
-  when 'wait-approval'
-    ctx = action[:context] || {}
-    State.patch(project.id, 'currentTask' => {
-      'task'        => 'demo-review.md',
-      'session_id'  => nil,
-      'started_at'  => Time.now.utc.iso8601,
-      'pr_url'      => ctx[:pr_url],
-      'issue_title' => ctx[:issue_title],
-      'issue_id'    => ctx[:issue_id],
-      'summary'     => ctx[:summary],
-      'kind'        => ctx[:kind]
-    }.compact)
-    approval = DemoReview.wait_for_approval(server: server, **ctx)
-    pending_report = approval_to_report(
-      approval,
-      kind:     ctx[:kind],
-      issue_id: ctx[:issue_id],
-      pr_url:   ctx[:pr_url]
-    )
-
-  when 'noop'
-    # nothing — loop again to dispatch triage
-
-  when 'escalate'
-    resumable_task = (action[:reason] == 'recovery-exhausted' &&
-                      current_task_snapshot&.dig('session_id')) ? current_task_snapshot : nil
-    State.patch(project.id, 'status' => 'escalated',
-      'escalation' => {
-        'reason'         => action[:reason],
-        'details'        => action[:details],
-        'resumable_task' => resumable_task,
-        'timestamp'      => Time.now.utc.iso8601
-      }.compact)
-    warn "\nOrchestrator escalated: #{action[:reason]}"
-    warn action[:details]
-    hint = resumable_task ? "click 'Triage now' to retry, or 'Resume polling' to keep watching the existing session" : "click 'Triage now' to retry"
-    puts "\nUI: http://localhost:#{port} — #{hint}."
-    loop { sleep 1; break if server.triage_requested || (resumable_task && server.resume_polling_requested) }
-    resume = resumable_task && server.resume_polling_requested
-    server.resume_polling_requested = false
-    server.triage_requested = false
-    State.patch(project.id, 'status' => 'running', 'escalation' => nil,
-      'currentTask' => resume ? resumable_task : nil)
-
-  when 'done'
-    State.patch(project.id, 'status' => 'done')
-    puts "\nAll issues Done."
-    puts "UI: http://localhost:#{port} — click 'Triage now' to start again."
-    loop { sleep 1; break if server.triage_requested }
-    server.triage_requested = false
-    State.patch(project.id, 'status' => 'running', 'currentTask' => nil)
-  end
+  sleep 3
 end

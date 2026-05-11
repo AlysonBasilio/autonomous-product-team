@@ -1,8 +1,10 @@
 require_relative 'storage'
 
-# Global config: Synthup credentials + the currently-active project id.
+# Global config: Synthup credentials + the UI's currently-viewed project id.
 # Resolution order (highest first): env > data/config.json > nil.
 # `active_project_id` is read/written only via the file (env doesn't override it).
+# It is a UI view hint — every configured project runs its own orchestration
+# loop in parallel, so this no longer gates which project the orchestrator works on.
 module Config
   CONFIG_FILE = 'config.json'
 

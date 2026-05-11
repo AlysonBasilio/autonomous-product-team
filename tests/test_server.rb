@@ -80,4 +80,26 @@ class TestPostProjects < Minitest::Test
     )
     assert_equal 400, last_response.status
   end
+
+  # Per-project control state must not leak between projects: pausing one
+  # cannot pause another. This is the core invariant that makes parallel
+  # project loops safe.
+  def test_pause_is_isolated_per_project
+    post_project(project_url: 'https://github.com/foo/a')
+    a_id = JSON.parse(last_response.body)['id']
+    post_project(project_url: 'https://github.com/foo/b')
+    b_id = JSON.parse(last_response.body)['id']
+
+    post '/api/pause', { project_id: a_id }.to_json, { 'CONTENT_TYPE' => 'application/json' }
+    assert_equal 200, last_response.status
+
+    assert OrchestratorServer.ctl(a_id).paused, 'project A should be paused'
+    refute OrchestratorServer.ctl(b_id).paused, 'project B must NOT be paused'
+
+    post '/api/resume', { project_id: a_id }.to_json, { 'CONTENT_TYPE' => 'application/json' }
+    refute OrchestratorServer.ctl(a_id).paused, 'project A should be resumed'
+  ensure
+    OrchestratorServer.forget(a_id) if a_id
+    OrchestratorServer.forget(b_id) if b_id
+  end
 end

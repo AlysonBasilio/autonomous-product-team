@@ -3,18 +3,19 @@ require 'thread'
 module DemoReview
   APPROVAL_TIMEOUT = 86_400  # 24 hours
 
-  # Registers a pending approval on the server and blocks the calling thread
-  # until the user clicks Approve or Redirect in the web UI, or the timeout elapses.
+  # Registers a pending approval on the project's control slot and blocks the
+  # calling thread until the user clicks Approve or Redirect in the web UI,
+  # or the timeout elapses.
   #
   # Returns:
   #   { "outcome" => "approved"|"redirect"|"timeout", "user_feedback" => ..., "follow_up_issues" => [...] }
-  def self.wait_for_approval(server:, pr_url:, issue_title: nil, summary: nil, issue_id: nil, kind: nil, **)
+  def self.wait_for_approval(control:, pr_url:, issue_title: nil, summary: nil, issue_id: nil, kind: nil, **)
     mutex   = Mutex.new
     cond    = ConditionVariable.new
     result  = nil
     resolve = lambda { |h| mutex.synchronize { result = h; cond.signal } }
 
-    server.pending_approval = {
+    control.pending_approval = {
       issue_title: issue_title,
       issue_id:    issue_id,
       pr_url:      pr_url,
@@ -30,7 +31,7 @@ module DemoReview
       end
     end
 
-    server.pending_approval = nil
+    control.pending_approval = nil
 
     result || { 'outcome' => 'timeout',
                 'user_feedback' => "Demo review timed out after #{APPROVAL_TIMEOUT / 3600}h with no response" }

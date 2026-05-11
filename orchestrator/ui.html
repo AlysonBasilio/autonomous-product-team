@@ -198,6 +198,20 @@
   .project-url { color: var(--bright); flex: 1; word-break: break-all; }
   .project-active-marker { color: var(--green); font-weight: 600; font-size: 11px; }
   .project-meta { color: var(--muted); font-size: 11px; }
+  .project-status {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: #14532d;
+    color: var(--green);
+  }
+  .project-status.paused    { background: #451a03; color: var(--yellow); }
+  .project-status.done      { background: #1e3a5f; color: var(--blue); }
+  .project-status.escalated { background: #450a0a; color: var(--red); }
+  .project-status.awaiting  { background: #422006; color: #fcd34d; }
 
   /* ── Escalation ── */
   #escalation { border-color: #b91c1c; }
@@ -328,19 +342,25 @@
 
     const synthupOk = !!s.synthup_configured;
     const projects = s.projects || [];
+    const projectsState = s.projects_state || {};
     const activeId = s.active_project_id;
     const hasActive = !!projects.find(p => p.id === activeId);
-    const taskInFlight = !!s.currentTask;
+    const ps = (activeId && projectsState[activeId]) || {};
+    const taskInFlight = !!ps.currentTask;
+
+    // Surface the active project's slot on `state` so action handlers can read
+    // it without re-traversing projects_state.
+    state.activeProjectState = ps;
 
     // Global config form: hide once Synthup is configured.
     document.getElementById('setup-global').classList.toggle('hidden', synthupOk);
 
     // Projects section: show once Synthup is configured.
     document.getElementById('projects').classList.toggle('hidden', !synthupOk);
-    renderProjects(projects, activeId, taskInFlight);
+    renderProjects(projects, projectsState, activeId);
 
     // Project switcher in header
-    renderSwitcher(projects, activeId, taskInFlight);
+    renderSwitcher(projects, activeId);
 
     // Status badge
     const badge = document.getElementById('status-badge');
@@ -348,18 +368,18 @@
       badge.textContent = 'setup';
       badge.className = 'badge badge-paused';
     } else {
-      badge.textContent = s.paused ? 'paused' : (s.status || 'running');
-      badge.className = 'badge badge-' + (s.paused ? 'paused' : (s.status || 'running'));
+      badge.textContent = ps.paused ? 'paused' : (ps.status || 'running');
+      badge.className = 'badge badge-' + (ps.paused ? 'paused' : (ps.status || 'running'));
     }
 
     // Pause/resume button
     const pauseBtn = document.getElementById('btn-pause');
-    pauseBtn.textContent = s.paused ? 'Resume' : 'Pause';
+    pauseBtn.textContent = ps.paused ? 'Resume' : 'Pause';
     pauseBtn.disabled = !hasActive;
     document.getElementById('btn-triage').disabled = !hasActive;
 
     // Current task
-    const ct = s.currentTask;
+    const ct = ps.currentTask;
     const ctSection = document.getElementById('current-task-body');
     if (ct) {
       const elapsed = ct.started_at ? formatElapsed(ct.started_at) : '—';
@@ -377,9 +397,9 @@
 
     // Interactive next-action gate
     const na = document.getElementById('next-action');
-    if (s.pending_next_action) {
+    if (ps.pending_next_action) {
       na.classList.remove('hidden');
-      const a = s.pending_next_action;
+      const a = ps.pending_next_action;
       document.getElementById('na-summary').innerHTML =
         `<strong>${esc(a.summary || a.type)}</strong>`;
     } else {
@@ -388,9 +408,9 @@
 
     // Demo review / test verification
     const dr = document.getElementById('demo-review');
-    if (s.pending_approval) {
+    if (ps.pending_approval) {
       dr.classList.remove('hidden');
-      const p = s.pending_approval;
+      const p = ps.pending_approval;
       const isTest = p.kind === 'test';
       document.getElementById('dr-heading').textContent =
         isTest ? 'Test Verification — Please Test Manually'
@@ -414,12 +434,12 @@
 
     // Escalation
     const esc_section = document.getElementById('escalation');
-    if (s.escalation) {
+    if (ps.escalation) {
       esc_section.classList.remove('hidden');
       document.getElementById('esc-reason').innerHTML =
-        `<span class="label">reason</span><span class="value">${esc(s.escalation.reason)}</span>`;
-      document.getElementById('esc-details').textContent = s.escalation.details || '';
-      const resumable = !!(s.escalation.resumable_task && s.escalation.resumable_task.session_id);
+        `<span class="label">reason</span><span class="value">${esc(ps.escalation.reason)}</span>`;
+      document.getElementById('esc-details').textContent = ps.escalation.details || '';
+      const resumable = !!(ps.escalation.resumable_task && ps.escalation.resumable_task.session_id);
       document.getElementById('btn-resume-polling').classList.toggle('hidden', !resumable);
     } else {
       esc_section.classList.add('hidden');
@@ -427,10 +447,10 @@
     }
 
     // History
-    renderHistory(s.history || []);
+    renderHistory(ps.history || []);
   }
 
-  function renderSwitcher(projects, activeId, taskInFlight) {
+  function renderSwitcher(projects, activeId) {
     const sel = document.getElementById('project-switcher');
     if (!projects.length) { sel.classList.add('hidden'); return; }
     sel.classList.remove('hidden');
@@ -440,11 +460,22 @@
     });
     if (!activeId) opts.unshift('<option value="" selected>— select project —</option>');
     sel.innerHTML = opts.join('');
-    sel.disabled = taskInFlight;
-    sel.title = taskInFlight ? 'Cannot switch projects while a task is running' : 'Active project';
+    sel.disabled = false;
+    sel.title = 'View project';
   }
 
-  function renderProjects(projects, activeId, taskInFlight) {
+  function projectStatusBadge(ps) {
+    if (!ps) return '';
+    if (ps.pending_approval || ps.pending_next_action) {
+      return '<span class="project-status awaiting">awaiting</span>';
+    }
+    if (ps.status === 'escalated') return '<span class="project-status escalated">escalated</span>';
+    if (ps.status === 'done')      return '<span class="project-status done">done</span>';
+    if (ps.paused)                 return '<span class="project-status paused">paused</span>';
+    return '<span class="project-status">running</span>';
+  }
+
+  function renderProjects(projects, projectsState, activeId) {
     const el = document.getElementById('projects-list');
     if (!projects.length) {
       el.innerHTML = '<span class="empty">No projects yet — add one below.</span>';
@@ -452,17 +483,20 @@
     }
     el.innerHTML = projects.map(p => {
       const isActive = p.id === activeId;
+      const ps = projectsState[p.id] || {};
+      const hasTask = !!ps.currentTask;
       const activate = isActive
         ? `<span class="project-active-marker">ACTIVE</span>`
-        : `<button onclick="activateProject('${esc(p.id)}')" ${taskInFlight ? 'disabled title="Cannot switch while a task is running"' : ''}>Activate</button>`;
+        : `<button onclick="activateProject('${esc(p.id)}')">View</button>`;
       const localPath = p.local_path ? `<div class="project-meta">${esc(p.local_path)}</div>` : '';
       return `<div class="project-item">
         <div style="flex:1">
           <div class="project-url">${esc(p.project_url)}</div>
           ${localPath}
         </div>
+        ${projectStatusBadge(ps)}
         ${activate}
-        <button class="danger" onclick="deleteProject('${esc(p.id)}')" ${isActive && taskInFlight ? 'disabled' : ''}>Delete</button>
+        <button class="danger" onclick="deleteProject('${esc(p.id)}')" ${hasTask ? 'disabled title="Cancel the running task before deleting"' : ''}>Delete</button>
       </div>`;
     }).join('');
   }
@@ -550,6 +584,10 @@
     activateProject(id);
   }
 
+  function activePid() {
+    return state.active_project_id;
+  }
+
   function approve() {
     const followUpsRaw = document.getElementById('dr-followups').value.trim();
     const follow_up_issues = followUpsRaw
@@ -558,34 +596,36 @@
           return { title: title.trim(), description: rest.join('—').trim() };
         })
       : undefined;
-    api('POST', '/api/approve', { follow_up_issues });
+    api('POST', '/api/approve', { project_id: activePid(), follow_up_issues });
   }
 
   function redirect() {
     const user_feedback = document.getElementById('dr-feedback').value.trim();
     if (!user_feedback) { document.getElementById('dr-feedback').focus(); return; }
-    api('POST', '/api/redirect', { user_feedback });
+    api('POST', '/api/redirect', { project_id: activePid(), user_feedback });
   }
 
   function togglePause() {
-    api('POST', state.paused ? '/api/resume' : '/api/pause');
+    const paused = state.activeProjectState?.paused;
+    api('POST', paused ? '/api/resume' : '/api/pause', { project_id: activePid() });
   }
 
   function triggerTriage() {
-    api('POST', '/api/triage');
+    api('POST', '/api/triage', { project_id: activePid() });
   }
 
   function resumePolling() {
-    api('POST', '/api/resume-polling');
+    api('POST', '/api/resume-polling', { project_id: activePid() });
   }
 
   function cancelTask() {
-    if (!state.currentTask && !state.pending_next_action) return;
-    api('POST', '/api/cancel');
+    const ps = state.activeProjectState || {};
+    if (!ps.currentTask && !ps.pending_next_action) return;
+    api('POST', '/api/cancel', { project_id: activePid() });
   }
 
   function continueAction() {
-    api('POST', '/api/resume');
+    api('POST', '/api/resume', { project_id: activePid() });
   }
 
   function toggleFollowUps() {
@@ -650,8 +690,9 @@
   poll();
   setInterval(() => {
     const el = document.getElementById('elapsed-value');
-    if (el && state.currentTask?.started_at) {
-      el.textContent = formatElapsed(state.currentTask.started_at);
+    const startedAt = state.activeProjectState?.currentTask?.started_at;
+    if (el && startedAt) {
+      el.textContent = formatElapsed(startedAt);
     }
   }, 1000);
 </script>

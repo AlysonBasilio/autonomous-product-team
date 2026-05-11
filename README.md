@@ -83,20 +83,20 @@ The orchestrator never `cd`s into your project on disk — all git/file work hap
 
 The orchestrator UI at `http://localhost:4242` lets you:
 
-- **Switch active project** — header dropdown. Disabled while a task is in flight.
-- **Pause / Resume** — stop the orchestrator between tasks without killing the process.
-- **Triage Now** — force an immediate re-triage (useful after manually resolving a blocker).
-- **Cancel** — abort the current running task.
-- **Approve / Redirect** — the approval gate for demo review. Approve records your consent and lets the orchestrator move on; Redirect sends your feedback back through the code task.
+- **Switch viewed project** — header dropdown. All projects run in parallel; this only changes which one's panel you see.
+- **Pause / Resume** — stop the viewed project's loop between tasks without killing the process. Other projects keep running.
+- **Triage Now** — force an immediate re-triage on the viewed project (useful after manually resolving a blocker).
+- **Cancel** — abort the viewed project's current running task.
+- **Approve / Redirect** — the approval gate for demo review. Approve records your consent and lets the project's loop move on; Redirect sends your feedback back through the code task.
 - **Escalation banner** — shown when a task fails; includes error details and a Triage Now button to reset.
 
 ## Multiple projects
 
-The first cut runs **one active project at a time**. Add as many as you like; pick which one drives the loop via the header dropdown. Each project's state, history, and escalations are isolated in its own `data/projects/<slug>.json`.
+Every configured project runs **its own orchestration loop in parallel**. Add as many as you like; each project's state, history, and escalations are isolated in its own `data/projects/<slug>.json`. The header dropdown picks which project's panel the UI shows — switching the view does not pause anything.
 
-Switching projects is disabled while a task is in flight — wait for it to finish (or cancel it) before swapping.
+Per-project controls (Pause, Triage Now, Cancel, Approve/Redirect) apply only to the project you're viewing. The project list badges each row (running / paused / awaiting / escalated / done) so you can tell at a glance when an unviewed project needs attention.
 
-Synthup credentials are global today: two projects on different tenants require manually changing `SYNTHUP_TENANT` (or the saved config) between runs.
+Synthup credentials are global: every project's loop uses the same `tenant` and `api_key`. Running N projects in parallel multiplies session creation against your Synthup quota — keep an eye on credit burn.
 
 ## Updating
 
