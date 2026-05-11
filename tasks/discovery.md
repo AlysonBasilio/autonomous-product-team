@@ -56,7 +56,11 @@ For each newly created issue, check:
 
 Link any clear dependencies using the product development management system's dependency feature. Do not add speculative links.
 
-### 7. Report
+### 7. Close the source issue
+
+Mark issue `{{ issue_id }}` as **Done** in the product development management system. Discovery's deliverable is the set of follow-up issues created in step 5; once those exist, the discovery issue itself is complete.
+
+### 8. Report
 
 Post a comment to the PM issue using the product development management system tool. The comment body must be a single fenced ```json block containing this object:
 
@@ -75,11 +79,11 @@ Output your final response as a single fenced ```json code block containing the 
 
 ## Definition of Done
 
-All follow-up issues have been created, any clear dependencies have been linked, and the discovery-complete report has been output.
+All follow-up issues have been created, any clear dependencies have been linked, the source issue has been moved to Done, and the discovery-complete report has been output.
 
 ## Rules
 
 - Do not implement anything — this task is exploration and issue creation only.
-- Do not modify the source issue's status, priority, or any other fields — only add a comment.
+- Do not modify the source issue's priority or any fields other than status — only add a comment and move it to Done after the follow-ups exist.
 - Write issue descriptions for a future implementer who has zero context.
 - Do not invent requirements beyond what the research supports.
