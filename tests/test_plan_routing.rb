@@ -56,7 +56,7 @@ class PlanRoutingScenarioTest < Minitest::Test
       CTX
       rubric: [
         "report type is 'plan-report'",
-        'the next_task field is omitted from the report (the JSON object has no key named next_task)',
+        "next_task is 'triage' (the issue is Done — kick back to the loop)",
         'report does NOT route to test, demo-review, or any implement task',
       ],
     },
@@ -365,8 +365,8 @@ class PlanRoutingScenarioTest < Minitest::Test
       ],
     },
     {
-      name: 'large_issue_triggers_split_report',
-      description: 'Large multi-layer issue → plan emits split-report instead of plan-report',
+      name: 'large_issue_triggers_split_via_create_issue',
+      description: 'Large multi-layer issue → plan-report with next_task: create-issue and split_context: true',
       mock_context: <<~CTX.chomp,
         Issue: PROJ-200 "Build full notification system"
         Status: Todo
@@ -384,9 +384,10 @@ class PlanRoutingScenarioTest < Minitest::Test
         Git state: No branch, no PR.
       CTX
       rubric: [
-        "report type is 'split-report' (NOT 'plan-report')",
-        "split-report includes a 'reason' field explaining why the issue is too big for a single PR",
-        "split-report includes an 'issues' list with at least 2 sub-issues",
+        "report type is 'plan-report'",
+        "next_task is 'create-issue'",
+        "split_context is true",
+        "the 'issues' field is a list with at least 2 sub-issues",
         "at least one sub-issue has a 'depends_on' field referencing another sub-issue",
         "does NOT set next_task to 'code' or produce an implementation checklist",
       ],
@@ -407,9 +408,9 @@ class PlanRoutingScenarioTest < Minitest::Test
         Git state: No branch, no PR.
       CTX
       rubric: [
-        "report type is 'plan-report' (NOT 'split-report')",
+        "report type is 'plan-report'",
         "next_task is 'code'",
-        'does NOT split this issue — it is small and focused',
+        'does NOT split this issue — it is small and focused (next_task is not create-issue and split_context is not true)',
       ],
     },
     {

@@ -1,100 +1,74 @@
 module Router
   # Returns a NextAction hash:
   #   { type: "run-task", task: "plan.md", context: {} }
-  #   { type: "run-tasks-parallel", tasks: [{task:, context:}, ...] }
   #   { type: "wait-approval", context: {} }
   #   { type: "escalate", reason: "...", details: "..." }
   #   { type: "done" }
-  def self.route(report, current_state = {})
-    type = report['type']
-
-    case type
+  def self.route(report, _current_state = {})
+    case report['type']
 
     when 'triage-report'
       next_issue = report['next_issue']
       return { type: 'done' } unless next_issue
-
       issue_id = next_issue.is_a?(Hash) ? next_issue['id'] : next_issue
-      issue_type = report['issue_type']
-      task = issue_type == 'discovery' ? 'discovery.md' : 'plan.md'
-      { type: 'run-task', task: task, context: { issue_id: issue_id } }
+      run('plan.md', issue_id: issue_id)
 
     when 'plan-report'
-      next_task = report['next_task']
-      case next_task
+      case report['next_task']
+      when 'discovery'
+        run('discovery.md', issue_id: report['issue_id'])
       when 'code'
-        { type: 'run-task', task: 'code.md', context: {
-          issue_id:  report['issue_id'],
-          branch:    report['branch'],
-          plan:      report['plan'],
-          findings:  report['findings']
-        }.compact }
+        run('code.md',
+            issue_id: report['issue_id'],
+            branch:   report['branch'],
+            plan:     report['plan'],
+            findings: report['findings'],
+            pr_url:   report['pr_url'])
       when 'test'
-        { type: 'run-task', task: 'test.md', context: {
-          issue_id: report['issue_id'],
-          pr_url:   report['pr_url']
-        }.compact }
+        run('test.md', issue_id: report['issue_id'], pr_url: report['pr_url'])
       when 'demo-review'
-        { type: 'run-task', task: 'demo-review.md', context: {
-          issue_id: report['issue_id'],
-          pr_url:   report['pr_url']
-        }.compact }
+        run('demo-review.md', issue_id: report['issue_id'], pr_url: report['pr_url'])
+      when 'create-issue'
+        run('create-issue.md',
+            issues:          report['issues'],
+            source_issue_id: report['source_issue_id'] || report['issue_id'],
+            split_context:   report['split_context'],
+            return_to:       report['return_to'] || 'triage')
       else
-        { type: 'run-task', task: 'issue-triage.md', context: {} }
-      end
-
-    when 'split-report'
-      { type: 'run-task', task: 'create-issue.md', context: {
-        issues:           report['issues'],
-        source_issue_id:  report['source_issue_id'],
-        split_context:    true
-      }.compact }
-
-    when 'create-issue-complete'
-      if report['split_context']
-        { type: 'run-task', task: 'issue-triage.md', context: {} }
-      else
-        { type: 'noop' }
+        run('issue-triage.md')
       end
 
     when 'task-complete'
       follow_ups = report['follow_up_issues']
       if follow_ups && !follow_ups.empty?
-        { type: 'run-tasks-parallel', tasks: [
-          { task: 'create-issue.md', context: { issues: follow_ups } },
-          { task: 'test.md', context: { issue_id: report['issue_id'], pr_url: report['pr_url'] } }
-        ]}
+        run('create-issue.md',
+            issues:          follow_ups,
+            source_issue_id: report['issue_id'],
+            return_to:       'test',
+            issue_id:        report['issue_id'],
+            pr_url:          report['pr_url'])
       else
-        { type: 'run-task', task: 'test.md', context: {
-          issue_id: report['issue_id'],
-          pr_url:   report['pr_url']
-        }.compact }
+        run('test.md', issue_id: report['issue_id'], pr_url: report['pr_url'])
       end
 
-    when 'test-blocked'
-      { type: 'wait-approval', context: {
-        issue_id: report['issue_id'],
-        pr_url:   report['pr_url'],
-        summary:  report['summary'],
-        kind:     'test'
-      }.compact }
+    when 'test-report'
+      run('plan.md',
+          issue_id:     report['issue_id'],
+          pr_url:       report['pr_url'],
+          test_outcome: report['outcome'],
+          findings:     report['findings'])
 
     when 'discovery-complete'
-      { type: 'run-task', task: 'issue-triage.md', context: {} }
+      run('issue-triage.md')
 
-    when 'test-report'
-      outcome = report['outcome']
-      if outcome == 'pass'
-        { type: 'run-task', task: 'demo-review.md', context: {
-          issue_id: report['issue_id'],
-          pr_url:   report['pr_url']
-        }.compact }
+    when 'create-issue-complete'
+      case report['return_to']
+      when 'test'
+        run('test.md', issue_id: report['source_issue_id'], pr_url: report['pr_url'])
+      when 'plan'
+        run('plan.md', issue_id: report['source_issue_id'])
       else
-        { type: 'run-task', task: 'code.md', context: {
-          issue_id: report['issue_id'],
-          pr_url:   report['pr_url'],
-          findings: report['findings']
-        }.compact }
+        run('issue-triage.md')
       end
 
     when 'demo-review-pending'
@@ -106,31 +80,21 @@ module Router
       }.compact }
 
     when 'demo-review-report'
-      outcome = report['outcome']
-      if outcome == 'approved'
+      if report['outcome'] == 'approved'
         follow_ups = report['follow_up_issues']
         if follow_ups && !follow_ups.empty?
-          { type: 'run-tasks-parallel', tasks: [
-            { task: 'create-issue.md', context: { issues: follow_ups } },
-            { task: 'issue-triage.md', context: {} }
-          ]}
+          run('create-issue.md',
+              issues:          follow_ups,
+              source_issue_id: report['issue_id'],
+              return_to:       'triage')
         else
-          { type: 'run-task', task: 'issue-triage.md', context: {} }
+          run('issue-triage.md')
         end
       else
-        { type: 'run-task', task: 'code.md', context: {
-          issue_id:     report['issue_id'],
-          pr_url:       report['pr_url'],
-          user_feedback: report['user_feedback']
-        }.compact }
-      end
-
-    when 'status-correction-report'
-      now_unblocked = report['now_unblocked']
-      if now_unblocked && !now_unblocked.empty?
-        { type: 'run-task', task: 'issue-triage.md', context: {} }
-      else
-        { type: 'done' }
+        run('plan.md',
+            issue_id:      report['issue_id'],
+            pr_url:        report['pr_url'],
+            user_feedback: report['user_feedback'])
       end
 
     when 'task-failed'
@@ -142,7 +106,7 @@ module Router
     when 'blocked'
       { type: 'escalate',
         reason:  'blocked',
-        details: report['what_is_blocked'] || report.to_json }
+        details: report['what_is_blocked'] || report['details'] || report.to_json }
 
     when 'recovery-exhausted'
       { type: 'escalate',
@@ -152,7 +116,11 @@ module Router
     else
       { type: 'escalate',
         reason:  'unknown-report',
-        details: "Unrecognised report type: #{type.inspect}\n#{report.to_json}" }
+        details: "Unrecognised report type: #{report['type'].inspect}\n#{report.to_json}" }
     end
+  end
+
+  def self.run(task, **context)
+    { type: 'run-task', task: task, context: context.compact }
   end
 end

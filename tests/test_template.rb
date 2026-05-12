@@ -260,8 +260,7 @@ class TestTemplateOnRealTasks < Minitest::Test
       'code.md'              => { issue_id: 'ENG-1', branch: 'b', plan: 'p' },
       'test.md'              => { issue_id: 'ENG-1', pr_url: 'u' },
       'demo-review.md'       => { issue_id: 'ENG-1', pr_url: 'u' },
-      'create-issue.md'      => { issues: [{ 'title' => 't' }] },
-      'status-correction.md' => {}
+      'create-issue.md'      => { issues: [{ 'title' => 't' }] }
     }
     samples.each do |fname, ctx|
       ctx[:project_url] = 'https://example/p/x'

@@ -58,10 +58,6 @@ class TestTaskFileExistence < Minitest::Test
   def test_code_exists
     assert File.exist?(File.join(REPO_ROOT, 'tasks/code.md'))
   end
-
-  def test_status_correction_exists
-    assert File.exist?(File.join(REPO_ROOT, 'tasks/status-correction.md'))
-  end
 end
 
 class TestPlanRoutingTable < Minitest::Test
@@ -334,37 +330,39 @@ class TestSessionPersistence < Minitest::Test
 end
 
 class TestQABlockedDelegation < Minitest::Test
-  # When the QA agent cannot run the app itself, it must hand the test to
-  # the user via a `test-blocked` report. The orchestrator routes this to
-  # the wait-approval gate — there is no more pre-flight doc scan.
+  # When the QA agent cannot run the app itself, it must emit a test-report
+  # with outcome: "blocked". Plan reads the PM comment on its next entry and
+  # emits a `blocked` report that the orchestrator surfaces as an escalation.
 
-  def test_test_defines_test_blocked_report
+  def test_test_defines_blocked_outcome
     content = load_file('tasks/test.md')
-    assert_includes content, 'test-blocked',
-                    'tasks/test.md must define the test-blocked report type'
+    assert_includes content, 'blocked',
+                    'tasks/test.md must define the blocked outcome on test-report'
     assert_includes content, 'issue_id',
-                    'tasks/test.md test-blocked report must include issue_id'
+                    'tasks/test.md test-report must include issue_id'
     assert_includes content, 'pr_url',
-                    'tasks/test.md test-blocked report must include pr_url'
-    assert_includes content, 'summary',
-                    'tasks/test.md test-blocked report must include a summary ' \
-                    "(matches router.rb's report['summary'] read)"
+                    'tasks/test.md test-report must include pr_url'
   end
 
   def test_test_attempts_before_delegating
     content = load_file('tasks/test.md').downcase
     assert(content.include?('try to') || content.include?('attempt'),
            'tasks/test.md must instruct the agent to try running the app itself ' \
-           'before handing off to the user')
+           'before emitting outcome: blocked')
   end
 end
 
 class TestSplitReport < Minitest::Test
-  # Split-report schema must be fully defined in plan.md and create-issue.md.
+  # Splitting an oversized issue is now expressed as a plan-report with
+  # next_task: "create-issue" and split_context: true. The schema must be
+  # fully defined in plan.md and create-issue.md.
 
-  def test_plan_defines_split_report_type
-    assert_includes load_file('tasks/plan.md'), 'split-report',
-                    'plan.md must define the split-report message type'
+  def test_plan_defines_split_via_create_issue
+    content = load_file('tasks/plan.md')
+    assert_includes content, 'create-issue',
+                    'plan.md must document next_task: "create-issue" as the way to split issues'
+    assert_includes content, 'split_context',
+                    'plan.md must include the split_context flag on the splitting plan-report'
   end
 
   def test_plan_defines_scope_assessment
@@ -374,8 +372,8 @@ class TestSplitReport < Minitest::Test
 
   def test_plan_split_report_has_required_fields
     content = load_file('tasks/plan.md')
-    %w[source_issue_id reason issues depends_on].each do |field|
-      assert_includes content, field, "plan.md split-report schema is missing field: #{field}"
+    %w[source_issue_id issues depends_on return_to].each do |field|
+      assert_includes content, field, "plan.md splitting plan-report schema is missing field: #{field}"
     end
   end
 
@@ -385,21 +383,25 @@ class TestSplitReport < Minitest::Test
   end
 
   def test_router_forwards_source_issue_id_on_split
-    # The router must propagate `source_issue_id` from a split-report into the
-    # create-issue.md context, so create-issue.md knows which issue to close
-    # after the sub-issues are created.
+    # The router must propagate `source_issue_id` and split_context from a
+    # plan-report with next_task: "create-issue" into the create-issue.md
+    # context, so create-issue.md knows which issue to close after the
+    # sub-issues are created.
     report = {
-      'type'            => 'split-report',
+      'type'            => 'plan-report',
+      'next_task'       => 'create-issue',
       'source_issue_id' => 'ENG-1987',
-      'reason'          => 'too big',
+      'split_context'   => true,
+      'return_to'       => 'triage',
       'issues'          => [{ 'title' => 'sub' }]
     }
     action = Router.route(report)
     assert_equal 'run-task', action[:type]
     assert_equal 'create-issue.md', action[:task]
     assert_equal 'ENG-1987', action[:context][:source_issue_id],
-                 'router must forward source_issue_id from split-report so create-issue.md can mark the parent Done'
+                 'router must forward source_issue_id so create-issue.md can mark the parent Done'
     assert_equal true, action[:context][:split_context]
+    assert_equal 'triage', action[:context][:return_to]
   end
 
   def test_create_issue_marks_source_done_when_split_context
@@ -436,10 +438,10 @@ end
 
 # Mirrored from orchestrator/task_runner.rb — keep in sync.
 KNOWN_REPORT_TYPES = %w[
-  triage-report plan-report task-complete split-report test-report
+  triage-report plan-report task-complete test-report
   demo-review-pending demo-review-report discovery-complete
-  create-issue-complete status-correction-report
-  test-blocked task-failed blocked
+  create-issue-complete
+  task-failed blocked
 ].to_set
 
 # Report types that agents author in task specs. demo-review-report is
@@ -580,19 +582,21 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
   # so that the rendered prompt picks up dispatch-time type bugs.
   ROUTER_FIXTURES = [
     { 'type' => 'triage-report',
-      'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
-      'issue_type' => 'implementation' },
-    { 'type' => 'triage-report',
-      'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
-      'issue_type' => 'discovery' },
+      'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' } },
+    { 'type' => 'plan-report', 'next_task' => 'discovery',
+      'issue_id' => 'ENG-1' },
     { 'type' => 'plan-report', 'next_task' => 'code',
       'issue_id' => 'ENG-1', 'branch' => 'b', 'plan' => 'p' },
     { 'type' => 'plan-report', 'next_task' => 'test',
       'issue_id' => 'ENG-1', 'pr_url' => 'u' },
     { 'type' => 'plan-report', 'next_task' => 'demo-review',
       'issue_id' => 'ENG-1', 'pr_url' => 'u' },
-    { 'type' => 'split-report',
-      'source_issue_id' => 'ENG-1', 'issues' => [{ 'title' => 't' }] },
+    { 'type' => 'plan-report', 'next_task' => 'create-issue',
+      'issue_id' => 'ENG-1', 'source_issue_id' => 'ENG-1',
+      'split_context' => true, 'return_to' => 'triage',
+      'issues' => [{ 'title' => 't' }] },
+    { 'type' => 'plan-report', 'next_task' => 'triage',
+      'issue_id' => 'ENG-1' },
     { 'type' => 'task-complete',
       'issue_id' => 'ENG-1', 'pr_url' => 'u' },
     { 'type' => 'task-complete',
@@ -604,8 +608,17 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
     { 'type' => 'test-report', 'outcome' => 'fail',
       'issue_id' => 'ENG-1', 'pr_url' => 'u',
       'findings' => [{ 'description' => 'd', 'severity' => 'critical' }] },
+    { 'type' => 'create-issue-complete', 'return_to' => 'test',
+      'source_issue_id' => 'ENG-1', 'pr_url' => 'u' },
+    { 'type' => 'create-issue-complete', 'return_to' => 'plan',
+      'source_issue_id' => 'ENG-1' },
+    { 'type' => 'create-issue-complete', 'return_to' => 'triage',
+      'source_issue_id' => 'ENG-1' },
     { 'type' => 'demo-review-report', 'outcome' => 'approved',
       'issue_id' => 'ENG-1', 'pr_url' => 'u' },
+    { 'type' => 'demo-review-report', 'outcome' => 'approved',
+      'issue_id' => 'ENG-1', 'pr_url' => 'u',
+      'follow_up_issues' => [{ 'title' => 't' }] },
     { 'type' => 'demo-review-report', 'outcome' => 'redirect',
       'issue_id' => 'ENG-1', 'pr_url' => 'u', 'user_feedback' => 'f' }
   ].freeze
@@ -614,8 +627,6 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
     case action[:type]
     when 'run-task'
       yield action[:task], action[:context] || {}
-    when 'run-tasks-parallel'
-      action[:tasks].each { |t| yield t[:task], t[:context] || {} }
     end
   end
 

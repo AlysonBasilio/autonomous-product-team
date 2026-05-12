@@ -32,13 +32,9 @@ def describe_action(action)
     ctx     = action[:context] || {}
     issue   = ctx[:issue_id] ? " (issue #{ctx[:issue_id]})" : ''
     "run-task → #{action[:task]}#{issue}"
-  when 'run-tasks-parallel'
-    tasks = (action[:tasks] || []).map { |t| t[:task] }
-    "run-tasks-parallel → #{tasks.join(', ')}"
   when 'wait-approval'
     title = action.dig(:context, :issue_title) || action.dig(:context, :issue_id)
-    label = action.dig(:context, :kind) == 'test' ? 'user testing' : 'demo review'
-    "wait-approval → #{label}#{title ? " for #{title}" : ''}"
+    "wait-approval → demo review#{title ? " for #{title}" : ''}"
   when 'escalate'
     "escalate → #{action[:reason]}"
   when 'done'
@@ -125,33 +121,20 @@ rescue Synthup::Error => e
     'details' => "Synthup API error #{e.status}: #{e.body}" }
 end
 
-# Translates an approval result from the wait-approval gate into a typed report
-# the router can dispatch on. The `kind` field on the gate context selects the
-# shape: 'test' produces a synthetic test-report; default produces demo-review-report.
-def approval_to_report(approval, kind:, issue_id:, pr_url: nil)
+# Translates a demo-review approval result from the wait-approval gate into a
+# demo-review-report the router can dispatch on. Timeouts/cancellations are
+# surfaced as 'cancelled' so the loop's cancel handling fires.
+def approval_to_report(approval, issue_id:, pr_url: nil)
   outcome = approval['outcome']
-  if kind == 'test'
-    case outcome
-    when 'approved'
-      { 'type' => 'test-report', 'outcome' => 'pass',
-        'issue_id' => issue_id, 'pr_url' => pr_url, 'findings' => [] }.compact
-    when 'redirect'
-      feedback = approval['user_feedback'].to_s.strip
-      findings = feedback.empty? ? [] : [{ 'description' => feedback, 'severity' => 'critical' }]
-      { 'type' => 'test-report', 'outcome' => 'fail',
-        'issue_id' => issue_id, 'pr_url' => pr_url, 'findings' => findings }.compact
-    else  # timeout, cancelled, etc — surface as cancelled so the loop's cancel handling fires
-      { 'type' => 'cancelled', 'outcome' => outcome }
-    end
-  else
-    {
-      'type'             => 'demo-review-report',
-      'issue_id'         => issue_id,
-      'outcome'          => outcome,
-      'user_feedback'    => approval['user_feedback'],
-      'follow_up_issues' => approval['follow_up_issues']
-    }.compact
-  end
+  return { 'type' => 'cancelled', 'outcome' => outcome } unless %w[approved redirect].include?(outcome)
+  {
+    'type'             => 'demo-review-report',
+    'issue_id'         => issue_id,
+    'pr_url'           => pr_url,
+    'outcome'          => outcome,
+    'user_feedback'    => approval['user_feedback'],
+    'follow_up_issues' => approval['follow_up_issues']
+  }.compact
 end
 
 # ── Per-project orchestration loop ────────────────────────────────────────────
@@ -234,10 +217,9 @@ def run_project_loop(project_id, port:, interactive:)
           pr_url:      ctx['pr_url'],
           issue_title: ctx['issue_title'],
           issue_id:    ctx['issue_id'],
-          summary:     ctx['summary'],
-          kind:        ctx['kind']
+          summary:     ctx['summary']
         )
-        approval_to_report(approval, kind: ctx['kind'], issue_id: ctx['issue_id'], pr_url: ctx['pr_url'])
+        approval_to_report(approval, issue_id: ctx['issue_id'], pr_url: ctx['pr_url'])
       elsif (sid = state.dig('currentTask', 'session_id'))
         task_name = state.dig('currentTask', 'task')
         task_path = task_name ? (TaskRunner.find_task_file(task_name) rescue nil) : nil
@@ -297,13 +279,6 @@ def run_project_loop(project_id, port:, interactive:)
       new_report     = dispatch_task(project, cfg, action[:task], action[:context] || {}, control: control)
       pending_report = new_report
 
-    when 'run-tasks-parallel'
-      threads = action[:tasks].map do |t|
-        Thread.new { dispatch_task(project, cfg, t[:task], t[:context] || {}, control: control) }
-      end
-      reports        = threads.map(&:value)
-      pending_report = reports.find { |r| r['type'] != 'create-issue-complete' } || reports.first
-
     when 'wait-approval'
       ctx = action[:context] || {}
       State.patch(project_id, 'currentTask' => {
@@ -313,19 +288,14 @@ def run_project_loop(project_id, port:, interactive:)
         'pr_url'      => ctx[:pr_url],
         'issue_title' => ctx[:issue_title],
         'issue_id'    => ctx[:issue_id],
-        'summary'     => ctx[:summary],
-        'kind'        => ctx[:kind]
+        'summary'     => ctx[:summary]
       }.compact)
       approval = DemoReview.wait_for_approval(control: control, **ctx)
       pending_report = approval_to_report(
         approval,
-        kind:     ctx[:kind],
         issue_id: ctx[:issue_id],
         pr_url:   ctx[:pr_url]
       )
-
-    when 'noop'
-      # nothing — loop again to dispatch triage
 
     when 'escalate'
       resumable_task = (action[:reason] == 'recovery-exhausted' &&

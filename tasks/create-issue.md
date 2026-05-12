@@ -2,7 +2,7 @@
 model: openai/gpt-5.4-mini
 inputs:
   required: [issues]
-  optional: [source_issue_id, priority, block_source, split_context, context]
+  optional: [source_issue_id, priority, block_source, split_context, return_to, context, issue_id, pr_url]
 ---
 
 # Task: Create Issues
@@ -27,6 +27,9 @@ After creating the issues, link the source issue as **blocked by** every newly c
 {{#split_context}}
 The source issue is being **split** — the newly created issues collectively replace it. After all issues are created and dependencies are linked, mark the source issue as **Done** in the product management system. The source issue's goal is achieved by completing the new issues, so it should not remain open.
 {{/split_context}}
+{{#return_to}}
+After completion, the orchestrator will dispatch the **{{ . }}** task next. Echo `return_to: "{{ . }}"` in the report so the router can route correctly.
+{{/return_to}}
 {{#context}}
 Caller-provided context (echo unchanged in the report):
 
@@ -83,13 +86,15 @@ Post a comment to the source PM issue using the product development management s
   "source_issue_id": "<source issue ID>",
   "context": "<echo the context field from input, if present>",
   "split_context": true,
+  "return_to": "<echo the return_to value from input, if present>",
+  "pr_url": "<echo the pr_url from input, if present>",
   "created_issues": [
     { "id": "<new issue ID>", "title": "<title>" }
   ]
 }
 ```
 
-Omit the `context` field entirely when no context was provided in the input; do not emit `null` or an empty string. Likewise, only include `split_context` when it was set to `true` in the input — omit the field otherwise.
+Omit the `context` field entirely when no context was provided in the input; do not emit `null` or an empty string. Likewise, only include `split_context` when it was set to `true` in the input — omit the field otherwise. Echo `return_to` and `pr_url` verbatim when they were provided in the input; omit otherwise.
 
 Output your final response as a single fenced ```json code block containing the same object — and nothing else.
 

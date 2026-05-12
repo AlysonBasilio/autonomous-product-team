@@ -51,8 +51,7 @@ class OrchestratorServer < Sinatra::Base
         issue_title: c.pending_approval[:issue_title],
         issue_id:    c.pending_approval[:issue_id],
         pr_url:      c.pending_approval[:pr_url],
-        summary:     c.pending_approval[:summary],
-        kind:        c.pending_approval[:kind]
+        summary:     c.pending_approval[:summary]
       }
       h[p.id] = {
         status:              s['status'],

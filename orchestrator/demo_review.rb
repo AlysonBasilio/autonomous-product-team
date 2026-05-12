@@ -9,7 +9,7 @@ module DemoReview
   #
   # Returns:
   #   { "outcome" => "approved"|"redirect"|"timeout", "user_feedback" => ..., "follow_up_issues" => [...] }
-  def self.wait_for_approval(control:, pr_url:, issue_title: nil, summary: nil, issue_id: nil, kind: nil, **)
+  def self.wait_for_approval(control:, pr_url:, issue_title: nil, summary: nil, issue_id: nil, **)
     mutex   = Mutex.new
     cond    = ConditionVariable.new
     result  = nil
@@ -20,7 +20,6 @@ module DemoReview
       issue_id:    issue_id,
       pr_url:      pr_url,
       summary:     summary,
-      kind:        kind,
       resolve:     resolve
     }
 

@@ -2,12 +2,14 @@
 model: anthropic/claude-opus-4.7
 inputs:
   required: [issue_id]
-  optional: []
+  optional: [pr_url, user_feedback, test_outcome, findings]
 ---
 
 # Task: Assess and Plan
 
 You are planning issue **{{ issue_id }}** in the project at `{{ project_url }}`.
+
+PM comments are authoritative — read them in Step 2 to determine the current state. The router may also pass optional context hints (pr_url, test_outcome, user_feedback, findings); when present they describe the immediately previous task, but if they disagree with PM comments, trust the comments.
 
 ## Phase 0 — State Assessment
 
@@ -61,13 +63,18 @@ Note the count and the body of each unresolved thread — used in the routing ta
 
 ### 4. Determine the next task
 
-Use the most recent comment of each type from Step 2, combined with git/PR state. Evaluate rows top to bottom and stop at the first match:
+Two early checks fire only in specific conditions; otherwise fall through to the routing table.
+
+- **Test-blocked.** If the most recent `test-complete` comment has `outcome: blocked`, emit a `blocked` report (see Report section) — the test infra needs human attention.
+- **Discovery.** If the issue is exploratory (no concrete acceptance criteria; the deliverable is findings/follow-up issues rather than working software), emit a plan-report with `next_task: "discovery"` and skip Phase 1. Technical complexity alone does **not** qualify.
+
+Otherwise, use the most recent comment of each type from Step 2, combined with git/PR state. Evaluate rows top to bottom and stop at the first match:
 
 | PM issue comment history | Git/PR state | `next_task` |
 |---|---|---|
-| `demo-review-complete outcome: approved` | All associated PRs merged or closed | Mark issue Done + clean up branch (see **Branch Cleanup** below) — report immediately with no `next_task` |
+| `demo-review-complete outcome: approved` | All associated PRs merged or closed | Mark issue Done + clean up branch (see **Branch Cleanup** below) — emit `next_task: "triage"` so the loop picks the next issue |
 | `demo-review-complete outcome: approved` for most-recent reviewed PR | That PR is now merged, but other associated PRs still open | `test` or `demo-review` — route to the next open PR (check its CI/review state to decide); include the open PR's `pr_url` in the report |
-| `demo-review-complete outcome: approved` | PR reviewed is still open (user has not merged yet) | Nothing to do — awaiting user merge; report immediately with no `next_task` |
+| `demo-review-complete outcome: approved` | PR reviewed is still open (user has not merged yet) | Nothing to do — awaiting user merge; emit `next_task: "triage"` |
 | `demo-review-complete outcome: redirect`, no newer `task-complete` | any | `code` — user redirected; run Phase 1 with `user_feedback` as `findings` |
 | `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green, **unresolved review threads** | `code` — resolve review threads first; run Phase 1 with thread bodies as `findings` |
 | `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green | `test` — implementation was updated after redirect; skip Phase 1 |
@@ -117,7 +124,7 @@ Read the issue description and acceptance criteria. Skim the key areas of the co
 - Estimated to touch ≥6 unrelated files or produce >400 LOC of non-test changes
 - The issue description lists multiple major features or capabilities as distinct requirements
 
-If the issue is too big → skip steps 2–4 and output a `split-report` (see Report section). Do **not** mark the issue In Progress and do **not** create a branch.
+If the issue is too big → skip steps 2–4 and output a plan-report with `next_task: "create-issue"` and `split_context: true` (see Report section). Do **not** mark the issue In Progress and do **not** create a branch.
 
 **Splitting guidelines:**
 - Aim for 2–4 sub-issues; never more than 5
@@ -154,15 +161,27 @@ git checkout <branch-name>
 
 ## Report
 
-**When outputting a `split-report`** (issue is too big for a single PR):
-
-Output your final response as a single fenced ```json code block — and nothing else — containing this object:
+**When the test-blocked check (4a) fired**, output a `blocked` report. The orchestrator will surface this as an escalation banner asking the user to verify the change manually.
 
 ```json
 {
-  "type": "split-report",
+  "type": "blocked",
+  "issue_id": "<issue ID>",
+  "pr_url": "<PR URL>",
+  "what_is_blocked": "<one sentence: what blocked the test run and what was tried>"
+}
+```
+
+**When the issue is too big for a single PR** (Phase 1 splitting), output a `plan-report` with `next_task: "create-issue"` and `split_context: true`:
+
+```json
+{
+  "type": "plan-report",
+  "issue_id": "<issue ID>",
+  "next_task": "create-issue",
   "source_issue_id": "<issue ID>",
-  "reason": "<one sentence: why this issue is too big for a single PR>",
+  "split_context": true,
+  "return_to": "triage",
   "issues": [
     {
       "title": "<sub-issue title>",
@@ -175,9 +194,7 @@ Output your final response as a single fenced ```json code block — and nothing
 
 Omit `depends_on` entirely on sub-issues that have no prerequisites; do not emit `null` or an empty array.
 
-**When outputting a `plan-report`** (normal path):
-
-Output your final response as a single fenced ```json code block — and nothing else — containing this object:
+**Otherwise** (normal path), output a `plan-report`:
 
 ```json
 {
@@ -191,7 +208,7 @@ Output your final response as a single fenced ```json code block — and nothing
 }
 ```
 
-`next_task` must be one of `"code"`, `"test"`, or `"demo-review"`. Fields that do not apply to the current state must be omitted entirely (no `null`, no empty strings). `plan` and `findings` apply only when `next_task` is `"code"`. When the routing table says "no `next_task`", **omit the `next_task` field entirely** — do not set it to `"done"`, `null`, or any other value.
+`next_task` must be one of `"discovery"`, `"code"`, `"test"`, `"demo-review"`, `"create-issue"`, or `"triage"`. Fields that do not apply to the current state must be omitted entirely (no `null`, no empty strings). `plan` and `findings` apply only when `next_task` is `"code"`. When the routing table says to kick back to the loop (issue Done, or awaiting user merge), emit `next_task: "triage"`.
 
 ## Rules
 

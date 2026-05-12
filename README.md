@@ -61,6 +61,8 @@ data/
 
 ### Lifecycle
 
+Happy path:
+
 ```
 triage → plan → code → test → demo-review → [user approves + merges] → triage → …
 ```
@@ -68,6 +70,76 @@ triage → plan → code → test → demo-review → [user approves + merges] �
 The orchestrator dispatches one task at a time. Each task runs as a Synthup session and signals completion by outputting a JSON report. The orchestrator reads the report and dispatches the next task automatically.
 
 Demo review is the one human gate: the orchestrator pauses and presents the PR in the web UI. The user approves or redirects — the orchestrator never merges.
+
+Full routing graph (every transition defined in [`orchestrator/router.rb`](orchestrator/router.rb)):
+
+```mermaid
+flowchart TD
+    Start([start / resume loop]) --> Triage
+
+    Triage["<b>issue-triage</b><br/><i>triage-report</i>"]
+    Plan["<b>plan</b><br/><i>plan-report</i>"]
+    Discovery["<b>discovery</b><br/><i>discovery-complete</i>"]
+    Code["<b>code</b><br/><i>task-complete</i>"]
+    Test["<b>test</b><br/><i>test-report</i>"]
+    DemoReview["<b>demo-review</b><br/><i>demo-review-pending → -report</i>"]
+    CreateIssue["<b>create-issue</b><br/><i>create-issue-complete</i>"]
+
+    Done([done — no unblocked issue])
+    WaitDR[/wait-approval<br/>demo-review human gate/]
+    Escalate[/escalate banner<br/>task-failed · blocked · recovery-exhausted · unknown-report/]
+
+    %% triage → plan or done
+    Triage -->|next_issue null| Done
+    Triage -->|next_issue| Plan
+
+    %% plan is the central decider
+    Plan -->|next_task = discovery| Discovery
+    Plan -->|next_task = code| Code
+    Plan -->|next_task = test| Test
+    Plan -->|next_task = demo-review| DemoReview
+    Plan -->|next_task = create-issue<br/>split_context| CreateIssue
+    Plan -->|next_task = triage<br/>nothing to do| Triage
+    Plan -.->|blocked<br/>test infra broken| Escalate
+
+    %% deterministic non-plan transitions
+    Discovery --> Triage
+    Code -->|no follow-ups| Test
+    Code -->|with follow_up_issues| CreateIssue
+    Test --> Plan
+
+    %% demo-review human gate
+    DemoReview --> WaitDR
+    WaitDR -->|approve · no follow-ups| Triage
+    WaitDR -->|approve · with follow_up_issues| CreateIssue
+    WaitDR -->|redirect| Plan
+
+    %% create-issue returns to caller
+    CreateIssue -->|return_to = triage| Triage
+    CreateIssue -->|return_to = test| Test
+    CreateIssue -->|return_to = plan| Plan
+
+    %% failure paths from any task
+    Triage -.->|failure| Escalate
+    Plan -.->|failure| Escalate
+    Discovery -.->|failure| Escalate
+    Code -.->|failure| Escalate
+    Test -.->|failure| Escalate
+    DemoReview -.->|failure| Escalate
+    CreateIssue -.->|failure| Escalate
+    Escalate -.->|user clicks Triage Now| Triage
+
+    classDef task fill:#e8f0ff,stroke:#4070d0,color:#000;
+    classDef gate fill:#fff4d6,stroke:#c89400,color:#000;
+    classDef terminal fill:#e6f7e6,stroke:#2a8f3a,color:#000;
+    classDef error fill:#fde2e2,stroke:#c0392b,color:#000;
+    class Triage,Plan,Discovery,Code,Test,DemoReview,CreateIssue task;
+    class WaitDR gate;
+    class Done,Start terminal;
+    class Escalate error;
+```
+
+Legend: solid arrows are normal routing on JSON reports; dashed arrows are failure paths. `plan` is the central decision-maker — every loop comes back through it. The yellow `wait-approval` node is the only place the loop pauses for a human.
 
 ### Behavior
 

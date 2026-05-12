@@ -61,10 +61,6 @@ This rule applies only to the issue being evaluated, not to its dependencies. A 
 
 3. **Classify each issue** as **Ready** or **Blocked** per the definitions above. Workflow status alone never disqualifies an issue from Ready — see the Definition of Ready.
 
-   For each Ready issue, also determine its **issue type**:
-   - `discovery` — The issue itself asks for research, investigation, or breakdown of a vague idea. Key signal: the deliverable is a set of findings or follow-up issues, not working software. There are no concrete acceptance criteria describing what to build.
-   - `implementation` — The issue has a concrete deliverable (something to build, fix, or configure) with acceptance criteria. This is the default. **Technical complexity, uncertainty, or the need to research an approach during implementation does NOT make an issue `discovery`** — only the absence of a concrete deliverable does.
-
 4. **Rank ready issues** — Sort the ready issues by priority (highest first), using the priority assigned in the product development management system. If priorities are equal, prefer the issue with the earliest creation date. Note: formal PM-system dependency links, text-inferred cross-references, and semantic dependencies all count equally when determining whether an issue is Blocked or Ready.
 
 5. **Report** — Output your final response as a single fenced ```json code block — and nothing else — containing this object:
@@ -75,16 +71,13 @@ This rule applies only to the issue being evaluated, not to its dependencies. A 
    {
      "type": "triage-report",
      "next_issue": { "id": "<id>", "title": "<title>", "summary": "<summary>" },
-     "issue_type": "implementation",
      "considered": ["<id>", "<id>", "..."],
      "exclusion_checked": ["<id>:<state>", "..."],
      "dependencies_checked": ["<dep-id>:<status>", "..."]
    }
    ```
 
-   `next_issue` is the highest-priority ready issue — the one the team should work on next. If no issues are ready, set `next_issue` to `null` and omit `issue_type`.
-
-   `issue_type` is `"discovery"` when the issue is exploratory (no concrete acceptance criteria), or `"implementation"` (the default) when the issue has concrete acceptance criteria and can proceed to planning.
+   `next_issue` is the highest-priority ready issue — the one the team should work on next. If no issues are ready, set `next_issue` to `null`. Planning (including the decision between discovery and implementation) happens in the next task — triage's job is only to pick what to work on next.
 
    `considered` MUST list every non-Done issue ID returned in step 1 — one entry per issue, even those you classified Blocked. The presence of an ID in this list is your attestation that you ran the per-issue dependency lookup from step 2a on it. If you did not run that lookup for an issue, do not include it; instead, treat the run as incomplete and emit a `task-failed` report explaining which issues you were unable to inspect.
 

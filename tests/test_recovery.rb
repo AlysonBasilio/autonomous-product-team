@@ -188,10 +188,11 @@ class PollRoleFilterTest < Minitest::Test
 
       ```json
       {
-        "type": "test-blocked",
+        "type": "test-report",
+        "outcome": "blocked",
         "issue_id": "<issue ID>",
         "pr_url": "<PR URL>",
-        "summary": "<one sentence: what you tried and what blocked you>"
+        "findings": [{ "description": "<what blocked the run>", "severity": "critical" }]
       }
       ```
     MD
@@ -392,7 +393,6 @@ class RecoveryPromptTest < Minitest::Test
     assert_includes prompt, TaskRunner::RECOVERY_PROMPT_BASE
     assert_includes prompt, 'expected JSON shape for this task'
     assert_includes prompt, '"type": "test-report"'
-    assert_includes prompt, '"type": "test-blocked"'
     # Examples are wrapped as fenced json blocks.
     assert_match(/```json\n\{/, prompt)
   end
@@ -418,7 +418,6 @@ class SendRecoveryReminderWithTaskPathTest < Minitest::Test
     refute_nil captured
     assert_includes captured, 'expected JSON shape for this task'
     assert_includes captured, '"type": "test-report"'
-    assert_includes captured, '"type": "test-blocked"'
   end
 
   def test_prompt_falls_back_to_base_when_task_path_nil

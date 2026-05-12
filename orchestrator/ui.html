@@ -406,23 +406,15 @@
       na.classList.add('hidden');
     }
 
-    // Demo review / test verification
+    // Demo review approval gate
     const dr = document.getElementById('demo-review');
     if (ps.pending_approval) {
       dr.classList.remove('hidden');
       const p = ps.pending_approval;
-      const isTest = p.kind === 'test';
-      document.getElementById('dr-heading').textContent =
-        isTest ? 'Test Verification — Please Test Manually'
-               : 'Demo Review — Awaiting Your Approval';
-      document.getElementById('dr-feedback-label').textContent =
-        isTest ? 'Report what failed:' : 'Request changes:';
-      document.getElementById('dr-feedback').placeholder =
-        isTest ? 'Describe what didn’t work…' : 'Describe what needs to change…';
-      document.getElementById('dr-followups-row').classList.toggle('hidden', isTest);
-      if (isTest) {
-        document.getElementById('dr-followups').classList.add('hidden');
-      }
+      document.getElementById('dr-heading').textContent = 'Demo Review — Awaiting Your Approval';
+      document.getElementById('dr-feedback-label').textContent = 'Request changes:';
+      document.getElementById('dr-feedback').placeholder = 'Describe what needs to change…';
+      document.getElementById('dr-followups-row').classList.remove('hidden');
       document.getElementById('dr-summary').innerHTML = `
         ${p.issue_title ? `<strong>${esc(p.issue_title)}</strong><br>` : ''}
         ${p.summary ? `<span>${esc(p.summary)}</span><br>` : ''}

@@ -19,10 +19,10 @@ module TaskRunner
   class TimeoutError < StandardError; end
 
   KNOWN_REPORT_TYPES = %w[
-    triage-report plan-report task-complete split-report test-report
+    triage-report plan-report task-complete test-report
     demo-review-pending demo-review-report discovery-complete
-    create-issue-complete status-correction-report
-    test-blocked task-failed blocked recovery-exhausted
+    create-issue-complete
+    task-failed blocked recovery-exhausted
   ].freeze
 
   # Dependency statuses that do NOT block a dependent issue: Done plus the
