@@ -344,6 +344,63 @@ class TriageScenarioTest < Minitest::Test
       ],
     },
     {
+      name: 'exclusion_checked_attests_per_issue_state',
+      description: 'Report must include exclusion_checked listing every returned issue with its exclusion state',
+      mock_context: <<~CTX.chomp,
+        PM system returned 3 non-Done issues. Per-issue detail lookups reveal:
+
+        - PROJ-1301 "Refactor auth middleware" — Status: Todo — Priority: High — Created: 2026-04-18
+          Per-issue detail: deleted=false, trashed=false, archived=false, canceled=false, duplicate_of=null
+          Dependencies: none
+          No unresolved decisions — READY
+
+        - PROJ-1302 "Add admin role badge" — Status: In Review — Priority: High — Created: 2026-04-14
+          Per-issue detail: deleted=true (the issue was soft-deleted; workflow state is stale)
+          Dependencies: none
+
+        - PROJ-1303 "Tweak login copy" — Status: Todo — Priority: Low — Created: 2026-04-19
+          Per-issue detail: deleted=false, trashed=false, archived=false, canceled=false, duplicate_of=null
+          Dependencies: none
+          No unresolved decisions — READY
+      CTX
+      rubric: [
+        "report type is 'triage-report'",
+        'next_issue is PROJ-1301 (highest-priority Ready, non-Excluded issue)',
+        'report contains an exclusion_checked array',
+        "exclusion_checked entry for PROJ-1302 marks it as deleted (e.g. 'PROJ-1302:deleted'), NOT as active",
+        "exclusion_checked entries for PROJ-1301 and PROJ-1303 mark them as active (e.g. 'PROJ-1301:active')",
+        'PROJ-1302 does NOT appear in the considered array (deleted issues are dropped from consideration)',
+      ],
+    },
+    {
+      name: 'retry_b_must_not_opt_into_excluded_results',
+      description: 'Retry B must not widen the query to archived/deleted results — a deleted issue offered by the wider query must be ignored',
+      mock_context: <<~CTX.chomp,
+        First tool call:
+          list_issues({ project: "identity-permissions-and-team-admin-828469115565", state: "non-done" })
+          → []
+
+        Second tool call (Retry A — resolve canonical project ID, then re-list non-Done):
+          list_issues({ project: "8f3e1c92-4d20-4b88-9a55-0e1f4e7a2b91", state: "non-done" })
+          → []
+
+        Third tool call (Retry B — drop the status filter, archived-inclusion off):
+          list_issues({ project: "8f3e1c92-4d20-4b88-9a55-0e1f4e7a2b91" })
+          → [
+              { id: "PROJ-1402", title: "Old login form polish", status: "Done" },
+              { id: "PROJ-1403", title: "Initial schema migration", status: "Done" }
+            ]
+          (2 Done issues — the project has historic work but no open issues)
+
+        Note: the PM system also accepts an `includeArchived: true` flag that opts into archived, trashed, and soft-deleted results. If passed on Retry B, the call would additionally return 1 more result: PROJ-1401 "Old login flow" (deleted=true). The task explicitly forbids adding this flag on Retry B — the retry is only about removing the status filter, not widening to Excluded issues. PROJ-1401 must be treated as if it does not exist.
+      CTX
+      rubric: [
+        "report type is 'triage-report' (Retry B showed the project is complete — 2 Done issues, 0 open — so this is a normal report, not task-failed)",
+        'next_issue is null (no non-Done non-Excluded issues exist)',
+        'PROJ-1401 does NOT appear anywhere in the output — not in considered, not in exclusion_checked, not in dependencies_checked (the agent did not widen Retry B with includeArchived)',
+      ],
+    },
+    {
       name: 'implementation_difficulty_is_not_a_blocker',
       description: 'Hard issue with no external blockers must be classified Ready, not Blocked',
       mock_context: <<~CTX.chomp,

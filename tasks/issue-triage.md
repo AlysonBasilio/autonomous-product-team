@@ -45,7 +45,7 @@ This rule applies only to the issue being evaluated, not to its dependencies. A 
    **A zero-result listing is suspicious, not authoritative.** Projects worth triaging almost always have open issues; an empty list usually means the filter shape was wrong (e.g. passing a project URL slug where a UUID was required, or scoping to the wrong team). If your initial listing returns 0 issues, do not conclude the project is empty. Instead, perform both of the following retries before reporting anything:
 
    - **Retry A — resolve the project identifier explicitly.** Look up the project by URL or slug to obtain its canonical ID, then re-run the listing with that ID. If this retry returns ≥1 non-Done issue, proceed to step 2 with those issues.
-   - **Retry B — re-query without any status filter.** Use the canonical project ID from Retry A but drop the status filter, so the call would return issues in *any* state including Done. Interpret the result as follows:
+   - **Retry B — re-query without any status filter.** Use the canonical project ID from Retry A but drop the status filter, so the call would return issues in *any* state including Done. Do **not** add any flag that opts into archived, trashed, or deleted results (e.g. `includeArchived: true`) — the retry is only about removing the status filter, not about widening the query to Excluded issues. Interpret the result as follows:
      - If Retry A returned 0 non-Done issues **and** Retry B returns ≥1 issues (i.e. the project has Done issues but no open ones), the project is complete — emit a normal `triage-report` with `next_issue: null`.
      - If Retry B *also* returns 0 issues — meaning the project contains literally no issues in any state — the listing is misconfigured. Real projects do not exist with zero issues. Emit a `task-failed` report whose `failure` field includes the exact tool name, the exact arguments you passed, and the exact response you received on each of the retries. Do not summarize ("returned no issues") — quote each call and response verbatim so the failure is debuggable.
 
@@ -77,6 +77,7 @@ This rule applies only to the issue being evaluated, not to its dependencies. A 
      "next_issue": { "id": "<id>", "title": "<title>", "summary": "<summary>" },
      "issue_type": "implementation",
      "considered": ["<id>", "<id>", "..."],
+     "exclusion_checked": ["<id>:<state>", "..."],
      "dependencies_checked": ["<dep-id>:<status>", "..."]
    }
    ```
@@ -86,6 +87,8 @@ This rule applies only to the issue being evaluated, not to its dependencies. A 
    `issue_type` is `"discovery"` when the issue is exploratory (no concrete acceptance criteria), or `"implementation"` (the default) when the issue has concrete acceptance criteria and can proceed to planning.
 
    `considered` MUST list every non-Done issue ID returned in step 1 — one entry per issue, even those you classified Blocked. The presence of an ID in this list is your attestation that you ran the per-issue dependency lookup from step 2a on it. If you did not run that lookup for an issue, do not include it; instead, treat the run as incomplete and emit a `task-failed` report explaining which issues you were unable to inspect.
+
+   `exclusion_checked` MUST list every issue returned by step 1 — including ones you ultimately dropped as Excluded — formatted `"<id>:<state>"` where `<state>` is `active` if no exclusion field was set, or the name of the exclusion field that was set (`deleted`, `trashed`, `archived`, `duplicate_of`, `canceled`, or whatever equivalent the PM system uses). The presence of an ID here is your attestation that you inspected its exclusion fields on the per-issue lookup from step 2a. An issue may only appear in `considered` if its corresponding `exclusion_checked` entry is `active`; any other state means the issue is Excluded and must be dropped. Never set `next_issue` to an ID whose `exclusion_checked` entry is anything other than `active`.
 
    `dependencies_checked` MUST list every dependency you verified for the chosen `next_issue`, formatted `"<dep-id>:<status>"` (for example `"ENG-1980:In Progress"`). Include formal PM-system links, text-inferred references, and semantic dependencies you identified. If `next_issue` is null, set `dependencies_checked` to `[]`. The `next_issue` MUST itself appear in `considered`.
 
