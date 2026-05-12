@@ -54,21 +54,28 @@ Run linting, static analysis, and build steps. Fix any errors before proceeding.
 Push your branch and open a pull request. Reference the issue ID in the PR title and description. Keep PRs focused: one issue per PR.
 
 ### 5. Code review
-Ensure the PR is reviewed (automated and/or human). For every review comment:
-1. Fix the code and push an update, OR reply explaining why no change is needed.
-2. Then mark the conversation as resolved using the GitHub CLI:
+Ensure the PR is reviewed (automated and/or human). For every unresolved review thread:
+
+1. Decide on a response: either fix the code (push an update) or determine that no change is needed.
+2. Post a reply on the thread stating what you did and why — even when you pushed a fix. The reply is the audit trail; a silently-resolved thread is not acceptable. Use the GraphQL mutation:
+   ```bash
+   gh api graphql -f query='mutation { addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: "<thread_node_id>", body: "<reply text>" }) { comment { id } } }'
+   ```
+3. Mark the conversation as resolved:
    ```bash
    gh api graphql -f query='mutation { resolveReviewThread(input: { threadId: "<thread_node_id>" }) { thread { isResolved } } }'
    ```
+
    Get thread node IDs via:
    ```bash
    gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRequest(number: <n>) { reviewThreads(first: 100) { nodes { id isResolved comments(first: 1) { nodes { body } } } } } } }'
    ```
-3. After resolving all threads, verify zero unresolved remain:
-   ```bash
-   gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRequest(number: <n>) { reviewThreads(first: 100) { nodes { isResolved } } } } }' | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length'
-   ```
-   This must return `0` before proceeding.
+
+After resolving all threads, verify zero unresolved remain:
+```bash
+gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRequest(number: <n>) { reviewThreads(first: 100) { nodes { isResolved } } } } }' | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length'
+```
+This must return `0` before proceeding.
 
 ### 6. Rebase from main and resolve conflicts before merge
 Before merging, rebase your branch onto the latest main to catch integration issues early:
