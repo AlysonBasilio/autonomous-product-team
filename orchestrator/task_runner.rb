@@ -3,8 +3,8 @@ require_relative 'template'
 
 module TaskRunner
   POLL_INTERVAL   = 8
-  TIMEOUT         = 1800 # 30 minutes
-  STALE_THRESHOLD = (TIMEOUT * 0.8).to_i # identical content for this long = stuck
+  TIMEOUT         = 1800 # 30 minutes; per-task override via `timeout_s:` in frontmatter
+  STALE_RATIO     = 0.8 # identical content for this fraction of timeout = stuck
 
   # Fractions of TIMEOUT at which to nudge the agent for the current JSON
   # report. Synthup may inject prompts (PR comments, failed checks) that
@@ -43,15 +43,36 @@ module TaskRunner
   end
 
   def self.parse_model(task_path)
+    parse_frontmatter_field(task_path, 'model')
+  end
+
+  # Per-task wall-clock budget in seconds, declared as `timeout_s:` in the
+  # task's YAML frontmatter. Returns nil if absent or unparseable so callers
+  # can fall back to the global TIMEOUT.
+  def self.parse_timeout(task_path)
+    raw = parse_frontmatter_field(task_path, 'timeout_s')
+    return nil unless raw
+    Integer(raw, 10)
+  rescue ArgumentError, TypeError
+    nil
+  end
+
+  def self.resolve_timeout(task_path)
+    parse_timeout(task_path) || TIMEOUT
+  end
+
+  def self.parse_frontmatter_field(task_path, field)
+    return nil unless task_path && File.exist?(task_path)
     raw = File.read(task_path)
     match = raw.match(/\A---\n(.*?)\n---/m)
     return nil unless match
-    frontmatter = match[1]
-    model_match = frontmatter.match(/^model:\s*(.+)$/)
-    model_match ? model_match[1].strip : nil
+    field_match = match[1].match(/^#{Regexp.escape(field)}:\s*(.+)$/)
+    field_match ? field_match[1].strip : nil
   end
 
-  def self.poll_for_report(session_id, interval: POLL_INTERVAL, timeout: TIMEOUT, cancel_check: nil, task_path: nil)
+  def self.poll_for_report(session_id, interval: POLL_INTERVAL, timeout: nil, cancel_check: nil, task_path: nil)
+    timeout                ||= resolve_timeout(task_path)
+    stale_threshold        = (timeout * STALE_RATIO).to_i
     deadline               = Time.now + timeout
     last_content           = nil
     last_changed_at        = nil
@@ -120,11 +141,11 @@ module TaskRunner
         if changed
           last_content    = content
           last_changed_at = Time.now
-        elsif last_changed_at && Time.now - last_changed_at > STALE_THRESHOLD
-          warn "[poll #{sid_short}] +#{elapsed}s STALL — no new content for #{STALE_THRESHOLD}s — escalating to user"
+        elsif last_changed_at && Time.now - last_changed_at > stale_threshold
+          warn "[poll #{sid_short}] +#{elapsed}s STALL — no new content for #{stale_threshold}s — escalating to user"
           return recovery_exhausted_report(
             session_id:     session_id,
-            reason:         "Session stalled — no new output for #{STALE_THRESHOLD}s",
+            reason:         "Session stalled — no new output for #{stale_threshold}s",
             elapsed_s:      elapsed,
             reminders_sent: reminders_sent,
             last_content:   last_content

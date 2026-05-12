@@ -1,5 +1,6 @@
 ---
 model: anthropic/claude-opus-4.7
+timeout_s: 1200
 inputs:
   required: [issue_id]
   optional: [pr_url, user_feedback, test_outcome, findings]

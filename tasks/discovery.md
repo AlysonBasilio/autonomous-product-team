@@ -1,5 +1,6 @@
 ---
 model: deepseek/deepseek-v4-pro
+timeout_s: 1500
 inputs:
   required: [issue_id]
   optional: []

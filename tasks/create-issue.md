@@ -1,5 +1,6 @@
 ---
 model: openai/gpt-5.4-mini
+timeout_s: 900
 inputs:
   required: [issues]
   optional: [source_issue_id, priority, block_source, split_context, return_to, context, issue_id, pr_url]

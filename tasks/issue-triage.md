@@ -1,5 +1,6 @@
 ---
 model: anthropic/claude-haiku-4.5
+timeout_s: 600
 inputs:
   required: []
   optional: []
