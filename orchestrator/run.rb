@@ -285,7 +285,7 @@ def run_project_loop(project_id, port:, interactive:)
     when 'run-task'
       ctx = action[:context] || {}
       dispatch_state = State.load(project_id) || {}
-      if ctx['issue_id'] && ctx['issue_id'] == dispatch_state['current_issue_id']
+      if ctx[:issue_id] && ctx[:issue_id] == dispatch_state['current_issue_id']
         ctx = {
           'issue_title'       => dispatch_state['current_issue_title'],
           'issue_description' => dispatch_state['current_issue_description']
