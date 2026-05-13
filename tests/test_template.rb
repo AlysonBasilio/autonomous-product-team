@@ -257,8 +257,8 @@ class TestTemplateOnRealTasks < Minitest::Test
       'issue-triage.md'      => {},
       'discovery.md'         => { issue_id: 'ENG-1' },
       'plan.md'              => { issue_id: 'ENG-1' },
-      'code.md'              => { issue_id: 'ENG-1', branch: 'b', plan: 'p' },
-      'test.md'              => { issue_id: 'ENG-1', pr_url: 'u' },
+      'code.md'              => { issue_id: 'ENG-1', branch: 'b', plan: 'p', issue_title: 't', issue_description: 'd' },
+      'test.md'              => { issue_id: 'ENG-1', pr_url: 'u', issue_title: 't', issue_description: 'd' },
       'demo-review.md'       => { issue_id: 'ENG-1', pr_url: 'u' },
       'create-issue.md'      => { issues: [{ 'title' => 't' }] }
     }
