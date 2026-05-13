@@ -261,6 +261,13 @@ def run_project_loop(project_id, port:, interactive:)
     })
     State.clear_current_task(project_id)
 
+    if report['type'] == 'plan-report' && report['issue_title']
+      State.patch(project_id,
+        'current_issue_id'          => report['issue_id'],
+        'current_issue_title'       => report['issue_title'],
+        'current_issue_description' => report['issue_description'])
+    end
+
     action = Router.route(report, state)
 
     if interactive && action[:type] != 'noop'
@@ -276,7 +283,15 @@ def run_project_loop(project_id, port:, interactive:)
 
     case action[:type]
     when 'run-task'
-      new_report     = dispatch_task(project, cfg, action[:task], action[:context] || {}, control: control)
+      ctx = action[:context] || {}
+      dispatch_state = State.load(project_id) || {}
+      if ctx['issue_id'] && ctx['issue_id'] == dispatch_state['current_issue_id']
+        ctx = {
+          'issue_title'       => dispatch_state['current_issue_title'],
+          'issue_description' => dispatch_state['current_issue_description']
+        }.compact.merge(ctx)
+      end
+      new_report     = dispatch_task(project, cfg, action[:task], ctx, control: control)
       pending_report = new_report
 
     when 'wait-approval'

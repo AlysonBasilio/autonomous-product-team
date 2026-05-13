@@ -174,6 +174,21 @@ class TestInputOutputChain < Minitest::Test
     assert_includes load_file('tasks/demo-review.md'), 'user_feedback'
     assert_includes load_file('tasks/code.md'), 'user_feedback'
   end
+
+  def test_plan_outputs_issue_title_consumed_by_code
+    assert_includes load_file('tasks/plan.md'), 'issue_title'
+    assert_includes load_file('tasks/code.md'), 'issue_title'
+  end
+
+  def test_plan_outputs_issue_description_consumed_by_test
+    assert_includes load_file('tasks/plan.md'), 'issue_description'
+    assert_includes load_file('tasks/test.md'), 'issue_description'
+  end
+
+  def test_code_echoes_issue_description_to_test
+    assert_includes load_file('tasks/code.md'), 'issue_description'
+    assert_includes load_file('tasks/test.md'), 'issue_description'
+  end
 end
 
 class TestReportSchemas < Minitest::Test
@@ -576,6 +591,14 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
   # dispatch bugs at static-test time — if a future change adds a required
   # input but the router still calls the task without it, this fails.
 
+  # Fields the orchestrator injects from state at dispatch time (run.rb).
+  # These are not part of router context but are always present at runtime
+  # when the issue_id matches the cached current_issue_id.
+  ORCHESTRATOR_INJECTED = {
+    'issue_title'       => 'Static test issue title',
+    'issue_description' => 'Static test issue description'
+  }.freeze
+
   # Sample reports exercising each branch in Router.route. Use the same field
   # shapes the producer tasks actually emit — in particular triage-report's
   # `next_issue` is a `{id, title, summary}` object, not a bare ID string —
@@ -636,7 +659,7 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
       each_dispatched_task(action) do |task, context|
         path = File.join(REPO_ROOT, 'tasks', task)
         spec = Template.parse(path)
-        ctx_keys = context.keys.map(&:to_s)
+        ctx_keys = (context.keys.map(&:to_s) + ORCHESTRATOR_INJECTED.keys).uniq
         missing = spec.required - ctx_keys
         assert missing.empty?,
                "Router.route(#{report['type']}, outcome=#{report['outcome'].inspect}) " \
@@ -655,9 +678,9 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
       action = Router.route(report)
       each_dispatched_task(action) do |task, context|
         path = File.join(REPO_ROOT, 'tasks', task)
-        full_ctx = { 'project_url' => 'https://example/p/x' }.merge(
-          context.each_with_object({}) { |(k, v), h| h[k.to_s] = v }
-        )
+        full_ctx = ORCHESTRATOR_INJECTED
+          .merge({ 'project_url' => 'https://example/p/x' })
+          .merge(context.each_with_object({}) { |(k, v), h| h[k.to_s] = v })
         Template.render(path, full_ctx)
       rescue Template::Error => e
         flunk "Router.route(#{report['type']}, outcome=#{report['outcome'].inspect}) " \

@@ -136,20 +136,12 @@ If the issue is too big → skip steps 2–4 and output a plan-report with `next
 ### 2. Mark the issue In Progress
 Update the issue status to **In Progress** in the product development management system.
 
-### 3. Create or switch to a branch
-If no branch exists yet, create one from the latest main:
+### 3. Determine the branch name
 
-```bash
-git fetch origin main
-git checkout -b <branch-name> origin/main
-git push -u origin <branch-name>
-```
+- If a branch already exists (found via `git branch --list "*{{ issue_id }}*"` or the open-PR check above), record its name.
+- If no branch exists yet, derive a name following the convention `<issue-id>-<short-description>` (e.g. `eng-42-add-login-page`). Do not create or push it — branch creation is handled by the code task.
 
-If a branch already exists, switch to it:
-
-```bash
-git checkout <branch-name>
-```
+Include the branch name in the report.
 
 ### 4. Build the plan
 - Read the relevant files and understand existing patterns, conventions, and architecture.
@@ -204,12 +196,14 @@ Omit `depends_on` entirely on sub-issues that have no prerequisites; do not emit
   "next_task": "code",
   "branch": "<branch name>",
   "pr_url": "<PR URL>",
+  "issue_title": "<issue title>",
+  "issue_description": "<full issue description / acceptance criteria>",
   "plan": "<ordered implementation checklist as a single string with newlines>",
   "findings": "<context for the implementer — test findings on failure, or user_feedback on demo-review redirect>"
 }
 ```
 
-`next_task` must be one of `"discovery"`, `"code"`, `"test"`, `"demo-review"`, `"create-issue"`, or `"triage"`. Fields that do not apply to the current state must be omitted entirely (no `null`, no empty strings). `plan` and `findings` apply only when `next_task` is `"code"`. When the routing table says to kick back to the loop (issue Done, or awaiting user merge), emit `next_task: "triage"`.
+`next_task` must be one of `"discovery"`, `"code"`, `"test"`, `"demo-review"`, `"create-issue"`, or `"triage"`. Fields that do not apply to the current state must be omitted entirely (no `null`, no empty strings). `plan` and `findings` apply only when `next_task` is `"code"`. `issue_title` and `issue_description` apply when `next_task` is `"code"`, `"test"`, or `"demo-review"`. When the routing table says to kick back to the loop (issue Done, or awaiting user merge), emit `next_task: "triage"`.
 
 ## Rules
 

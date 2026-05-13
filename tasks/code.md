@@ -2,8 +2,8 @@
 model: anthropic/claude-sonnet-4-6
 timeout_s: 5400
 inputs:
-  required: [issue_id]
-  optional: [branch, plan, pr_url, findings, user_feedback]
+  required: [issue_id, branch, plan, issue_title, issue_description]
+  optional: [pr_url, findings, user_feedback]
 ---
 
 # Task: Code
@@ -32,12 +32,27 @@ A PR is already open at `{{ . }}`. Push your changes to the same branch — do n
 
 {{ . }}
 {{/user_feedback}}
+{{#issue_description}}
+## Issue context
+
+**{{ issue_title }}**
+
+{{ issue_description }}
+{{/issue_description}}
 
 ## Phase 1 — Implementation
 
-### 0. Check out the branch
-Start by checking out the branch for this issue (use the `branch` value above when provided; otherwise look it up from `pr_url` as shown). Do not create a new branch if one already exists for this issue.
+### 0. Create or check out the branch
+Use the `branch` value above when provided; otherwise derive it from `pr_url`: `gh pr view <pr_url> --json headRefName --jq '.headRefName'`.
 
+If the branch does not yet exist on the remote:
+```bash
+git fetch origin main
+git checkout -b <branch> origin/main
+git push -u origin <branch>
+```
+
+If it already exists:
 ```bash
 git fetch origin && git checkout <branch>
 ```

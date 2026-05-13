@@ -2,7 +2,7 @@
 model: openai/gpt-5.4
 timeout_s: 3600
 inputs:
-  required: [issue_id, pr_url]
+  required: [issue_id, pr_url, issue_title, issue_description]
   optional: []
 ---
 
@@ -12,9 +12,13 @@ Adversarial QA on PR **{{ pr_url }}** for issue **{{ issue_id }}** in the projec
 
 ## Workflow
 
-### 1. Fetch the issue
+### 1. Review the issue
 
-Fetch issue `{{ issue_id }}` from the product development management system to understand the acceptance criteria. Do NOT read the implementation code or PR diff — test blind as a user would.
+**{{ issue_title }}**
+
+{{ issue_description }}
+
+The acceptance criteria above define what you are testing for. Do NOT read the implementation code or PR diff — test blind as a user would.
 
 ### 2. Check out the branch
 
