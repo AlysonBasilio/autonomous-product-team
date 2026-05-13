@@ -2,8 +2,8 @@
 model: anthropic/claude-sonnet-4-6
 timeout_s: 5400
 inputs:
-  required: [issue_id, branch, plan, issue_title, issue_description]
-  optional: [pr_url, findings, user_feedback]
+  required: [issue_id, branch, plan]
+  optional: [pr_url, findings, user_feedback, issue_title, issue_description]
 ---
 
 # Task: Code
