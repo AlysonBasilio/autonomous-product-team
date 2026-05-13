@@ -87,6 +87,7 @@ A `test-report` has been delivered with `outcome` set to `pass`, `fail`, or `blo
 
 ## Rules
 
+- Do not stop at the first finding. Complete all three test lenses (acceptance criteria, boundary paths, regression) before reporting — even after finding critical issues. A single pass that catches everything is worth far more than three passes that each catch one thing.
 - Do not read the PR diff or implementation code before testing — test as an external user would.
 - Test from the branch, not from main.
 - Try to run the app yourself before emitting `outcome: blocked`.
