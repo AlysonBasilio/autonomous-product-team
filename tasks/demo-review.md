@@ -1,82 +1,71 @@
 ---
 model: google/gemini-3.1-flash-lite-preview
 inputs:
-  required: [issue_id, pr_url]
+  required: [issue_id, issue_title, pr_url]
   optional: []
 ---
 
 # Task: Demo Review
 
-Customer collaboration touchpoint for PR **{{ pr_url }}** (issue **{{ issue_id }}** in `{{ project_url }}`). Only reached after the tester passes. On approval, this task notifies the user the PR is ready to merge — the user owns the merge action.
+Customer touchpoint for PR **{{ pr_url }}** (issue **{{ issue_id }}** in `{{ project_url }}`). Reached only after the tester passes. On approval, the orchestrator notifies the user the PR is ready to merge — the user owns the merge.
 
 ## Workflow
 
-### 1. Fetch the issue
+### 1. Fetch PR
 
-Fetch issue `{{ issue_id }}` from the product development management system: title, description, acceptance criteria.
+Fetch the PR title/body — you'll need them to write the `summary` field in step 4.
 
-### 2. Fetch PR details
+### 2. Check for blocking feedback
 
-Fetch the PR title and description from the PR URL.
-
-### 3. Verify all review threads are resolved and check for new comments
-
-Before presenting to the user, run both checks:
-
-**3a. Unresolved review threads:**
+**2a. Unresolved review threads:**
 
 ```bash
 gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRequest(number: <n>) { reviewThreads(first: 100) { nodes { isResolved comments(first: 1) { nodes { body } } } } } } }' | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)]'
 ```
 
-**3b. Regular PR comments** (issue-style comments at the bottom of the PR):
-
-Use GraphQL so minimized comments (hidden via GitHub's "Hide → Resolved/Outdated/Off-topic" UI) are excluded — the REST `/issues/<n>/comments` endpoint does NOT expose minimization state and will surface resolved comments as if they were live.
+**2b. Regular PR comments** — use GraphQL (the REST endpoint omits minimization state):
 
 ```bash
-gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRequest(number: <n>) { comments(first: 100) { nodes { databaseId author { login } body createdAt isMinimized minimizedReason } } } } }' | jq '[.data.repository.pullRequest.comments.nodes[] | select(.isMinimized == false) | {id: .databaseId, user: .author.login, body, created_at: .createdAt}]'
+gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRequest(number: <n>) { comments(first: 100) { nodes { databaseId author { login } body createdAt isMinimized } } } } }' | jq '[.data.repository.pullRequest.comments.nodes[] | select(.isMinimized == false) | {id: .databaseId, user: .author.login, body, created_at: .createdAt}]'
 ```
 
-Only the comments returned after the `isMinimized == false` filter count. If any of those comments appears to be requesting changes, raising a concern, or asking a question that has not been addressed — treat it as blocking feedback. Comments hidden by the user (any `minimizedReason`) are considered resolved and MUST be ignored.
+Treat any remaining comment requesting changes, raising concerns, or asking unaddressed questions as blocking.
 
-If **either** check finds unresolved threads or unaddressed comments: do NOT proceed to user presentation. Post a demo-review-complete comment, then output your final response as a single fenced ```json code block — and nothing else — containing this object, and stop here:
+### 3. If blocking: redirect
+
+Post a comment on issue `{{ issue_id }}` via the product development management system tool noting that demo review was blocked, the PR URL, and a one-line summary of the blocking items.
+
+Then output ONLY this fenced ```json block and stop:
 
 ```json
 {
   "type": "demo-review-report",
   "outcome": "redirect",
-  "issue_id": "<issue ID>",
-  "pr_url": "<PR URL>",
-  "user_feedback": "<summary of the unresolved threads or unaddressed comments blocking presentation>"
+  "issue_id": "{{ issue_id }}",
+  "pr_url": "{{ pr_url }}",
+  "user_feedback": "<summary of blocking items>"
 }
 ```
 
-If both checks are clear: continue to the next step.
+### 4. If clear: report to orchestrator
 
-### 4. Report to the orchestrator — MANDATORY
+Post a comment on issue `{{ issue_id }}` via the product development management system tool noting that demo review is ready for approval, the PR URL, and the one-sentence summary of what was built.
 
-Post this report and **end your session immediately** — your job is done here. Output your final response as a single fenced ```json code block — and nothing else — containing this object:
+Then output ONLY this fenced ```json block and exit — the orchestrator handles the approval UI:
 
 ```json
 {
   "type": "demo-review-pending",
-  "issue_id": "<issue ID>",
-  "issue_title": "<issue title>",
-  "pr_url": "<PR URL>",
+  "issue_id": "{{ issue_id }}",
+  "issue_title": "{{ issue_title }}",
+  "pr_url": "{{ pr_url }}",
   "summary": "<one sentence: what was built>"
 }
 ```
 
-The orchestrator process receives this report, presents the approval gate to the user in its web UI, and dispatches the next task based on the user's response. You do not wait — exit as soon as the report is sent.
-
-Do NOT call `AskUserQuestion`. Do NOT post any additional comments. Do NOT wait for a reply.
-
-## Definition of Done
-
-Report sent. Session complete.
-
 ## Rules
 
 - NEVER call `AskUserQuestion` — approval is handled by the orchestrator UI.
-- NEVER merge the PR yourself — the user owns the merge action.
-- NEVER mark the issue as Done — issue-triage.md detects the merge on the next cycle and marks it Done then.
+- NEVER post comments on the PR — report outcomes via the JSON block only.
+- NEVER merge the PR — the user owns the merge.
+- NEVER mark the issue Done — issue-triage detects the merge next cycle.
