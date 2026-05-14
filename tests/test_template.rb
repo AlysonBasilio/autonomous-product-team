@@ -19,7 +19,7 @@ class TestTemplateRender < Minitest::Test
   def test_strips_frontmatter
     body = <<~MD
       ---
-      model: anthropic/claude-sonnet-4-6
+      model: openai/gpt-5.5
       inputs:
         required: []
         optional: []

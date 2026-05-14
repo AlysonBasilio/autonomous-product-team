@@ -1,5 +1,5 @@
 ---
-model: anthropic/claude-sonnet-4-6
+model: openai/gpt-5.5
 timeout_s: 5400
 inputs:
   required: [issue_id, branch, plan, issue_title, issue_description]

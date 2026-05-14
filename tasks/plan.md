@@ -154,6 +154,8 @@ Include the branch name in the report.
 
 ## Report
 
+Your entire output must be exactly one fenced ` ```json ` code block — no prose, analysis, or explanation before or after it. The orchestrator parses fenced JSON blocks only.
+
 **When the test-blocked check (4a) fired**, output a `blocked` report. The orchestrator will surface this as an escalation banner asking the user to verify the change manually.
 
 ```json

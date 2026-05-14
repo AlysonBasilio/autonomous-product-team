@@ -31,11 +31,15 @@ class PlanRoutingScenarioTest < Minitest::Test
 
     ## Instructions
 
-    Focus on Phase 0: state assessment and routing. Determine the correct next_task from the routing table.
+    Determine the correct routing by working through Phase 0 of the task definition. When your routing decision is `code`:
 
-    If your routing decision is `code`, you may produce a brief one- or two-step plan that names the issue's acceptance criteria directly (e.g., "1. Add 'Forgot password?' link to login page"). Do NOT emit generic boilerplate like "implement per spec" — plan.md forbids it. When routing to `code`, populate `findings` with the reason for the routing decision (test findings on failure, user_feedback on demo redirect, or a note about staleness when the issue was updated after the test passed).
+    - Write the `plan` field directly from the issue's acceptance criteria in the Simulated Environment — do not attempt to read codebase files.
+    - Skip Phase 1 steps that require real tools (marking the issue In Progress, reading files). Use only the information already in the Simulated Environment.
+    - Extract `issue_title` and `issue_description` from the Simulated Environment.
+    - Populate `findings` only when there is a specific reason (test failure findings, demo-review redirect feedback, staleness, or unresolved review thread bodies). Omit `findings` entirely for a fresh start with no prior history.
+    - Do NOT emit generic boilerplate like "implement per spec" — plan.md forbids it.
 
-    Produce the complete plan-report. Output ONLY the report — no preamble, no explanation.
+    Output ONLY a single fenced ```json code block — no prose, analysis, or explanation before or after it.
   PROMPT
 
   SCENARIOS = [
