@@ -10,8 +10,6 @@ inputs:
 
 You are planning issue **{{ issue_id }}** in the project at `{{ project_url }}`.
 
-PM comments are authoritative — read them in Step 2 to determine the current state. The router may also pass optional context hints (pr_url, test_outcome, user_feedback, findings); when present they describe the immediately previous task, but if they disagree with PM comments, trust the comments.
-
 ## Phase 0 — State Assessment
 
 Before doing any planning, assess the actual current state of the issue to determine where work stands.
@@ -28,39 +26,16 @@ Read all comments on the PM issue using the product development management syste
 
 **Multi-PR tracking**: An issue may have multiple associated PRs. Collect the `pr_url` values from ALL `task-complete` comments (not just the most recent one) to build the complete set of associated PRs for the issue.
 
-**Stale-implementation check**: If a `test-complete` comment with `outcome: pass` exists, compare its timestamp against the issue's last-updated timestamp. If the issue description or acceptance criteria appear to have been edited after the `test-complete` was posted, flag the implementation as **stale**.
+**Stale-implementation check**: Flag the implementation as **stale** if the issue was edited after the most recent `test-complete: pass` timestamp.
 
 ### 3. Check git/PR state
-- Check if a branch for this issue already exists locally (e.g. `git branch --list "*{{ issue_id }}*"`).
-- Check if a PR is already open on the remote: `gh pr list --search "{{ issue_id }}" --state open`.
-- For each associated PR in the multi-PR set (from Step 2), check its state individually: `gh pr view <pr_url> --json state` to determine if it is open, merged, or closed. Build a summary: count how many are merged/closed vs. still open. All associated PRs must be merged or closed for the issue to be considered fully complete.
-- If a PR exists and is open, check CI status: `gh pr checks <pr_url>`.
-- If a PR exists and is open, check for merge conflicts:
-
-```bash
-gh pr view <pr_url> --json mergeable,mergeStateStatus
-```
-
-Note whether `mergeable` is `CONFLICTING` (or `mergeStateStatus` is `DIRTY`) — used in the routing table below.
-
-- If a PR exists and is open, count unresolved review threads and collect their bodies:
-
-```bash
-gh api graphql -f query='{
-  repository(owner: "OWNER", name: "REPO") {
-    pullRequest(number: NUMBER) {
-      reviewThreads(first: 100) {
-        nodes {
-          isResolved
-          comments(first: 1) { nodes { body } }
-        }
-      }
-    }
-  }
-}' | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)]'
-```
-
-Note the count and the body of each unresolved thread — used in the routing table below.
+- Check for an existing local branch: `git branch --list "*{{ issue_id }}*"`.
+- Check for an open PR on the remote: `gh pr list --search "{{ issue_id }}" --state open`.
+- For each associated PR in the multi-PR set (from Step 2), check its state: `gh pr view <pr_url> --json state`. All associated PRs must be merged or closed for the issue to be fully complete.
+- **If a PR is open**, also collect:
+  - CI status: `gh pr checks <pr_url>`
+  - Merge conflicts: `gh pr view <pr_url> --json mergeable,mergeStateStatus` — flag if `mergeable` is `CONFLICTING` or `mergeStateStatus` is `DIRTY`
+  - Unresolved review threads (count + bodies): `gh api graphql -f query='{ repository(owner:"OWNER",name:"REPO"){ pullRequest(number:NUMBER){ reviewThreads(first:100){ nodes{ isResolved comments(first:1){nodes{body}} }}}}}' | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)]'`
 
 ### 4. Determine the next task
 
@@ -69,37 +44,25 @@ Two early checks fire only in specific conditions; otherwise fall through to the
 - **Test-blocked.** If the most recent `test-complete` comment has `outcome: blocked`, emit a `blocked` report (see Report section) — the test infra needs human attention.
 - **Discovery.** If the issue is exploratory (no concrete acceptance criteria; the deliverable is findings/follow-up issues rather than working software), emit a plan-report with `next_task: "discovery"` and skip Phase 1. Technical complexity alone does **not** qualify.
 
-Otherwise, use the most recent comment of each type from Step 2, combined with git/PR state. Evaluate rows top to bottom and stop at the first match:
+Otherwise, use the most recent comment of each type from Step 2, combined with git/PR state. Evaluate rows top to bottom and stop at the first match.
+
+**Override**: if a row below routes to `test` or `demo-review` but the PR has **unresolved review threads**, flip to `code` and pass the thread bodies as `findings` (resolve review threads first).
 
 | PM issue comment history | Git/PR state | `next_task` |
 |---|---|---|
-| `demo-review-complete outcome: approved` | All associated PRs merged or closed | Mark issue Done + clean up branch (see **Branch Cleanup** below) — emit `next_task: "triage"` so the loop picks the next issue |
+| `demo-review-complete outcome: approved` | All associated PRs merged or closed | Mark issue Done — emit `next_task: "triage"` so the loop picks the next issue |
 | `demo-review-complete outcome: approved` for most-recent reviewed PR | That PR is now merged, but other associated PRs still open | `test` or `demo-review` — route to the next open PR (check its CI/review state to decide); include the open PR's `pr_url` in the report |
 | `demo-review-complete outcome: approved` | PR reviewed is still open (user has not merged yet) | Nothing to do — awaiting user merge; emit `next_task: "triage"` |
 | `demo-review-complete outcome: redirect`, no newer `task-complete` | any | `code` — user redirected; run Phase 1 with `user_feedback` as `findings` |
-| `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green, **unresolved review threads** | `code` — resolve review threads first; run Phase 1 with thread bodies as `findings` |
 | `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green | `test` — implementation was updated after redirect; skip Phase 1 |
-| `test-complete outcome: pass`, not stale | PR open, CI green, **unresolved review threads** | `code` — resolve review threads first; run Phase 1 with thread bodies as `findings` |
 | `test-complete outcome: pass`, not stale | PR open, CI green | `demo-review` — skip Phase 1 |
 | `test-complete outcome: pass`, **stale** | PR open | `code` — issue updated since test; re-plan in Phase 1 |
 | `test-complete outcome: fail` | PR open | `code` — fix findings on the existing branch; run Phase 1 with `findings` |
 | `task-complete` exists | PR open, **merge conflicts** | `code` — rebase and resolve conflicts; run Phase 1 with merge conflict details as `findings` |
-| `task-complete` exists | PR open, CI green, **unresolved review threads** | `code` — resolve review threads first; run Phase 1 with thread bodies as `findings` |
 | `task-complete` exists | PR open, CI green | `test` — skip Phase 1 |
 | `task-complete` exists | No open PR, or PR CI failing | `code` — lost artifact or broken CI; re-plan in Phase 1 |
 | No `task-complete` | Branch exists, no PR | `code` — proceed to Phase 1, reusing the existing branch |
 | No `task-complete` | No branch, no PR | `code` — proceed to Phase 1 |
-
-### Branch Cleanup
-
-When the routing table directs you to **mark the issue Done**, delete the local branch for the merged PR:
-
-```bash
-BRANCH=$(gh pr view <pr_url> --json headRefName --jq '.headRefName')
-git branch -d $BRANCH 2>/dev/null || true
-```
-
-Run this for each PR that was just confirmed as merged. If the branch does not exist locally (e.g. cleanup already ran), the command silently succeeds. Mark the issue Done in the product development management system after cleanup.
 
 ---
 
@@ -127,11 +90,7 @@ Read the issue description and acceptance criteria. Skim the key areas of the co
 
 If the issue is too big → skip steps 2–4 and output a plan-report with `next_task: "create-issue"` and `split_context: true` (see Report section). Do **not** mark the issue In Progress and do **not** create a branch.
 
-**Splitting guidelines:**
-- Aim for 2–4 sub-issues; never more than 5
-- Each sub-issue must be independently reviewable and testable (self-contained PR)
-- Order sub-issues so foundational work (data model, API contract) precedes consumer work (UI, integrations)
-- `depends_on` lists titles of other sub-issues in this split that must complete first
+**Splitting guidelines:** Aim for 2–4 sub-issues (max 5). Order them so foundational work (data model, API contract) precedes consumer work (UI, integrations); use `depends_on` to encode that.
 
 ### 2. Mark the issue In Progress
 Update the issue status to **In Progress** in the product development management system.
@@ -144,11 +103,10 @@ Update the issue status to **In Progress** in the product development management
 Include the branch name in the report.
 
 ### 4. Build the plan
-- Read the relevant files and understand existing patterns, conventions, and architecture.
-- Identify which files need to be created, modified, or deleted.
-- Identify dependencies between changes (what needs to happen first).
-- Anticipate edge cases and how the acceptance criteria map to concrete code changes.
-- Write out the plan as an ordered checklist of concrete, issue-specific implementation steps. Each step must map directly to a requirement or acceptance criterion — do not use generic placeholders like "implement per spec". If acceptance criteria are numbered, address each one explicitly.
+
+Read the relevant source files to understand existing patterns, conventions, and architecture. Identify production files to create/modify/delete and their dependencies. For every production file you plan to modify, find all test files that exercise the affected code.
+
+Then write an ordered checklist of concrete, issue-specific steps. Each step must map directly to a requirement or acceptance criterion. The spec-update step must enumerate every spec file by path — if the list is long, group by change needed rather than omitting files.
 
 ---
 
@@ -206,9 +164,3 @@ Omit `depends_on` entirely on sub-issues that have no prerequisites; do not emit
 ```
 
 `next_task` must be one of `"discovery"`, `"code"`, `"test"`, `"demo-review"`, `"create-issue"`, or `"triage"`. Fields that do not apply to the current state must be omitted entirely (no `null`, no empty strings). `plan` and `findings` apply only when `next_task` is `"code"`. `issue_title` and `issue_description` apply when `next_task` is `"code"`, `"test"`, or `"demo-review"`. When the routing table says to kick back to the loop (issue Done, or awaiting user merge), emit `next_task: "triage"`.
-
-## Rules
-
-- Never merge directly to `main` — all merges go through an approved PR.
-- Always work on the designated branch; never commit directly to `main`.
-- Never use `git push --force` — use `--force-with-lease` if a force push is needed.
