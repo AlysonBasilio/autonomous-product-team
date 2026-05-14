@@ -82,11 +82,9 @@ class ExtractReportTest < Minitest::Test
     content = <<~MD
       ```json
       {
-        "type": "plan-report",
-        "next_task": "create-issue",
+        "type": "split-needed",
+        "issue_id": "PROJ-1",
         "source_issue_id": "PROJ-1",
-        "split_context": true,
-        "return_to": "triage",
         "issues": [
           { "title": "A", "description": "x" },
           { "title": "B", "description": "y", "depends_on": ["A"] }
@@ -95,7 +93,7 @@ class ExtractReportTest < Minitest::Test
       ```
     MD
     report = extract(content)
-    assert_equal 'plan-report', report['type']
+    assert_equal 'split-needed', report['type']
     assert_equal 2, report['issues'].length
     assert_equal ['A'], report['issues'][1]['depends_on']
   end

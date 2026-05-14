@@ -1,6 +1,6 @@
 module Router
   # Returns a NextAction hash:
-  #   { type: "run-task", task: "plan.md", context: {} }
+  #   { type: "run-task", task: "issue-triage.md", context: {} }
   #   { type: "wait-approval", context: {} }
   #   { type: "escalate", reason: "...", details: "..." }
   #   { type: "done" }
@@ -11,31 +11,24 @@ module Router
       next_issue = report['next_issue']
       return { type: 'done' } unless next_issue
       issue_id = next_issue.is_a?(Hash) ? next_issue['id'] : next_issue
-      run('plan.md', issue_id: issue_id)
 
-    when 'plan-report'
       case report['next_task']
-      when 'discovery'
-        run('discovery.md', issue_id: report['issue_id'])
       when 'code'
         run('code.md',
-            issue_id: report['issue_id'],
+            issue_id: issue_id,
             branch:   report['branch'],
-            plan:     report['plan'],
             findings: report['findings'],
             pr_url:   report['pr_url'])
       when 'test'
-        run('test.md', issue_id: report['issue_id'], pr_url: report['pr_url'])
+        run('test.md', issue_id: issue_id, pr_url: report['pr_url'])
       when 'demo-review'
-        run('demo-review.md', issue_id: report['issue_id'], pr_url: report['pr_url'])
-      when 'create-issue'
-        run('create-issue.md',
-            issues:          report['issues'],
-            source_issue_id: report['source_issue_id'] || report['issue_id'],
-            split_context:   report['split_context'],
-            return_to:       report['return_to'] || 'triage')
+        run('demo-review.md', issue_id: issue_id, pr_url: report['pr_url'])
+      when 'discovery'
+        run('discovery.md', issue_id: issue_id)
       else
-        run('issue-triage.md')
+        { type: 'escalate',
+          reason:  'unknown-next-task',
+          details: "Unrecognised triage-report next_task: #{report['next_task'].inspect}\n#{report.to_json}" }
       end
 
     when 'task-complete'
@@ -51,12 +44,27 @@ module Router
         run('test.md', issue_id: report['issue_id'], pr_url: report['pr_url'])
       end
 
+    when 'split-needed'
+      run('create-issue.md',
+          issues:          report['issues'],
+          source_issue_id: report['source_issue_id'] || report['issue_id'],
+          split_context:   true,
+          return_to:       'triage')
+
     when 'test-report'
-      run('plan.md',
-          issue_id:     report['issue_id'],
-          pr_url:       report['pr_url'],
-          test_outcome: report['outcome'],
-          findings:     report['findings'])
+      case report['outcome']
+      when 'pass'
+        run('demo-review.md', issue_id: report['issue_id'], pr_url: report['pr_url'])
+      when 'fail'
+        run('code.md',
+            issue_id: report['issue_id'],
+            pr_url:   report['pr_url'],
+            findings: report['findings'])
+      else
+        { type: 'escalate',
+          reason:  'blocked',
+          details: report['details'] || "test-report outcome=#{report['outcome'].inspect}" }
+      end
 
     when 'discovery-complete'
       run('issue-triage.md')
@@ -65,8 +73,6 @@ module Router
       case report['return_to']
       when 'test'
         run('test.md', issue_id: report['source_issue_id'], pr_url: report['pr_url'])
-      when 'plan'
-        run('plan.md', issue_id: report['source_issue_id'])
       else
         run('issue-triage.md')
       end
@@ -91,7 +97,7 @@ module Router
           run('issue-triage.md')
         end
       else
-        run('plan.md',
+        run('code.md',
             issue_id:      report['issue_id'],
             pr_url:        report['pr_url'],
             user_feedback: report['user_feedback'])

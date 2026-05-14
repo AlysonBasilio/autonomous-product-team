@@ -19,7 +19,7 @@ module TaskRunner
   class TimeoutError < StandardError; end
 
   KNOWN_REPORT_TYPES = %w[
-    triage-report plan-report task-complete test-report
+    triage-report task-complete split-needed test-report
     demo-review-pending demo-review-report discovery-complete
     create-issue-complete
     task-failed blocked recovery-exhausted

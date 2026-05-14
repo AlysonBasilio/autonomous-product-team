@@ -2,8 +2,8 @@
 model: openai/gpt-5.5
 timeout_s: 5400
 inputs:
-  required: [issue_id, branch, plan, issue_title, issue_description]
-  optional: [pr_url, findings, user_feedback]
+  required: [issue_id, issue_title, issue_description]
+  optional: [branch, pr_url, findings, user_feedback]
 ---
 
 # Task: Code
@@ -17,11 +17,6 @@ The branch for this work is `{{ . }}`.
 A PR is already open at `{{ . }}`. Push to the same branch — do not open a second PR. If `branch` was not supplied above, derive it: `gh pr view {{ . }} --json headRefName --jq '.headRefName'`.
 {{/pr_url}}
 
-{{#plan}}
-## The plan
-
-{{ . }}
-{{/plan}}
 {{#findings}}
 ## Findings to address (from a prior test or rebase)
 
@@ -38,10 +33,42 @@ A PR is already open at `{{ . }}`. Push to the same branch — do not open a sec
 
 {{ issue_description }}
 
+## Phase 0 — Scope check
+
+Before writing any code, decide whether this issue is too big to deliver as a single PR. An issue is **too big** if it meets any of these:
+
+- Implementation spans ≥3 distinct system layers (e.g., DB schema + service layer + API endpoint + frontend component)
+- The work contains 2+ independent sub-deliverables that can each be reviewed, merged, and tested in isolation — partial delivery still provides standalone value
+- Estimated to touch ≥6 unrelated files or produce >400 LOC of non-test changes
+- The issue description lists multiple major features or capabilities as distinct requirements
+
+If you are **resuming work on an existing branch / open PR** (a `branch` or `pr_url` was supplied above), skip this check and proceed to Phase 1 — splitting is only for fresh starts.
+
+If the issue is too big → do **not** mark it In Progress and do **not** create a branch. Instead, propose 2–4 sub-issues (max 5), ordered so foundational work (data model, API contract) precedes consumer work (UI, integrations); use `depends_on` to encode that. Emit:
+
+```json
+{
+  "type": "split-needed",
+  "issue_id": "<issue ID>",
+  "source_issue_id": "<issue ID>",
+  "issues": [
+    {
+      "title": "<sub-issue title>",
+      "description": "<what this sub-issue covers and its acceptance criteria>",
+      "depends_on": ["<title of another sub-issue in this list that must complete first>"]
+    }
+  ]
+}
+```
+
+Omit `depends_on` entirely on sub-issues that have no prerequisites; do not emit `null` or an empty array. After emitting this report, stop — the orchestrator will run `create-issue.md` and return to triage.
+
+Otherwise, continue to Phase 1.
+
 ## Phase 1 — Implementation
 
 ### 0. Check out the branch
-Use `branch` from above (derive from `pr_url` if needed — see top of file).
+Use `branch` from above (derive from `pr_url` if needed — see top of file). If neither was supplied, derive a branch name from the issue ID (convention: `<issue-id>-<short-description>`).
 
 If it does not yet exist on the remote:
 ```bash

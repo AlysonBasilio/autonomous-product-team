@@ -1,6 +1,6 @@
 # Autonomous Product Team
 
-An autonomous AI product team that runs on [Synthup](https://www.synthup.dev). A Ruby orchestrator picks up the highest-priority unblocked issue, plans it, implements it, tests it, and presents a PR for user approval — then loops. Synthup manages the sessions that execute each task.
+An autonomous AI product team that runs on [Synthup](https://www.synthup.dev). A Ruby orchestrator picks up the highest-priority unblocked issue, implements it, tests it, and presents a PR for user approval — then loops. Synthup manages the sessions that execute each task.
 
 This repo *is* the app: clone it, run `./bin/start`, configure via the web UI. No npm, no copy-into-your-project step. Tasks live in `tasks/` and are read in place.
 
@@ -55,7 +55,7 @@ data/
 ### Components
 
 - **Orchestrator** — Ruby process (`orchestrator/run.rb`) that drives the lifecycle loop. Routes between tasks based on their JSON output.
-- **Task** — A Markdown prompt file in `tasks/` defining one step of the workflow (e.g. `plan.md`, `code.md`). Each task specifies a model in its frontmatter.
+- **Task** — A Markdown prompt file in `tasks/` defining one step of the workflow (e.g. `issue-triage.md`, `code.md`). Each task specifies a model in its frontmatter.
 - **Session** — A Synthup-managed execution that runs a task prompt and outputs a structured JSON report. The orchestrator polls for the report and routes to the next task.
 - **Project state** — `data/projects/<slug>.json`. Tracks the active session and history per project; enables crash-safe resume.
 
@@ -64,7 +64,7 @@ data/
 Happy path:
 
 ```
-triage → plan → code → test → demo-review → [user approves + merges] → triage → …
+triage → code → test → demo-review → [user approves + merges] → triage → …
 ```
 
 The orchestrator dispatches one task at a time. Each task runs as a Synthup session and signals completion by outputting a JSON report. The orchestrator reads the report and dispatches the next task automatically.
@@ -78,9 +78,8 @@ flowchart TD
     Start([start / resume loop]) --> Triage
 
     Triage["<b>issue-triage</b><br/><i>triage-report</i>"]
-    Plan["<b>plan</b><br/><i>plan-report</i>"]
     Discovery["<b>discovery</b><br/><i>discovery-complete</i>"]
-    Code["<b>code</b><br/><i>task-complete</i>"]
+    Code["<b>code</b><br/><i>task-complete · split-needed</i>"]
     Test["<b>test</b><br/><i>test-report</i>"]
     DemoReview["<b>demo-review</b><br/><i>demo-review-pending → -report</i>"]
     CreateIssue["<b>create-issue</b><br/><i>create-issue-complete</i>"]
@@ -89,39 +88,34 @@ flowchart TD
     WaitDR[/wait-approval<br/>demo-review human gate/]
     Escalate[/escalate banner<br/>task-failed · blocked · recovery-exhausted · unknown-report/]
 
-    %% triage → plan or done
+    %% triage routes directly
     Triage -->|next_issue null| Done
-    Triage -->|next_issue| Plan
+    Triage -->|next_task = discovery| Discovery
+    Triage -->|next_task = code| Code
+    Triage -->|next_task = test| Test
+    Triage -->|next_task = demo-review| DemoReview
+    Triage -.->|blocked<br/>test infra broken| Escalate
 
-    %% plan is the central decider
-    Plan -->|next_task = discovery| Discovery
-    Plan -->|next_task = code| Code
-    Plan -->|next_task = test| Test
-    Plan -->|next_task = demo-review| DemoReview
-    Plan -->|next_task = create-issue<br/>split_context| CreateIssue
-    Plan -->|next_task = triage<br/>nothing to do| Triage
-    Plan -.->|blocked<br/>test infra broken| Escalate
-
-    %% deterministic non-plan transitions
+    %% deterministic transitions
     Discovery --> Triage
     Code -->|no follow-ups| Test
     Code -->|with follow_up_issues| CreateIssue
-    Test --> Plan
+    Code -->|split-needed<br/>scope too big| CreateIssue
+    Test -->|outcome pass| DemoReview
+    Test -->|outcome fail| Code
 
     %% demo-review human gate
     DemoReview --> WaitDR
     WaitDR -->|approve · no follow-ups| Triage
     WaitDR -->|approve · with follow_up_issues| CreateIssue
-    WaitDR -->|redirect| Plan
+    WaitDR -->|redirect| Code
 
     %% create-issue returns to caller
     CreateIssue -->|return_to = triage| Triage
     CreateIssue -->|return_to = test| Test
-    CreateIssue -->|return_to = plan| Plan
 
     %% failure paths from any task
     Triage -.->|failure| Escalate
-    Plan -.->|failure| Escalate
     Discovery -.->|failure| Escalate
     Code -.->|failure| Escalate
     Test -.->|failure| Escalate
@@ -133,21 +127,21 @@ flowchart TD
     classDef gate fill:#fff4d6,stroke:#c89400,color:#000;
     classDef terminal fill:#e6f7e6,stroke:#2a8f3a,color:#000;
     classDef error fill:#fde2e2,stroke:#c0392b,color:#000;
-    class Triage,Plan,Discovery,Code,Test,DemoReview,CreateIssue task;
+    class Triage,Discovery,Code,Test,DemoReview,CreateIssue task;
     class WaitDR gate;
     class Done,Start terminal;
     class Escalate error;
 ```
 
-Legend: solid arrows are normal routing on JSON reports; dashed arrows are failure paths. `plan` is the central decision-maker — every loop comes back through it. The yellow `wait-approval` node is the only place the loop pauses for a human.
+Legend: solid arrows are normal routing on JSON reports; dashed arrows are failure paths. `issue-triage` is the central decision-maker — every loop comes back through it. The yellow `wait-approval` node is the only place the loop pauses for a human.
 
 ### Behavior
 
 1. Works on **one issue at a time** for the active project — the highest-priority unblocked issue.
 2. **The user owns the merge.** Demo review presents the PR in the web UI and waits.
-3. **Tasks are idempotent.** Each task posts a structured JSON comment to the PM issue on completion. On restart, `plan.md` reads these comments to determine what has already been done.
+3. **Tasks are idempotent.** Each task posts a structured JSON comment to the PM issue on completion. On restart, `issue-triage.md` reads these comments to determine what has already been done.
 4. **Sessions resume after a crash.** The active session ID is saved before polling. On restart, the orchestrator resumes polling the existing session.
-5. **A branch is created per issue and cleaned up automatically.** `plan.md` creates a branch for each issue and pushes it. Each Synthup session checks out that branch at the start. After the PR merges, the next planning cycle deletes the local branch.
+5. **A branch is created per issue and cleaned up automatically.** `issue-triage.md` derives a branch name per issue; the code task creates and pushes it. Each Synthup session checks out that branch at the start. After the PR merges, the next triage cycle deletes the local branch.
 
 The orchestrator never `cd`s into your project on disk — all git/file work happens inside the Synthup session against the GitHub repo derived from `project_url`.
 
@@ -231,7 +225,7 @@ echo "OPENROUTER_API_KEY=sk-or-..." > tests/.env
 |---|---|
 | `tests/test_static.rb` | Structural checks — new fields, new task references, new report types |
 | `tests/test_triage.rb` | New triage edge cases (blocker definitions, priority rules) |
-| `tests/test_plan_routing.rb` | New routing table rows or state combinations |
+| `tests/test_triage_routing.rb` | New routing table rows or state combinations (Phase 2 of triage) |
 | `tests/test_demo_review.rb` | New demo-review scenarios or approval/redirect edge cases |
 | `tests/test_discovery.rb` | New discovery scenarios or issue analysis edge cases |
 
@@ -239,7 +233,7 @@ Each LLM eval is a scenario hash with `:name`, `:description`, `:mock_context`, 
 
 ### End-to-end test
 
-`tests/e2e/` boots the orchestrator in interactive mode, drives it through a real browser, and walks the full `triage → plan → code → test → demo-review` lifecycle against a configured GitHub repo.
+`tests/e2e/` boots the orchestrator in interactive mode, drives it through a real browser, and walks the full `triage → code → test → demo-review` lifecycle against a configured GitHub repo.
 
 ```bash
 bundle exec ruby tests/e2e/run.rb

@@ -79,4 +79,4 @@ Report sent. Session complete.
 
 - NEVER call `AskUserQuestion` — approval is handled by the orchestrator UI.
 - NEVER merge the PR yourself — the user owns the merge action.
-- NEVER mark the issue as Done — plan.md detects the merge on the next planning cycle and marks it Done then.
+- NEVER mark the issue as Done — issue-triage.md detects the merge on the next cycle and marks it Done then.

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 #
-# Full-lifecycle e2e: triage → plan → code → test → demo-review.
+# Full-lifecycle e2e: triage → code → test → demo-review.
 #
 # All assertions read the rendered DOM. No /api/* calls. The only HTTP this
 # test makes is via gh (fixture create/teardown) and the browser. See
@@ -13,15 +13,14 @@ class TestE2ELifecycle < Minitest::Test
   REQUIRED_ENV = %w[SYNTHUP_TENANT SYNTHUP_API_KEY E2E_GITHUB_REPO].freeze
 
   # Max wall-clock runtime per task (Synthup latency varies a lot).
-  # The full sequence (router.rb): triage → plan → code → test → demo-review
+  # The full sequence (router.rb): triage → code → test → demo-review
   # → wait-approval. The interactive gate fires before every routed action
   # except the very first triage dispatch (run.rb:151-158).
   #
   # When waiting for the gate of task N, the prior task is in flight — so the
   # gate-wait budget is RUN_BUDGETS[prior_task]. See `walk_lifecycle` below.
   RUN_BUDGETS = {
-    'issue-triage.md' => 3 * 60,
-    'plan.md'         => 5 * 60,
+    'issue-triage.md' => 5 * 60,
     'code.md'         => 15 * 60,
     'test.md'         => 5 * 60,
     'demo-review.md'  => 3 * 60
@@ -86,8 +85,7 @@ class TestE2ELifecycle < Minitest::Test
     wait_for_triage
     # Gate-wait budget == prior task's run budget, since the gate appears once
     # the prior task finishes and the router routes its report.
-    walk_interactive_gate('plan.md',        RUN_BUDGETS['issue-triage.md'])
-    walk_interactive_gate('code.md',        RUN_BUDGETS['plan.md'])
+    walk_interactive_gate('code.md',        RUN_BUDGETS['issue-triage.md'])
     walk_interactive_gate('test.md',        RUN_BUDGETS['code.md'])
     walk_interactive_gate('demo-review.md', RUN_BUDGETS['test.md'])
     walk_demo_review_gate

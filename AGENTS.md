@@ -122,7 +122,7 @@ Loaded by `Dotenv.load` from `tests/eval_helper.rb` and `tests/e2e/run.rb`. Alre
 
 - Small, focused commits. Subject in the imperative ("Add X", not "Added X"). Match the existing log style (`git log --oneline -20`).
 - Don't amend published commits. After a hook failure, fix and create a new commit.
-- Branch naming follows what `plan.md` generates per issue — manual branches should mirror that style.
+- Branch naming follows what `issue-triage.md` generates per issue — manual branches should mirror that style.
 
 ## Boundaries
 

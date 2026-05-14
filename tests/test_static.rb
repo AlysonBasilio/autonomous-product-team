@@ -60,71 +60,71 @@ class TestTaskFileExistence < Minitest::Test
   end
 end
 
-class TestPlanRoutingTable < Minitest::Test
-  # Plan routing table must cover every important decision branch.
+class TestTriageRoutingTable < Minitest::Test
+  # Triage routing table must cover every important decision branch.
   # Removing or renaming a branch should cause one of these tests to fail.
 
   def test_routing_covers_demo_review_approved
-    assert_match(/demo-review-complete.*approved/i, load_file('tasks/plan.md'),
-                 'Plan routing table must handle demo-review-complete approved')
+    assert_match(/demo-review-complete.*approved/i, load_file('tasks/issue-triage.md'),
+                 'Triage routing table must handle demo-review-complete approved')
   end
 
   def test_routing_covers_demo_review_redirect
-    assert_match(/demo-review-complete.*redirect/i, load_file('tasks/plan.md'),
-                 'Plan routing table must handle demo-review-complete redirect')
+    assert_match(/demo-review-complete.*redirect/i, load_file('tasks/issue-triage.md'),
+                 'Triage routing table must handle demo-review-complete redirect')
   end
 
   def test_routing_covers_test_pass
-    assert_match(/test-complete.*pass/i, load_file('tasks/plan.md'),
-                 'Plan routing table must handle test-complete pass')
+    assert_match(/test-complete.*pass/i, load_file('tasks/issue-triage.md'),
+                 'Triage routing table must handle test-complete pass')
   end
 
   def test_routing_covers_test_fail
-    assert_match(/test-complete.*fail/i, load_file('tasks/plan.md'),
-                 'Plan routing table must handle test-complete fail')
+    assert_match(/test-complete.*fail/i, load_file('tasks/issue-triage.md'),
+                 'Triage routing table must handle test-complete fail')
   end
 
   def test_routing_covers_stale_implementation
-    assert_includes load_file('tasks/plan.md').downcase, 'stale',
-                    'Plan routing table must handle the stale-implementation case ' \
+    assert_includes load_file('tasks/issue-triage.md').downcase, 'stale',
+                    'Triage routing table must handle the stale-implementation case ' \
                     '(issue updated after test passed)'
   end
 
   def test_routing_covers_task_complete_with_open_pr
-    assert_match(/task-complete.*exists/i, load_file('tasks/plan.md'),
-                 'Plan routing table must handle task-complete with open PR')
+    assert_match(/task-complete.*exists/i, load_file('tasks/issue-triage.md'),
+                 'Triage routing table must handle task-complete with open PR')
   end
 
   def test_routing_covers_task_complete_with_broken_ci
-    assert_match(/CI failing|CI green/i, load_file('tasks/plan.md'),
-                 'Plan routing table must distinguish CI green vs failing states')
+    assert_match(/CI failing|CI green/i, load_file('tasks/issue-triage.md'),
+                 'Triage routing table must distinguish CI green vs failing states')
   end
 
   def test_routing_covers_no_work_done
-    assert_match(/No.*task-complete|no.*task-complete/, load_file('tasks/plan.md'),
-                 'Plan routing table must handle the case where no work has been done yet')
+    assert_match(/No.*task-complete|no.*task-complete/, load_file('tasks/issue-triage.md'),
+                 'Triage routing table must handle the case where no work has been done yet')
   end
 
   def test_routing_covers_branch_exists_no_pr
-    assert_match(/[Bb]ranch exists/, load_file('tasks/plan.md'),
-                 'Plan routing table must handle branch-exists-but-no-PR state')
+    assert_match(/[Bb]ranch exists/, load_file('tasks/issue-triage.md'),
+                 'Triage routing table must handle branch-exists-but-no-PR state')
   end
 
-  def test_plan_defines_next_task_values
-    content = load_file('tasks/plan.md')
+  def test_triage_defines_next_task_values
+    content = load_file('tasks/issue-triage.md')
     %w[code test demo-review].each do |value|
-      assert_includes content, value, "plan.md must document next_task value: #{value}"
+      assert_includes content, value, "issue-triage.md must document next_task value: #{value}"
     end
   end
 
   def test_routing_covers_merge_conflicts
-    assert_match(/merge.conflict/i, load_file('tasks/plan.md'),
-                 'Plan routing table must handle the case where a PR has merge conflicts')
+    assert_match(/merge.conflict/i, load_file('tasks/issue-triage.md'),
+                 'Triage routing table must handle the case where a PR has merge conflicts')
   end
 
-  def test_plan_checks_mergeability
-    assert_includes load_file('tasks/plan.md').downcase, 'mergeable',
-                    'plan.md must instruct the agent to check PR mergeability ' \
+  def test_triage_checks_mergeability
+    assert_includes load_file('tasks/issue-triage.md').downcase, 'mergeable',
+                    'issue-triage.md must instruct the agent to check PR mergeability ' \
                     '(e.g. via gh pr view --json mergeable)'
   end
 end
@@ -150,13 +150,13 @@ class TestInputOutputChain < Minitest::Test
   # Fields produced by one task must be consumed by the appropriate downstream task.
   # A missing field in the producer or consumer breaks the hand-off.
 
-  def test_plan_outputs_branch_consumed_by_implement
-    assert_includes load_file('tasks/plan.md'), 'branch'
+  def test_triage_outputs_branch_consumed_by_implement
+    assert_includes load_file('tasks/issue-triage.md'), 'branch'
     assert_includes load_file('tasks/code.md'), 'branch'
   end
 
-  def test_plan_outputs_findings_consumed_by_implement
-    assert_includes load_file('tasks/plan.md'), 'findings'
+  def test_triage_outputs_findings_consumed_by_implement
+    assert_includes load_file('tasks/issue-triage.md'), 'findings'
     assert_includes load_file('tasks/code.md'), 'findings'
   end
 
@@ -175,13 +175,13 @@ class TestInputOutputChain < Minitest::Test
     assert_includes load_file('tasks/code.md'), 'user_feedback'
   end
 
-  def test_plan_outputs_issue_title_consumed_by_code
-    assert_includes load_file('tasks/plan.md'), 'issue_title'
+  def test_triage_outputs_issue_title_consumed_by_code
+    assert_includes load_file('tasks/issue-triage.md'), 'issue_title'
     assert_includes load_file('tasks/code.md'), 'issue_title'
   end
 
-  def test_plan_outputs_issue_description_consumed_by_test
-    assert_includes load_file('tasks/plan.md'), 'issue_description'
+  def test_triage_outputs_issue_description_consumed_by_test
+    assert_includes load_file('tasks/issue-triage.md'), 'issue_description'
     assert_includes load_file('tasks/test.md'), 'issue_description'
   end
 
@@ -198,13 +198,7 @@ class TestReportSchemas < Minitest::Test
     content = load_file('tasks/issue-triage.md')
     assert_includes content, 'triage-report'
     assert_includes content, 'next_issue'
-  end
-
-  def test_plan_defines_report_schema
-    content = load_file('tasks/plan.md')
-    assert_includes content, 'plan-report'
     assert_includes content, 'next_task'
-    assert_includes content, 'issue_id'
   end
 
   def test_code_defines_task_complete
@@ -252,22 +246,21 @@ class TestReportSchemas < Minitest::Test
 end
 
 class TestMultiPRHandling < Minitest::Test
-  # Verify that multi-PR tracking is documented in plan.md and demo-review.md.
+  # Verify that multi-PR tracking is documented in issue-triage.md.
 
-  def test_plan_mentions_multi_pr_handling
-    assert_match(/all.*PR|associated PR|multi-PR/i, load_file('tasks/plan.md'),
-                 "tasks/plan.md must mention multi-PR handling (e.g., 'all PRs', 'associated PRs', or 'multi-PR')")
+  def test_triage_mentions_multi_pr_handling
+    assert_match(/all.*PR|associated PR|multi-PR/i, load_file('tasks/issue-triage.md'),
+                 "tasks/issue-triage.md must mention multi-PR handling (e.g., 'all PRs', 'associated PRs', or 'multi-PR')")
   end
 
-  def test_plan_mentions_all_prs_merged_or_closed
-    assert_match(/all.*(?:PRs|associated).*(?:merged|closed)/i, load_file('tasks/plan.md'),
-                 'tasks/plan.md routing table must require all associated PRs to be merged or closed')
+  def test_triage_mentions_all_prs_merged_or_closed
+    assert_match(/all.*(?:PRs|associated).*(?:merged|closed)/i, load_file('tasks/issue-triage.md'),
+                 'tasks/issue-triage.md routing table must require all associated PRs to be merged or closed')
   end
 
-  def test_plan_handles_remaining_open_prs
-    assert_match(/other.*PR.*open|remaining.*PR|associated PRs still open/i, load_file('tasks/plan.md'),
-                 'tasks/plan.md routing table must handle the case where some associated PRs are still open ' \
-                 '(multi-PR tracking moved from demo-review to plan.md)')
+  def test_triage_handles_remaining_open_prs
+    assert_match(/other.*PR.*open|remaining.*PR|associated PRs still open/i, load_file('tasks/issue-triage.md'),
+                 'tasks/issue-triage.md routing table must handle the case where some associated PRs are still open')
   end
 end
 
@@ -368,27 +361,25 @@ class TestQABlockedDelegation < Minitest::Test
 end
 
 class TestSplitReport < Minitest::Test
-  # Splitting an oversized issue is now expressed as a plan-report with
-  # next_task: "create-issue" and split_context: true. The schema must be
-  # fully defined in plan.md and create-issue.md.
+  # Splitting an oversized issue is now expressed by the code task emitting a
+  # `split-needed` report. The router translates that into a create-issue.md
+  # dispatch with split_context: true and return_to: "triage".
 
-  def test_plan_defines_split_via_create_issue
-    content = load_file('tasks/plan.md')
-    assert_includes content, 'create-issue',
-                    'plan.md must document next_task: "create-issue" as the way to split issues'
-    assert_includes content, 'split_context',
-                    'plan.md must include the split_context flag on the splitting plan-report'
+  def test_code_defines_split_needed
+    content = load_file('tasks/code.md')
+    assert_includes content, 'split-needed',
+                    'code.md must document the split-needed report type used when an issue is too big for a single PR'
   end
 
-  def test_plan_defines_scope_assessment
-    assert_match(/scope|too big|single PR/i, load_file('tasks/plan.md'),
-                 'plan.md must include a scope assessment step explaining when an issue is too big for a single PR')
+  def test_code_defines_scope_assessment
+    assert_match(/scope|too big|single PR/i, load_file('tasks/code.md'),
+                 'code.md must include a scope assessment step explaining when an issue is too big for a single PR')
   end
 
-  def test_plan_split_report_has_required_fields
-    content = load_file('tasks/plan.md')
-    %w[source_issue_id issues depends_on return_to].each do |field|
-      assert_includes content, field, "plan.md splitting plan-report schema is missing field: #{field}"
+  def test_code_split_report_has_required_fields
+    content = load_file('tasks/code.md')
+    %w[source_issue_id issues depends_on].each do |field|
+      assert_includes content, field, "code.md split-needed schema is missing field: #{field}"
     end
   end
 
@@ -398,16 +389,13 @@ class TestSplitReport < Minitest::Test
   end
 
   def test_router_forwards_source_issue_id_on_split
-    # The router must propagate `source_issue_id` and split_context from a
-    # plan-report with next_task: "create-issue" into the create-issue.md
-    # context, so create-issue.md knows which issue to close after the
-    # sub-issues are created.
+    # The router must propagate `source_issue_id` from a `split-needed` report
+    # into the create-issue.md context, so create-issue.md knows which issue
+    # to close after the sub-issues are created.
     report = {
-      'type'            => 'plan-report',
-      'next_task'       => 'create-issue',
+      'type'            => 'split-needed',
+      'issue_id'        => 'ENG-1987',
       'source_issue_id' => 'ENG-1987',
-      'split_context'   => true,
-      'return_to'       => 'triage',
       'issues'          => [{ 'title' => 'sub' }]
     }
     action = Router.route(report)
@@ -453,7 +441,7 @@ end
 
 # Mirrored from orchestrator/task_runner.rb — keep in sync.
 KNOWN_REPORT_TYPES = %w[
-  triage-report plan-report task-complete test-report
+  triage-report task-complete split-needed test-report
   demo-review-pending demo-review-report discovery-complete
   create-issue-complete
   task-failed blocked
@@ -605,21 +593,21 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
   # so that the rendered prompt picks up dispatch-time type bugs.
   ROUTER_FIXTURES = [
     { 'type' => 'triage-report',
+      'next_issue' => nil },
+    { 'type' => 'triage-report', 'next_task' => 'discovery',
       'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' } },
-    { 'type' => 'plan-report', 'next_task' => 'discovery',
-      'issue_id' => 'ENG-1' },
-    { 'type' => 'plan-report', 'next_task' => 'code',
-      'issue_id' => 'ENG-1', 'branch' => 'b', 'plan' => 'p' },
-    { 'type' => 'plan-report', 'next_task' => 'test',
-      'issue_id' => 'ENG-1', 'pr_url' => 'u' },
-    { 'type' => 'plan-report', 'next_task' => 'demo-review',
-      'issue_id' => 'ENG-1', 'pr_url' => 'u' },
-    { 'type' => 'plan-report', 'next_task' => 'create-issue',
-      'issue_id' => 'ENG-1', 'source_issue_id' => 'ENG-1',
-      'split_context' => true, 'return_to' => 'triage',
+    { 'type' => 'triage-report', 'next_task' => 'code',
+      'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
+      'branch' => 'b', 'issue_title' => 't', 'issue_description' => 'd' },
+    { 'type' => 'triage-report', 'next_task' => 'test',
+      'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
+      'pr_url' => 'u', 'issue_title' => 't', 'issue_description' => 'd' },
+    { 'type' => 'triage-report', 'next_task' => 'demo-review',
+      'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
+      'pr_url' => 'u', 'issue_title' => 't', 'issue_description' => 'd' },
+    { 'type' => 'split-needed', 'issue_id' => 'ENG-1',
+      'source_issue_id' => 'ENG-1',
       'issues' => [{ 'title' => 't' }] },
-    { 'type' => 'plan-report', 'next_task' => 'triage',
-      'issue_id' => 'ENG-1' },
     { 'type' => 'task-complete',
       'issue_id' => 'ENG-1', 'pr_url' => 'u' },
     { 'type' => 'task-complete',
@@ -633,8 +621,6 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
       'findings' => [{ 'description' => 'd', 'severity' => 'critical' }] },
     { 'type' => 'create-issue-complete', 'return_to' => 'test',
       'source_issue_id' => 'ENG-1', 'pr_url' => 'u' },
-    { 'type' => 'create-issue-complete', 'return_to' => 'plan',
-      'source_issue_id' => 'ENG-1' },
     { 'type' => 'create-issue-complete', 'return_to' => 'triage',
       'source_issue_id' => 'ENG-1' },
     { 'type' => 'demo-review-report', 'outcome' => 'approved',

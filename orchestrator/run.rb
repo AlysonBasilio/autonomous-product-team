@@ -261,9 +261,11 @@ def run_project_loop(project_id, port:, interactive:)
     })
     State.clear_current_task(project_id)
 
-    if report['type'] == 'plan-report' && report['issue_title']
+    if report['type'] == 'triage-report' && report['issue_title']
+      next_issue = report['next_issue']
+      issue_id = next_issue.is_a?(Hash) ? next_issue['id'] : next_issue
       State.patch(project_id,
-        'current_issue_id'          => report['issue_id'],
+        'current_issue_id'          => issue_id,
         'current_issue_title'       => report['issue_title'],
         'current_issue_description' => report['issue_description'])
     end

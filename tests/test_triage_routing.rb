@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 #
-# LLM-as-judge evals for the Assess and Plan task — Phase 0 routing.
+# LLM-as-judge evals for the Issue Triage task — Phase 2 (state assessment
+# and routing).
 #
-# Covers every row in the routing decision table in tasks/plan.md.
-# The scenarios exercise Phase 0 (state assessment) only; for rows that require
-# Phase 1 (planning), the rubric checks that the routing decision is correct
-# and accepts a placeholder plan.
+# Covers every row in the routing decision table in tasks/issue-triage.md.
+# Each scenario short-circuits Phase 1 by stating in the mock_context that the
+# issue has already been picked as the highest-ranked Ready candidate; the
+# rubric checks that Phase 2 produces the correct next_task and surrounding
+# fields.
 #
 # Requires OPENROUTER_API_KEY.
 
@@ -13,31 +15,30 @@ require 'minitest/autorun'
 require_relative 'eval_helper'
 require_relative 'judge'
 
-class PlanRoutingScenarioTest < Minitest::Test
-  TASK_FILE = 'tasks/plan.md'
+class TriageRoutingScenarioTest < Minitest::Test
+  TASK_FILE = 'tasks/issue-triage.md'
   TASK_MODEL = EvalHelper.parse_frontmatter_model(TASK_FILE)
 
   EVAL_PROMPT = <<~PROMPT
-    You are a teammate executing the Assess and Plan task. Read the task definition carefully.
+    You are a teammate executing the Issue Triage task. Read the task definition carefully.
 
     ## Task Definition
     %<task_content>s
 
     ## Simulated Environment
 
-    The following data represents what you would receive from calling the PM system and git tools. Treat this as the actual result of your tool calls — do not request additional information.
+    Assume Phase 1 has already run: the listed issue is the highest-ranked Ready candidate. The following data represents what you would receive from calling the PM system and git tools during Phase 2. Treat this as the actual result of your tool calls — do not request additional information.
 
     %<mock_context>s
 
     ## Instructions
 
-    Determine the correct routing by working through Phase 0 of the task definition. When your routing decision is `code`:
+    Determine the correct routing by working through Phase 2 of the task definition.
 
-    - Write the `plan` field directly from the issue's acceptance criteria in the Simulated Environment — do not attempt to read codebase files.
-    - Skip Phase 1 steps that require real tools (marking the issue In Progress, reading files). Use only the information already in the Simulated Environment.
-    - Extract `issue_title` and `issue_description` from the Simulated Environment.
-    - Populate `findings` only when there is a specific reason (test failure findings, demo-review redirect feedback, staleness, or unresolved review thread bodies). Omit `findings` entirely for a fresh start with no prior history.
-    - Do NOT emit generic boilerplate like "implement per spec" — plan.md forbids it.
+    - Skip Phase 2 steps that require real tools (marking the issue In Progress). Use only the information already in the Simulated Environment.
+    - Extract `issue_title` and `issue_description` from the Simulated Environment when the route is `code`, `test`, or `demo-review`.
+    - Populate `findings` only when there is a specific reason (test-failure findings, demo-review redirect feedback, staleness, merge conflicts, CI failure context, or unresolved review thread bodies). Omit `findings` entirely for a fresh start with no prior history.
+    - `considered`, `exclusion_checked`, and `dependencies_checked` may be set to minimal placeholder arrays for the picked issue — these are validated separately in test_triage.rb.
 
     Output ONLY a single fenced ```json code block — no prose, analysis, or explanation before or after it.
   PROMPT
@@ -59,9 +60,9 @@ class PlanRoutingScenarioTest < Minitest::Test
         Git state: branch feature/PROJ-100-user-profile exists. PR #42: MERGED.
       CTX
       rubric: [
-        "report type is 'plan-report'",
-        "next_task is 'triage' (the issue is Done — kick back to the loop)",
-        'report does NOT route to test, demo-review, or any implement task',
+        "report type is 'triage-report'",
+        "the report indicates no actionable work for this issue: either next_issue is null OR next_task is omitted/absent (the issue is Done and the agent should mark it Done then advance)",
+        'report does NOT route this issue to test, demo-review, or code',
       ],
     },
     {
@@ -82,7 +83,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         Git state: branch feature/PROJ-101-dark-mode exists. PR #55: OPEN. CI: green.
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'code'",
         'findings includes the user_feedback from the demo-review-complete comment',
         'does NOT route to test or demo-review',
@@ -103,7 +104,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         Git state: branch feature/PROJ-102-csv-export exists. PR #60: OPEN. CI: green.
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'test'",
         'does NOT route to implement or demo-review',
       ],
@@ -126,7 +127,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         Git state: branch feature/PROJ-103-password-reset exists. PR #71: OPEN. CI: green.
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'demo-review'",
         'does NOT route to implement or test',
       ],
@@ -149,7 +150,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         Git state: branch feature/PROJ-104-search-autocomplete exists. PR #80: OPEN. CI: green.
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'code'",
         'report notes the stale condition (issue was updated after the test passed)',
         'does NOT route to demo-review',
@@ -173,7 +174,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         Git state: branch feature/PROJ-105-2fa exists. PR #85: OPEN. CI: green.
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'code'",
         'the findings field mentions BOTH test failures: the SMS country code issue AND the rate limiting issue (any format — string, list, or structured — is acceptable as long as both are present)',
         'does NOT route to test or demo-review',
@@ -194,7 +195,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         Git state: branch feature/PROJ-106-invoice-download exists. PR #90: OPEN. CI: all checks green.
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'test'",
         'does NOT route to implement or demo-review',
       ],
@@ -215,7 +216,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         CI: FAILING — 3 test failures in webhook_retry_test.go (TestRetryExponentialBackoff, TestRetryMaxAttempts, TestRetryDeadLetter)
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'code'",
         'findings field includes context about the CI failure (e.g. names of failing tests or a description of what is broken)',
       ],
@@ -240,7 +241,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         - No open PR for this issue found via: gh pr list --search "PROJ-108" --state open (0 results)
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'code'",
         'branch field references the existing branch feature/PROJ-108-oauth-login (reuses it, does not create a new one)',
       ],
@@ -263,7 +264,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         2. "Missing test for empty dataset case."
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'code'",
         'findings includes the unresolved review thread bodies (file handle leak and/or missing test)',
         'does NOT route to test or demo-review',
@@ -289,7 +290,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         1. "The reset token expiry is hardcoded to 1 hour — should be configurable via env var."
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'code'",
         'findings includes the unresolved review thread body about the hardcoded expiry',
         'does NOT route to demo-review',
@@ -313,7 +314,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         2. "No access control check — any authenticated user can download any invoice by ID."
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'code'",
         'findings includes the unresolved review thread bodies (background job and/or access control)',
         'does NOT route to test or demo-review',
@@ -335,7 +336,7 @@ class PlanRoutingScenarioTest < Minitest::Test
         PR mergeability check: mergeable=CONFLICTING, mergeStateStatus=DIRTY — the branch has merge conflicts with main.
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'code'",
         'findings field mentions merge conflicts or the need to rebase',
         'does NOT route to test or demo-review while conflicts exist',
@@ -362,43 +363,15 @@ class PlanRoutingScenarioTest < Minitest::Test
         Git state: PR #42: MERGED. PR #50: OPEN. CI for PR #50: all checks green. No unresolved review threads on PR #50.
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'test' or 'demo-review' (NOT 'nothing to do' or absent/null)",
         'the report references PR #50 (https://github.com/org/repo/pull/50) — the still-open PR',
         'does NOT declare the issue Done or report that there is nothing to do',
       ],
     },
     {
-      name: 'large_issue_triggers_split_via_create_issue',
-      description: 'Large multi-layer issue → plan-report with next_task: create-issue and split_context: true',
-      mock_context: <<~CTX.chomp,
-        Issue: PROJ-200 "Build full notification system"
-        Status: Todo
-        Last updated: 2026-04-20 09:00 UTC
-        Acceptance criteria:
-          1. Define notification types (email, SMS, push, in-app) and user preferences schema
-          2. Build notification service backend with delivery queue
-          3. Create REST API endpoints for managing notification preferences
-          4. Build frontend notification preferences UI with toggle controls
-          5. Build frontend notification inbox / bell icon
-          6. Add admin dashboard panel for monitoring notification delivery rates
-
-        PM issue comments: NONE
-
-        Git state: No branch, no PR.
-      CTX
-      rubric: [
-        "report type is 'plan-report'",
-        "next_task is 'create-issue'",
-        "split_context is true",
-        "the 'issues' field is a list with at least 2 sub-issues",
-        "at least one sub-issue has a 'depends_on' field referencing another sub-issue",
-        "does NOT set next_task to 'code' or produce an implementation checklist",
-      ],
-    },
-    {
-      name: 'small_issue_no_split',
-      description: 'Small focused issue → normal plan-report with next_task: code',
+      name: 'small_issue_routes_to_code',
+      description: 'Small focused issue → triage-report with next_task: code (splitting is the code task’s job, not triage)',
       mock_context: <<~CTX.chomp,
         Issue: PROJ-201 "Add 'forgot password' link to login page"
         Status: Todo
@@ -412,9 +385,9 @@ class PlanRoutingScenarioTest < Minitest::Test
         Git state: No branch, no PR.
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'code'",
-        'does NOT split this issue — it is small and focused (next_task is not create-issue and split_context is not true)',
+        'does NOT set next_task to create-issue (triage no longer makes split decisions — code does)',
       ],
     },
     {
@@ -434,16 +407,15 @@ class PlanRoutingScenarioTest < Minitest::Test
         - No open PR found via: gh pr list --search "PROJ-109" --state open (0 results)
       CTX
       rubric: [
-        "report type is 'plan-report'",
+        "report type is 'triage-report'",
         "next_task is 'code'",
-        'plan field is present in the report (any content is acceptable — this eval focuses on routing, not plan quality)',
         "branch field is non-empty and contains a branch name that includes the issue ID (case-insensitive: 'PROJ-109' or 'proj-109')",
       ],
     },
   ].freeze
 
   SCENARIOS.each do |scenario|
-    define_method("test_plan_routing_#{scenario[:name]}") do
+    define_method("test_triage_routing_#{scenario[:name]}") do
       skip 'OPENROUTER_API_KEY not set — skipping LLM eval' unless EvalHelper.openrouter_available?
 
       task_content = EvalHelper.load_task(TASK_FILE)
