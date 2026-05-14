@@ -108,6 +108,8 @@ Read the relevant source files to understand existing patterns, conventions, and
 
 Then write an ordered checklist of concrete, issue-specific steps. Each step must map directly to a requirement or acceptance criterion. The spec-update step must enumerate every spec file by path — if the list is long, group by change needed rather than omitting files.
 
+**Do not include steps that run tests, linters, type checks, or builds locally** — CI handles all of those on push. End the plan at "commit and push".
+
 ---
 
 ## Report
