@@ -256,9 +256,9 @@ class TestTemplateOnRealTasks < Minitest::Test
     samples = {
       'issue-triage.md'      => {},
       'discovery.md'         => { issue_id: 'ENG-1' },
-      'code.md'              => { issue_id: 'ENG-1', issue_title: 't', issue_description: 'd' },
-      'test.md'              => { issue_id: 'ENG-1', pr_url: 'u', issue_title: 't', issue_description: 'd' },
-      'demo-review.md'       => { issue_id: 'ENG-1', issue_title: 't', pr_url: 'u' },
+      'code.md'              => { issue_id: 'ENG-1' },
+      'test.md'              => { issue_id: 'ENG-1', pr_url: 'u' },
+      'demo-review.md'       => { issue_id: 'ENG-1', pr_url: 'u' },
       'create-issue.md'      => { issues: [{ 'title' => 't' }] }
     }
     samples.each do |fname, ctx|

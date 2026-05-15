@@ -2,7 +2,7 @@
 model: anthropic/claude-opus-4.7
 timeout_s: 5400
 inputs:
-  required: [issue_id, issue_title, issue_description]
+  required: [issue_id]
   optional: [branch, pr_url, findings, user_feedback]
 ---
 
@@ -29,9 +29,7 @@ A PR is already open at `{{ . }}`. Push to the same branch — do not open a sec
 {{/user_feedback}}
 ## Issue context
 
-**{{ issue_title }}**
-
-{{ issue_description }}
+Fetch issue `{{ issue_id }}` from the product development management system. Read its title, description, and acceptance criteria. The issue may have been edited since this task was dispatched — always read fresh. The Phase 0 scope check and Phase 1 implementation both depend on the title and description.
 
 ## Phase 0 — Scope check
 

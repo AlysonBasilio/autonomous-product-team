@@ -36,7 +36,6 @@ class TriageRoutingScenarioTest < Minitest::Test
     Determine the correct routing by working through Phase 2 of the task definition.
 
     - Skip Phase 2 steps that require real tools (marking the issue In Progress). Use only the information already in the Simulated Environment.
-    - Extract `issue_title` and `issue_description` from the Simulated Environment when the route is `code`, `test`, or `demo-review`.
     - Populate `findings` only when there is a specific reason (test-failure findings, demo-review redirect feedback, staleness, merge conflicts, CI failure context, or unresolved review thread bodies). Omit `findings` entirely for a fresh start with no prior history.
     - `considered`, `exclusion_checked`, and `dependencies_checked` may be set to minimal placeholder arrays for the picked issue — these are validated separately in test_triage.rb.
 

@@ -1,7 +1,7 @@
 ---
 model: openai/gpt-5.4-nano
 inputs:
-  required: [issue_id, issue_title, pr_url]
+  required: [issue_id, pr_url]
   optional: []
 ---
 
@@ -11,9 +11,11 @@ Customer touchpoint for PR **{{ pr_url }}** (issue **{{ issue_id }}** in `{{ pro
 
 ## Workflow
 
-### 1. Fetch PR
+### 1. Fetch PR and issue
 
 Fetch the PR title/body — you'll need them to write the `summary` field in step 4.
+
+Fetch issue `{{ issue_id }}` from the product development management system and read its current title — you must echo it as `issue_title` in the `demo-review-pending` report (step 4) so the orchestrator's approval UI can display it. Fetch fresh: the title may have changed since this task was dispatched.
 
 ### 2. Check for blocking feedback
 
@@ -61,7 +63,7 @@ Then output ONLY this fenced ```json block and exit — the orchestrator handles
 {
   "type": "demo-review-pending",
   "issue_id": "{{ issue_id }}",
-  "issue_title": "{{ issue_title }}",
+  "issue_title": "<the issue title you fetched in step 1>",
   "pr_url": "{{ pr_url }}",
   "summary": "<one sentence: what was built>"
 }

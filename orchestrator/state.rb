@@ -15,12 +15,9 @@ module State
       'local_path'  => local_path,
       'created_at'  => Time.now.utc.iso8601,
       'status'      => 'running',
-      'currentTask'               => nil,
-      'escalation'               => nil,
-      'current_issue_id'          => nil,
-      'current_issue_title'       => nil,
-      'current_issue_description' => nil,
-      'history'                   => []
+      'currentTask' => nil,
+      'escalation'  => nil,
+      'history'     => []
     }
   end
 

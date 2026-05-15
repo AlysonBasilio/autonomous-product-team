@@ -175,8 +175,6 @@ Your entire output must be exactly one fenced ` ```json ` code block — no pros
   "next_task": "code",
   "branch": "<branch name>",
   "pr_url": "<PR URL>",
-  "issue_title": "<issue title>",
-  "issue_description": "<full issue description / acceptance criteria>",
   "findings": "<context for the implementer — test findings, user_feedback, merge-conflict details, review-thread bodies>",
   "considered": ["<id>", "<id>", "..."],
   "exclusion_checked": ["<id>:<state>", "..."],
@@ -186,10 +184,9 @@ Your entire output must be exactly one fenced ` ```json ` code block — no pros
 
 Field rules:
 
-- `next_issue` is the Ready candidate you picked in Phase 1 and assessed in Phase 2. Set to `null` when no Ready candidate exists (or when every candidate's assessment said "advance"). When `next_issue` is `null`, omit `next_task`, `branch`, `pr_url`, `issue_title`, `issue_description`, and `findings`.
+- `next_issue` is the Ready candidate you picked in Phase 1 and assessed in Phase 2. Set to `null` when no Ready candidate exists (or when every candidate's assessment said "advance"). When `next_issue` is `null`, omit `next_task`, `branch`, `pr_url`, and `findings`.
 - `next_task` must be one of `"code"`, `"test"`, `"demo-review"`, or `"discovery"`. There is no `"plan"` or `"create-issue"` value — scope splitting is handled inside the code task.
 - `branch` applies only when `next_task` is `"code"`.
-- `issue_title` and `issue_description` apply when `next_task` is `"code"`, `"test"`, or `"demo-review"`. They let downstream tasks skip a redundant fetch.
 - `findings` applies only when `next_task` is `"code"` and there is a specific reason (see Phase 2 step 4).
 - Fields that do not apply must be omitted entirely (no `null`, no empty strings).
 

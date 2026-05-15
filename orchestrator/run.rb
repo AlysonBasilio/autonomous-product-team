@@ -20,7 +20,8 @@ require_relative 'server'
 
 # ── Start web server ──────────────────────────────────────────────────────────
 
-port = (ENV['ORCHESTRATOR_PORT'] || 4242).to_i
+port = (ENV['PORT'] || ENV['ORCHESTRATOR_PORT'] || 4242).to_i
+bind = ENV.fetch('ORCHESTRATOR_BIND', '127.0.0.1')
 interactive = ENV['ORCHESTRATOR_INTERACTIVE'] == '1'
 
 puts "Interactive mode: orchestrator will pause for approval before each action." if interactive
@@ -45,7 +46,7 @@ def describe_action(action)
 end
 
 Thread.new do
-  OrchestratorServer.run!(port: port, bind: '127.0.0.1', quiet: true)
+  OrchestratorServer.run!(port: port, bind: bind, quiet: true)
 end
 
 puts "Orchestrator UI: http://localhost:#{port}"
@@ -261,15 +262,6 @@ def run_project_loop(project_id, port:, interactive:)
     })
     State.clear_current_task(project_id)
 
-    if report['type'] == 'triage-report' && report['issue_title']
-      next_issue = report['next_issue']
-      issue_id = next_issue.is_a?(Hash) ? next_issue['id'] : next_issue
-      State.patch(project_id,
-        'current_issue_id'          => issue_id,
-        'current_issue_title'       => report['issue_title'],
-        'current_issue_description' => report['issue_description'])
-    end
-
     action = Router.route(report, state)
 
     if interactive && action[:type] != 'noop'
@@ -286,13 +278,6 @@ def run_project_loop(project_id, port:, interactive:)
     case action[:type]
     when 'run-task'
       ctx = action[:context] || {}
-      dispatch_state = State.load(project_id) || {}
-      if ctx[:issue_id] && ctx[:issue_id] == dispatch_state['current_issue_id']
-        ctx = {
-          'issue_title'       => dispatch_state['current_issue_title'],
-          'issue_description' => dispatch_state['current_issue_description']
-        }.compact.merge(ctx)
-      end
       new_report     = dispatch_task(project, cfg, action[:task], ctx, control: control)
       pending_report = new_report
 

@@ -2,7 +2,7 @@
 model: openai/gpt-5.5
 timeout_s: 3600
 inputs:
-  required: [issue_id, pr_url, issue_title, issue_description]
+  required: [issue_id, pr_url]
   optional: []
 ---
 
@@ -14,11 +14,7 @@ Adversarial QA on PR **{{ pr_url }}** for issue **{{ issue_id }}** in the projec
 
 ### 1. Review the issue
 
-**{{ issue_title }}**
-
-{{ issue_description }}
-
-The acceptance criteria above define what you are testing for. Test blind as a user would.
+Fetch issue `{{ issue_id }}` from the product development management system. Read its title, description, and acceptance criteria — fresh, not from any task input, since the issue may have been edited since dispatch. The acceptance criteria define what you are testing for. Test blind as a user would.
 
 ### 2. Check out the branch
 

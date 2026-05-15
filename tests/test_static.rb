@@ -176,19 +176,16 @@ class TestInputOutputChain < Minitest::Test
     assert_includes load_file('tasks/code.md'), 'user_feedback'
   end
 
-  def test_triage_outputs_issue_title_consumed_by_code
-    assert_includes load_file('tasks/issue-triage.md'), 'issue_title'
-    assert_includes load_file('tasks/code.md'), 'issue_title'
+  def test_code_fetches_issue_from_pm_system
+    assert_includes load_file('tasks/code.md'), 'product development management system'
   end
 
-  def test_triage_outputs_issue_description_consumed_by_test
-    assert_includes load_file('tasks/issue-triage.md'), 'issue_description'
-    assert_includes load_file('tasks/test.md'), 'issue_description'
+  def test_test_fetches_issue_from_pm_system
+    assert_includes load_file('tasks/test.md'), 'product development management system'
   end
 
-  def test_code_echoes_issue_description_to_test
-    assert_includes load_file('tasks/code.md'), 'issue_description'
-    assert_includes load_file('tasks/test.md'), 'issue_description'
+  def test_demo_review_fetches_issue_from_pm_system
+    assert_includes load_file('tasks/demo-review.md'), 'product development management system'
   end
 end
 
@@ -580,14 +577,6 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
   # dispatch bugs at static-test time — if a future change adds a required
   # input but the router still calls the task without it, this fails.
 
-  # Fields the orchestrator injects from state at dispatch time (run.rb).
-  # These are not part of router context but are always present at runtime
-  # when the issue_id matches the cached current_issue_id.
-  ORCHESTRATOR_INJECTED = {
-    'issue_title'       => 'Static test issue title',
-    'issue_description' => 'Static test issue description'
-  }.freeze
-
   # Sample reports exercising each branch in Router.route. Use the same field
   # shapes the producer tasks actually emit — in particular triage-report's
   # `next_issue` is a `{id, title, summary}` object, not a bare ID string —
@@ -599,13 +588,13 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
       'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' } },
     { 'type' => 'triage-report', 'next_task' => 'code',
       'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
-      'branch' => 'b', 'issue_title' => 't', 'issue_description' => 'd' },
+      'branch' => 'b' },
     { 'type' => 'triage-report', 'next_task' => 'test',
       'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
-      'pr_url' => 'u', 'issue_title' => 't', 'issue_description' => 'd' },
+      'pr_url' => 'u' },
     { 'type' => 'triage-report', 'next_task' => 'demo-review',
       'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
-      'pr_url' => 'u', 'issue_title' => 't', 'issue_description' => 'd' },
+      'pr_url' => 'u' },
     { 'type' => 'split-needed', 'issue_id' => 'ENG-1',
       'source_issue_id' => 'ENG-1',
       'issues' => [{ 'title' => 't' }] },
@@ -646,7 +635,7 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
       each_dispatched_task(action) do |task, context|
         path = File.join(REPO_ROOT, 'tasks', task)
         spec = Template.parse(path)
-        ctx_keys = (context.keys.map(&:to_s) + ORCHESTRATOR_INJECTED.keys).uniq
+        ctx_keys = context.keys.map(&:to_s)
         missing = spec.required - ctx_keys
         assert missing.empty?,
                "Router.route(#{report['type']}, outcome=#{report['outcome'].inspect}) " \
@@ -665,8 +654,7 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
       action = Router.route(report)
       each_dispatched_task(action) do |task, context|
         path = File.join(REPO_ROOT, 'tasks', task)
-        full_ctx = ORCHESTRATOR_INJECTED
-          .merge({ 'project_url' => 'https://example/p/x' })
+        full_ctx = { 'project_url' => 'https://example/p/x' }
           .merge(context.each_with_object({}) { |(k, v), h| h[k.to_s] = v })
         Template.render(path, full_ctx)
       rescue Template::Error => e
