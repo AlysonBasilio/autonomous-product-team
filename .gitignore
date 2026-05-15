@@ -6,3 +6,4 @@ tmp/
 data/
 .bundle/
 vendor/
+deploy/.env

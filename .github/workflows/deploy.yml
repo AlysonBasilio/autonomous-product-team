@@ -1,0 +1,46 @@
+name: Deploy to Oracle Cloud
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or ref to deploy"
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve target ref
+        id: ref
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "value=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Pin VM host key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          REF: ${{ steps.ref.outputs.value }}
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} bash -s <<EOF
+          set -euo pipefail
+          cd /opt/orchestrator/repo
+          git fetch --tags --prune
+          git checkout "$REF"
+          sudo systemctl restart orchestrator
+          EOF

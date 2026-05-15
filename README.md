@@ -36,9 +36,14 @@ Stop with Ctrl-C; restart with `./bin/start`. State is persisted under `data/` a
 |---|---|
 | `SYNTHUP_TENANT` | Override the tenant from `data/config.json`. When set, the UI hides the field. |
 | `SYNTHUP_API_KEY` | Override the api key from `data/config.json`. When set, the UI hides the field. |
-| `ORCHESTRATOR_PORT` | Web UI port (default `4242`). |
+| `PORT` / `ORCHESTRATOR_PORT` | Web UI port (default `4242`). `PORT` wins if both are set. |
+| `ORCHESTRATOR_BIND` | Bind address (default `127.0.0.1`; set to `0.0.0.0` to expose). |
+| `ORCHESTRATOR_USERNAME` | HTTP Basic Auth username (default `admin`). Only used if `ORCHESTRATOR_PASSWORD` is set. |
+| `ORCHESTRATOR_PASSWORD` | HTTP Basic Auth password. Enables auth when non-empty; unset disables auth (local dev). |
 | `ORCHESTRATOR_INTERACTIVE` | Set to `1` to pause for approval before every routed action. |
 | `ORCHESTRATOR_DATA_DIR` | Override the data root (default `data/` next to the repo). |
+
+For cloud deployment (Oracle Cloud Always Free + Cloudflare Quick Tunnel), see [docs/deploy-oracle-cloud.md](docs/deploy-oracle-cloud.md).
 
 ### Data layout
 

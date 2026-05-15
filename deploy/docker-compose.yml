@@ -1,0 +1,23 @@
+services:
+  orchestrator:
+    build: ..
+    restart: unless-stopped
+    expose:
+      - "4242"
+    environment:
+      PORT: "4242"
+      ORCHESTRATOR_BIND: "0.0.0.0"
+      ORCHESTRATOR_DATA_DIR: "/data"
+      SYNTHUP_TENANT: "${SYNTHUP_TENANT}"
+      SYNTHUP_API_KEY: "${SYNTHUP_API_KEY}"
+      ORCHESTRATOR_USERNAME: "${ORCHESTRATOR_USERNAME}"
+      ORCHESTRATOR_PASSWORD: "${ORCHESTRATOR_PASSWORD}"
+    volumes:
+      - /opt/orchestrator/data:/data
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://orchestrator:4242
+    depends_on:
+      - orchestrator

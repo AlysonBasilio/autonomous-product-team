@@ -9,6 +9,13 @@ class OrchestratorServer < Sinatra::Base
   set :server, :puma
   set :logging, false
 
+  if ENV['ORCHESTRATOR_PASSWORD'].to_s.strip != ''
+    use Rack::Auth::Basic, 'Orchestrator' do |u, p|
+      Rack::Utils.secure_compare(ENV.fetch('ORCHESTRATOR_USERNAME', 'admin'), u) &&
+        Rack::Utils.secure_compare(ENV['ORCHESTRATOR_PASSWORD'], p)
+    end
+  end
+
   # Per-project control flags. One struct per project_id; the orchestration
   # loop reads its own slot, so projects don't share pause/cancel/approval
   # state.

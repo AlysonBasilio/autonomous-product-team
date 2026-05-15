@@ -1,0 +1,9 @@
+.git
+data
+tmp
+tests
+.bundle
+vendor
+node_modules
+*.log
+.env*
