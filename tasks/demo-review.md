@@ -23,13 +23,15 @@ Fetch the PR title/body — you'll need them to write the `summary` field in ste
 gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRequest(number: <n>) { reviewThreads(first: 100) { nodes { isResolved comments(first: 1) { nodes { body } } } } } } }' | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)]'
 ```
 
-**2b. Regular PR comments** — use GraphQL (the REST endpoint omits minimization state):
+**2b. Regular PR comments** — use GraphQL (the REST endpoint omits minimization state). You MUST pipe through `jq` with the `isMinimized == false` filter so minimized comments are dropped before you read the output:
 
 ```bash
 gh api graphql -f query='{ repository(owner: "<owner>", name: "<repo>") { pullRequest(number: <n>) { comments(first: 100) { nodes { databaseId author { login } body createdAt isMinimized } } } } }' | jq '[.data.repository.pullRequest.comments.nodes[] | select(.isMinimized == false) | {id: .databaseId, user: .author.login, body, created_at: .createdAt}]'
 ```
 
-Treat any remaining comment requesting changes, raising concerns, or asking unaddressed questions as blocking.
+A minimized comment (`isMinimized: true`, e.g. `minimizedReason: "outdated"`) is by definition resolved. **Never treat a minimized comment as blocking, even if its body still describes failures or concerns.**
+
+Among the remaining (non-minimized) comments, treat any that request changes, raise concerns, or ask unaddressed questions as blocking.
 
 ### 3. If blocking: redirect
 
