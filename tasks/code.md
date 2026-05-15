@@ -65,7 +65,7 @@ Otherwise, continue to Phase 1.
 
 ## Phase 1 — Implementation
 
-### 0. Check out the branch
+### 0. Check out the branch (and rebase if necessary)
 Use `branch` from above (derive from `pr_url` if needed — see top of file). If neither was supplied, derive a branch name from the issue ID (convention: `<issue-id>-<short-description>`).
 
 If it does not yet exist on the remote:
@@ -74,7 +74,19 @@ git fetch origin main
 git checkout -b <branch> origin/main
 git push -u origin <branch>
 ```
-Otherwise: `git fetch origin && git checkout <branch>`.
+A branch freshly created from `origin/main` is already up to date — skip the rebase below.
+
+Otherwise: `git fetch origin && git checkout <branch>`. Then check whether the branch is behind `main`:
+```bash
+git rev-list --count <branch>..origin/main
+```
+If the count is `0`, skip the rebase — the branch is already current. If it is non-zero, rebase:
+```bash
+git rebase origin/main
+```
+Resolve any conflicts manually (`git add <file> && git rebase --continue`), then `git push --force-with-lease`. If conflicts cannot be resolved (the conflicting change is incompatible with the issue and the correct resolution is unclear), report `task-failed` — do not guess or push unresolved conflict markers.
+
+Do not rebase unnecessarily — a force-push on an unchanged branch retriggers CI for no reason.
 
 ### 1. Implement
 Write code to satisfy the issue requirements. Follow existing patterns. Do not add features beyond what the issue specifies. Add or update tests where the issue requires them.
@@ -92,7 +104,7 @@ If any check fails, inspect logs (`gh run view <run-id> --log-failed` or the PR'
 If a failure is unresolvable (infra failure outside your control, or a test requiring a credential CI doesn't have), report `task-failed` with the exact failing check name and a link to the failed run.
 
 ### 4. Code review
-Ensure the PR is reviewed (automated and/or human). For every unresolved review thread:
+Ensure the PR is reviewed. For every unresolved review thread:
 
 1. Decide: fix the code (push an update) or determine no change is needed.
 2. Post a reply on the thread stating what you did and why — even when you pushed a fix. The reply is the audit trail; a silently-resolved thread is not acceptable.
@@ -100,20 +112,12 @@ Ensure the PR is reviewed (automated and/or human). For every unresolved review 
 
 See the **GraphQL reference** below for the exact mutations and the final verification query. The verification query must return `0` before proceeding.
 
-### 5. Rebase from main and re-check CI
-```bash
-git fetch origin main && git rebase origin/main
-```
-Resolve any conflicts manually (`git add <file> && git rebase --continue`), then `git push --force-with-lease`. If conflicts cannot be resolved (the conflicting change is incompatible with the issue and the correct resolution is unclear), report `task-failed` — do not guess or push unresolved conflict markers.
-
-Pushing re-triggers CI: repeat §3 on the rebased branch. Do not merge a branch that has not been verified against the latest main.
-
-### 6. Identify follow-up issues
+### 5. Identify follow-up issues
 Review the diff for any TODO comments added during this implementation. For each, note the title (TODO text) and description (file path + brief context on what is deferred and why). Do not remove the TODOs — they will be tracked as separate issues.
 
-### 7. Report
+### 6. Report
 
-Once CI is green on the rebased branch and the unresolved-threads query returns `0`, emit the following object — first as a single fenced ```json block posted to the PM issue via the product development management system tool (this is the authoritative completion record; if re-running after findings, this comment supersedes any prior one), and then as your final response, again as a single fenced ```json block and nothing else:
+Once CI is green on the branch and the unresolved-threads query returns `0`, emit the following object — first as a single fenced ```json block posted to the PM issue via the product development management system tool (this is the authoritative completion record; if re-running after findings, this comment supersedes any prior one), and then as your final response, again as a single fenced ```json block and nothing else:
 
 ```json
 {
@@ -146,7 +150,7 @@ If implementation hits an unresolvable blocker, output only:
 ## Definition of Done
 
 - PR is open and references the issue ID
-- Branch is rebased on latest `main` and CI is green on the latest commit
+- CI is green on the latest commit
 - All review threads resolved (GraphQL check returns 0 unresolved)
 
 ---
