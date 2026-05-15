@@ -1,5 +1,5 @@
 ---
-model: google/gemini-3.1-flash-lite-preview
+model: anthropic/claude-haiku-4.5
 inputs:
   required: [issue_id, issue_title, pr_url]
   optional: []
