@@ -1,5 +1,5 @@
 ---
-model: anthropic/claude-haiku-4.5
+model: openai/gpt-5.4-nano
 inputs:
   required: [issue_id, issue_title, pr_url]
   optional: []

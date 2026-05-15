@@ -1,5 +1,5 @@
 ---
-model: openai/gpt-5.4
+model: openai/gpt-5.5
 timeout_s: 3600
 inputs:
   required: [issue_id, pr_url, issue_title, issue_description]

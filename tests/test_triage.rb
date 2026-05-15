@@ -432,7 +432,7 @@ class TriageScenarioTest < Minitest::Test
           model: TASK_MODEL,
           user: prompt,
           temperature: 0,
-          max_tokens: 512,
+          max_tokens: 2048,
         )
       end
       assert result.passed, result.failure_reasons.join("\n")

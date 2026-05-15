@@ -45,6 +45,6 @@ module EvalHelper
                   .with_temperature(temperature)
                   .with_params(max_tokens: max_tokens)
     chat.with_instructions(system) if system
-    chat.ask(user).content
+    chat.ask(user).content.to_s
   end
 end

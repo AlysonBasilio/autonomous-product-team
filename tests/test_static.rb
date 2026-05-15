@@ -22,6 +22,7 @@ VALID_MODELS = [
   'anthropic/claude-haiku-4.5',
   'openai/gpt-5.4',
   'openai/gpt-5.4-mini',
+  'openai/gpt-5.4-nano',
   'google/gemini-3.1-pro-preview',
   'google/gemini-3.1-flash-lite-preview',
   'deepseek/deepseek-v4-pro',

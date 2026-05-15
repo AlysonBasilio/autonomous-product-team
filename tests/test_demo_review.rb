@@ -73,11 +73,15 @@ class DemoReviewScenarioTest < Minitest::Test
         PR title: "Add webhook retry logic"
         PR description: "Implements retry with exponential backoff, max 5 attempts."
 
-        Unresolved review threads:
-          1. "The backoff multiplier is hardcoded — should be configurable."
-          2. "Missing test for max retry exceeded case."
+        Unresolved review threads (output of `gh api graphql --jq` from step 2a):
+          - url: https://github.com/org/repo/pull/70#discussion_r1001
+            author: alice
+            body: "The backoff multiplier is hardcoded — should be configurable."
+          - url: https://github.com/org/repo/pull/70#discussion_r1002
+            author: bob
+            body: "Missing test for max retry exceeded case."
 
-        Regular PR comments: [] (none)
+        Regular PR comments (output of `gh api graphql --jq` from step 2b): [] (none)
       CTX
       rubric: [
         "outcome is 'redirect' (unresolved threads block presentation)",
@@ -102,10 +106,13 @@ class DemoReviewScenarioTest < Minitest::Test
         PR title: "Add API rate limiting"
         PR description: "Implements per-key rate limiting at 100 req/min with 429 responses."
 
-        Unresolved review threads: [] (none)
-        Regular PR comments:
-          - reviewer: "Have you considered using Redis for the rate limit counters?
-                       The current in-memory approach will break in multi-process deployments."
+        Unresolved review threads (output of `gh api graphql --jq` from step 2a): [] (none)
+        Regular PR comments (output of `gh api graphql --jq` from step 2b):
+          - url: https://github.com/org/repo/pull/80#issuecomment-2001
+            user: reviewer
+            body: "Have you considered using Redis for the rate limit counters?
+                   The current in-memory approach will break in multi-process deployments."
+            created_at: 2026-05-01T10:00:00Z
       CTX
       rubric: [
         "outcome is 'redirect' (unaddressed comment blocks presentation)",

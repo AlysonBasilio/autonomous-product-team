@@ -1,5 +1,5 @@
 ---
-model: anthropic/claude-opus-4.7
+model: openai/gpt-5.5
 timeout_s: 1500
 inputs:
   required: []

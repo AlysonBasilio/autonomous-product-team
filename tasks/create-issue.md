@@ -1,5 +1,5 @@
 ---
-model: openai/gpt-5.4-mini
+model: openai/gpt-5.4-nano
 timeout_s: 900
 inputs:
   required: [issues]
