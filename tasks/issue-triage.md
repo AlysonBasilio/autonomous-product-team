@@ -46,6 +46,17 @@ This rule applies only to the issue being evaluated, not to its dependencies. A 
 ### 1. Fetch all issues
 Query the product development management system for every issue in the project that is not Done. Fetch issues with basic fields first (id, title, status, priority). Then check each issue's dependencies individually with a separate lookup per issue — do not attempt to fetch all issues and all their relations in a single query. Drop Excluded issues from the run per the Definition of Excluded above.
 
+**Critical: fetch issues by iterating over every priority value, not in a single call.** Linear's `list_issues` MCP treats every parameter you pass as a real filter — including `priority: 0`, which filters for issues with **No priority** rather than meaning "no filter." If your tool-call shape always emits `priority`, a single listing call will silently return only one slice of the project's issues. To make the fetch robust regardless of which parameters get populated, **call `list_issues` five times, once per priority value (0, 1, 2, 3, 4)**, and concatenate the results into a single deduplicated set. Use these arguments for each call:
+
+- `project: <canonical project UUID>` (resolved from `get_project` first if needed)
+- `priority: <0 | 1 | 2 | 3 | 4>` — one call per value
+- `limit: 250`
+- `includeArchived: false`
+
+After all five calls, deduplicate by issue `id`. The union is your full set of project issues. Then drop everything whose status is `Done` (per Definition of Excluded). This iterated-fetch is the **only** supported shape — do not skip priority values and do not consolidate into a single call. If the deduplicated union still looks suspiciously small (e.g. zero non-Done issues), apply the zero-result retries below.
+
+You may pass other filter parameters (e.g. `state`, `team`) as additional constraints if you want, but the priority sweep is mandatory to ensure every issue is seen.
+
 **A zero-result listing is suspicious, not authoritative.** Projects worth triaging almost always have open issues; an empty list usually means the filter shape was wrong (e.g. passing a project URL slug where a UUID was required, or scoping to the wrong team). If your initial listing returns 0 issues, do not conclude the project is empty. Instead, perform both of the following retries before reporting anything:
 
 - **Retry A — resolve the project identifier explicitly.** Look up the project by URL or slug to obtain its canonical ID, then re-run the listing with that ID. If this retry returns ≥1 non-Done issue, proceed to step 2 with those issues.
@@ -97,7 +108,7 @@ Read all comments on the issue. Collect the most recent comment of each of these
 ### 3. Check git/PR state
 - Check for an existing local branch: `git branch --list "*<issue-id>*"`.
 - Check for an open PR on the remote: `gh pr list --search "<issue-id>" --state open`.
-- For each associated PR in the multi-PR set (from Step 2), check its state: `gh pr view <pr_url> --json state`. All associated PRs must be merged or closed for the issue to be fully complete.
+- For each associated PR in the multi-PR set (from Step 2), check its state: `gh pr view <pr_url> --json state`. Only `MERGED` counts as "PR is done." A `CLOSED` (not merged) PR is rejected/abandoned work — treat it as **no open PR** and re-route to `code`; do not treat it as completion.
 - **If a PR is open**, also collect:
   - CI status: `gh pr checks <pr_url>`
   - Merge conflicts: `gh pr view <pr_url> --json mergeable,mergeStateStatus` — flag if `mergeable` is `CONFLICTING` or `mergeStateStatus` is `DIRTY`
@@ -116,8 +127,9 @@ Otherwise, use the most recent comment of each type from Step 2, combined with g
 
 | PM issue comment history | Git/PR state | Action |
 |---|---|---|
-| `demo-review-complete outcome: approved` | All associated PRs merged or closed | **Mark issue Done** in the PM system, then go back to Phase 1 step 4 and pick the next-highest Ready candidate to assess. If no other candidates remain, emit `next_issue: null`. |
+| `demo-review-complete outcome: approved` | All associated PRs **merged** | **Mark issue Done** in the PM system, then go back to Phase 1 step 4 and pick the next-highest Ready candidate to assess. If no other candidates remain, emit `next_issue: null`. |
 | `demo-review-complete outcome: approved` for most-recent reviewed PR | That PR is now merged, but other associated PRs still open | `next_task: "test"` or `"demo-review"` — route to the next open PR (check its CI/review state to decide); include the open PR's `pr_url` |
+| any | All associated PRs are `CLOSED` (none merged, none open) | `next_task: "code"` — PRs were rejected/abandoned; restart from a fresh branch. Pass any prior demo-review `user_feedback` or test `findings` as `findings` if available. |
 | `demo-review-complete outcome: approved` | PR reviewed is still open (user has not merged yet) | Nothing to do — awaiting user merge. **Advance**: go back to Phase 1 step 4 and pick the next-highest Ready candidate. If no other candidates remain, emit `next_issue: null`. |
 | `demo-review-complete outcome: redirect`, no newer `task-complete` | any | `next_task: "code"` — user redirected; pass `user_feedback` as `findings` |
 | `demo-review-complete outcome: redirect`, newer `task-complete` exists | PR open, CI green | `next_task: "test"` — implementation was updated after redirect |
