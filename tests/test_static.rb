@@ -25,6 +25,7 @@ VALID_MODELS = [
   'openai/gpt-5.4-nano',
   'google/gemini-3.1-pro-preview',
   'google/gemini-3.1-flash-lite-preview',
+  'google/gemini-3.5-flash',
   'deepseek/deepseek-v4-pro',
 ].freeze
 

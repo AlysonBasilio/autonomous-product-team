@@ -1,5 +1,5 @@
 ---
-model: anthropic/claude-opus-4.7
+model: google/gemini-3.5-flash
 timeout_s: 5400
 inputs:
   required: [issue_id]
