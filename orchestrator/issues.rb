@@ -84,6 +84,14 @@ module Issues
     end
   end
 
+  def self.set_current_task(external_id, task_hash, source: 'linear')
+    Issue.find_by(source: source, external_id: external_id)&.update!(current_task: task_hash)
+  end
+
+  def self.clear_current_task(external_id, source: 'linear')
+    Issue.find_by(source: source, external_id: external_id)&.update!(current_task: nil)
+  end
+
   def self.symbolize(hash)
     return {} unless hash.is_a?(Hash)
     hash.each_with_object({}) { |(k, v), out| out[k.to_sym] = v }
