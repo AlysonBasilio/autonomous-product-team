@@ -5,11 +5,9 @@
 
 require 'minitest/autorun'
 require 'rack/test'
-require 'fileutils'
-require 'tmpdir'
 require 'json'
 
-require_relative '../orchestrator/storage'
+require_relative 'db_helper'
 require_relative '../orchestrator/state'
 require_relative '../orchestrator/config'
 require_relative '../orchestrator/projects'
@@ -17,23 +15,21 @@ require_relative '../orchestrator/server'
 
 class TestPostProjects < Minitest::Test
   include Rack::Test::Methods
+  include DBHelper
 
   def app
     OrchestratorServer
   end
 
   def setup
-    @prev_storage = Storage.default
-    @tmpdir = Dir.mktmpdir('server_test')
-    Storage.default = Storage::JsonFileStorage.new(@tmpdir)
+    setup_in_memory_db
     @prev_host_auth = OrchestratorServer.host_authorization
     OrchestratorServer.set :host_authorization, { permitted_hosts: [] }
   end
 
   def teardown
-    Storage.default = @prev_storage
-    FileUtils.rm_rf(@tmpdir)
     OrchestratorServer.set :host_authorization, @prev_host_auth
+    teardown_in_memory_db
   end
 
   def post_project(body)

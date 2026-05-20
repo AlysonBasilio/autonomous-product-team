@@ -4,6 +4,9 @@ gem 'sinatra'
 gem 'puma'
 gem 'rackup'
 
+gem 'activerecord'
+gem 'sqlite3'
+
 gem 'bundler', '>= 2'
 
 group :test do

@@ -1,10 +1,13 @@
-require 'json'
 require 'time'
-require_relative 'storage'
+require_relative 'db'
 
-# Per-project state. Persisted as data/projects/<id>.json via Storage.default.
+# Per-project state. The runtime shape (a hash mirroring the legacy JSON
+# document) is reconstructed from `Project` + `ProjectState` + the last
+# HISTORY_CAP `ProjectHistoryEntry` rows.
 module State
   HISTORY_CAP = 100
+  PROJECT_FIELDS = %w[github_repo local_path project_url].freeze
+  STATE_FIELDS   = %w[status current_task escalation version].freeze
 
   def self.initial(id:, project_url:, github_repo: nil, local_path: nil)
     {
@@ -21,24 +24,56 @@ module State
     }
   end
 
-  def self.path_for(project_id)
-    File.join('projects', "#{project_id}.json")
-  end
-
   def self.load(project_id)
     return nil if project_id.to_s.strip.empty?
-    Storage.default.read_json(path_for(project_id))
-  end
-
-  def self.save(project_id, state)
-    Storage.default.write_json(path_for(project_id), state)
+    project = Project.find_by(id: project_id)
+    return nil unless project
+    s = project.state || ProjectState.new(project_id: project.id)
+    history = ProjectHistoryEntry
+              .where(project_id: project.id)
+              .order(:completed_at)
+              .last(HISTORY_CAP)
+              .map { |e| serialize_history(e) }
+    {
+      'version'     => s.version || 2,
+      'id'          => project.id,
+      'project_url' => project.project_url,
+      'github_repo' => project.github_repo,
+      'local_path'  => project.local_path,
+      'created_at'  => project.created_at&.iso8601,
+      'status'      => s.status || 'running',
+      'currentTask' => s.current_task,
+      'escalation'  => s.escalation,
+      'history'     => history
+    }
   end
 
   def self.patch(project_id, hash)
-    Storage.default.update_json(path_for(project_id)) do |state|
-      raise "State for project #{project_id} not found" if state.empty?
-      state.merge(hash)
+    project = Project.find_by(id: project_id)
+    raise "State for project #{project_id} not found" unless project
+    ActiveRecord::Base.transaction do
+      project_attrs = {}
+      state_attrs   = {}
+      hash.each do |k, v|
+        key = k.to_s
+        case key
+        when 'currentTask' then state_attrs[:current_task] = v
+        when 'status', 'escalation', 'version'
+          state_attrs[key.to_sym] = v
+        when 'github_repo', 'local_path', 'project_url'
+          project_attrs[key.to_sym] = v
+        else
+          raise ArgumentError, "Unknown state field: #{key}"
+        end
+      end
+      project.update!(project_attrs) unless project_attrs.empty?
+      unless state_attrs.empty?
+        s = project.state || project.build_state
+        s.assign_attributes(state_attrs)
+        s.save!
+      end
     end
+    load(project_id)
   end
 
   def self.clear_current_task(project_id)
@@ -46,10 +81,45 @@ module State
   end
 
   def self.record_history(project_id, entry)
-    Storage.default.update_json(path_for(project_id)) do |state|
-      raise "State for project #{project_id} not found" if state.empty?
-      history = (state['history'] || []) + [entry]
-      state.merge('history' => history.last(HISTORY_CAP))
+    raise "State for project #{project_id} not found" unless Project.exists?(id: project_id)
+    ActiveRecord::Base.transaction do
+      ProjectHistoryEntry.create!(
+        project_id:   project_id,
+        task:         entry['task'],
+        session_id:   entry['session_id'],
+        completed_at: parse_time(entry['completed_at']) || Time.now.utc,
+        duration_s:   entry['duration_s'],
+        report:       entry['report']
+      )
+      trim_history(project_id)
     end
+    load(project_id)
+  end
+
+  def self.trim_history(project_id)
+    keep_ids = ProjectHistoryEntry
+               .where(project_id: project_id)
+               .order(completed_at: :desc)
+               .limit(HISTORY_CAP)
+               .pluck(:id)
+    ProjectHistoryEntry.where(project_id: project_id).where.not(id: keep_ids).delete_all
+  end
+
+  def self.serialize_history(entry)
+    {
+      'task'         => entry.task,
+      'session_id'   => entry.session_id,
+      'completed_at' => entry.completed_at&.iso8601,
+      'duration_s'   => entry.duration_s,
+      'report'       => entry.report
+    }
+  end
+
+  def self.parse_time(value)
+    return nil if value.nil?
+    return value if value.is_a?(Time)
+    Time.parse(value.to_s)
+  rescue ArgumentError
+    nil
   end
 end

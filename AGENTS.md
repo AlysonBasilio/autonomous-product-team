@@ -12,7 +12,7 @@ persists under `data/`. Web UI at `orchestrator/ui.html` is the primary
 product surface.
 
 - Ruby ≥ 3.0, Bundler ≥ 2.0
-- Sinatra 4.x, Puma 8.x, RubyLLM (OpenRouter), Ferrum (e2e)
+- Sinatra 4.x, Puma 8.x, ActiveRecord 8.x + sqlite3, RubyLLM (OpenRouter), Ferrum (e2e)
 
 ## Setup commands
 
@@ -31,9 +31,13 @@ orchestrator/
   server.rb            # Sinatra app (web UI + /api/projects)
   task_runner.rb       # dispatches a task to a Synthup session
   synthup.rb           # Synthup API client
-  projects.rb, state.rb, storage.rb, config.rb, demo_review.rb
+  db.rb                # AR connection + auto-migration on boot
+  db/migrate/*.rb      # schema migrations
+  models/*.rb          # ActiveRecord models (Project, ProjectState, ProjectHistoryEntry, ConfigEntry, Issue)
+  projects.rb, state.rb, issues.rb, config.rb, demo_review.rb
   ui.html              # single-page web UI (the product surface)
 tasks/*.md             # task prompts with model frontmatter
+data/orchestrator.db   # SQLite store (gitignored); auto-created on boot
 data/                  # runtime state (gitignored); see README.md
 tests/                 # see Testing below
 ```
@@ -42,7 +46,7 @@ tests/                 # see Testing below
 
 - Match the surrounding file. Ruby files use 2-space indent, `frozen_string_literal: true`, and small focused classes.
 - Strong typing where the language allows (keyword args, explicit returns).
-- Reuse existing helpers — `state.rb`, `storage.rb`, `synthup.rb` — instead of re-implementing.
+- Reuse existing helpers — `state.rb`, `projects.rb`, `config.rb`, `synthup.rb` — instead of re-implementing. Persistence goes through the AR models in `orchestrator/models/`; do not write SQL by hand outside of migrations.
 - No comments unless the *why* is non-obvious. Identifiers should explain the *what*.
 
 ## Testing
@@ -92,7 +96,7 @@ tests/
    ```
    Should print nothing. Dependabot PRs are filtered out automatically.
 
-5. **Isolated state.** Spawn the orchestrator with `ORCHESTRATOR_DATA_DIR=Dir.mktmpdir` and a free port (`TCPServer.new('127.0.0.1', 0)`). Never touch the developer's `data/`.
+5. **Isolated state.** Spawn the orchestrator with `ORCHESTRATOR_DATA_DIR=Dir.mktmpdir` (the SQLite DB lives at `<data_dir>/orchestrator.db`) and a free port (`TCPServer.new('127.0.0.1', 0)`). Never touch the developer's `data/`. Unit tests use `tests/db_helper.rb`, which points AR at `:memory:` for full isolation.
 
 6. **Skip, don't fail, on missing env.** Use `skip` with a clear message naming the missing var. `tests/run.rb` without Synthup credentials should still print green.
 

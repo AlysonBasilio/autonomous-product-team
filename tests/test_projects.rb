@@ -1,14 +1,11 @@
 # frozen_string_literal: true
 #
-# Unit tests for the Projects module: github_repo resolution, persistence, and
-# back-fill of legacy records that predate the github_repo field.
+# Unit tests for the Projects module: github_repo resolution and AR-backed
+# persistence.
 
 require 'minitest/autorun'
-require 'fileutils'
-require 'tmpdir'
-require 'json'
 
-require_relative '../orchestrator/storage'
+require_relative 'db_helper'
 require_relative '../orchestrator/state'
 require_relative '../orchestrator/projects'
 
@@ -63,23 +60,23 @@ class TestProjectsResolveGithubRepo < Minitest::Test
 end
 
 class TestProjectsCreate < Minitest::Test
+  include DBHelper
+
   def setup
-    @prev_storage = Storage.default
-    @tmpdir = Dir.mktmpdir('projects_test')
-    Storage.default = Storage::JsonFileStorage.new(@tmpdir)
+    setup_in_memory_db
   end
 
   def teardown
-    Storage.default = @prev_storage
-    FileUtils.rm_rf(@tmpdir)
+    teardown_in_memory_db
   end
 
   def test_github_url_creates_record_with_repo
     p = Projects.create(project_url: 'https://github.com/foo/bar')
     assert_equal 'foo/bar', p.github_repo
     assert_equal 'https://github.com/foo/bar', p.project_url
-    state = Storage.default.read_json(Projects.path_for(p.id))
-    assert_equal 'foo/bar', state['github_repo']
+    persisted = Project.find(p.id)
+    assert_equal 'foo/bar', persisted.github_repo
+    assert persisted.state.present?, 'project_state row must be created alongside project'
   end
 
   def test_linear_url_with_explicit_repo
@@ -91,11 +88,11 @@ class TestProjectsCreate < Minitest::Test
     assert_equal 'https://linear.app/acme/projects/foo', p.project_url
   end
 
-  def test_linear_url_without_repo_raises_and_writes_no_file
+  def test_linear_url_without_repo_raises_and_writes_no_record
     assert_raises(ArgumentError) do
       Projects.create(project_url: 'https://linear.app/acme/projects/foo')
     end
-    assert_empty Storage.default.list(Projects::PROJECTS_DIR)
+    assert_equal 0, Project.count
   end
 
   def test_full_url_form_normalizes
@@ -134,54 +131,17 @@ class TestProjectsCreate < Minitest::Test
     assert_equal 'foo/baz', p2.github_repo
     assert_equal '/tmp/repo', p2.local_path
   end
-end
 
-class TestProjectsBackfill < Minitest::Test
-  def setup
-    @prev_storage = Storage.default
-    @tmpdir = Dir.mktmpdir('projects_test')
-    Storage.default = Storage::JsonFileStorage.new(@tmpdir)
-  end
-
-  def teardown
-    Storage.default = @prev_storage
-    FileUtils.rm_rf(@tmpdir)
-  end
-
-  def write_legacy(id, project_url)
-    legacy = {
-      'version'     => 2,
-      'id'          => id,
-      'project_url' => project_url,
-      'local_path'  => nil,
-      'created_at'  => '2025-01-01T00:00:00Z',
-      'status'      => 'running',
-      'currentTask' => nil,
-      'escalation'  => nil,
-      'history'     => []
-    }
-    Storage.default.write_json(Projects.path_for(id), legacy)
-  end
-
-  def test_find_backfills_github_repo_from_github_url
-    write_legacy('legacy-gh', 'https://github.com/foo/bar')
-    p = Projects.find('legacy-gh')
-    refute_nil p
-    assert_equal 'foo/bar', p.github_repo
-  end
-
-  def test_find_returns_nil_repo_for_legacy_linear_record
-    write_legacy('legacy-linear', 'https://linear.app/acme/projects/foo')
-    p = Projects.find('legacy-linear')
-    refute_nil p
-    assert_nil p.github_repo
-  end
-
-  def test_list_backfills_repos
-    write_legacy('legacy-gh', 'https://github.com/foo/bar')
-    write_legacy('legacy-linear', 'https://linear.app/acme/projects/foo')
-    by_id = Projects.list.to_h { |p| [p.id, p] }
-    assert_equal 'foo/bar', by_id['legacy-gh'].github_repo
-    assert_nil by_id['legacy-linear'].github_repo
+  def test_delete_removes_project_state_and_history
+    p = Projects.create(project_url: 'https://github.com/foo/bar')
+    State.record_history(p.id, {
+      'task' => 'triage.md', 'session_id' => 'abc',
+      'completed_at' => Time.now.utc.iso8601, 'duration_s' => 5,
+      'report' => { 'outcome' => 'ok' }
+    })
+    Projects.delete(p.id)
+    assert_nil Projects.find(p.id)
+    assert_equal 0, ProjectState.where(project_id: p.id).count
+    assert_equal 0, ProjectHistoryEntry.where(project_id: p.id).count
   end
 end

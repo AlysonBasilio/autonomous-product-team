@@ -8,11 +8,12 @@ require 'bundler/setup'
 dir = File.dirname(__FILE__)
 $LOAD_PATH.unshift(dir)
 
-require_relative 'storage'
+require_relative 'db'
 require_relative 'config'
 require_relative 'projects'
 require_relative 'synthup'
 require_relative 'state'
+require_relative 'issues'
 require_relative 'router'
 require_relative 'task_runner'
 require_relative 'demo_review'
@@ -111,6 +112,21 @@ def dispatch_task(project, cfg, task, context, control:)
     'started_at' => started_at,
     'context'    => context
   })
+
+  ctx_issue_id = context[:issue_id] || context['issue_id']
+  if ctx_issue_id
+    Issues.upsert(
+      external_id: ctx_issue_id,
+      project_id:  project.id,
+      ops: {
+        lifecycle_stage: Issues::STAGE_BY_TASK[task],
+        last_session_id: session['id'],
+        last_task:       task,
+        last_event_at:   Time.now.utc,
+        attempt_delta:   1
+      }
+    )
+  end
 
   report = TaskRunner.poll_for_report(session['id'], cancel_check: -> { control.cancel_requested }, task_path: task_path)
   Synthup.archive_session(session['id']) rescue nil
@@ -260,6 +276,7 @@ def run_project_loop(project_id, port:, interactive:)
                           'issue_id' => report['issue_id'],
                           'pr_url'   => report['pr_url'] }.compact
     })
+    Issues.record_event(project_id, report, current_task: current_task_snapshot)
     State.clear_current_task(project_id)
 
     action = Router.route(report, state)
