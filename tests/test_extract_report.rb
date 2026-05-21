@@ -18,84 +18,83 @@ class ExtractReportTest < Minitest::Test
     TaskRunner.extract_report(content)
   end
 
-  def test_fenced_json_with_nested_object
+  def test_task_complete_extracted
     content = <<~MD
       Some prose.
 
       ```json
       {
-        "type": "triage-report",
-        "next_issue": { "id": "PROJ-1", "title": "X", "summary": "Y", "issue_type": "implementation" },
-        "considered": ["PROJ-1"],
-        "dependencies_checked": []
+        "type": "task-complete",
+        "task": "tasks/code.md",
+        "issue_id": "ENG-1",
+        "pr_url": "https://github.com/x/y/pull/1",
+        "summary": "Fixed the bug"
       }
       ```
     MD
     report = extract(content)
-    assert_equal 'triage-report', report['type']
-    assert_equal 'PROJ-1', report['next_issue']['id']
+    assert_equal 'task-complete', report['type']
+    assert_equal 'ENG-1', report['issue_id']
   end
 
-  def test_triage_report_rejected_when_next_issue_missing_from_considered
-    # The agent claimed PROJ-1 is ready but didn't list it in `considered`,
-    # which means it never ran the per-issue dependency lookup on it. This is
-    # the failure mode that let ENG-1982 ship as "ready" while blocked.
+  def test_test_report_extracted
+    content = <<~MD
+      ```json
+      { "type": "test-report", "issue_id": "ENG-1", "pr_url": "u", "outcome": "pass" }
+      ```
+    MD
+    report = extract(content)
+    assert_equal 'test-report', report['type']
+    assert_equal 'pass', report['outcome']
+  end
+
+  def test_task_failed_extracted
+    content = <<~MD
+      ```json
+      { "type": "task-failed", "task": "tasks/code.md", "failure": "CI red" }
+      ```
+    MD
+    assert_equal 'task-failed', extract(content)['type']
+  end
+
+  def test_demo_review_pending_extracted
     content = <<~MD
       ```json
       {
-        "type": "triage-report",
-        "next_issue": { "id": "PROJ-1", "title": "X", "summary": "Y" },
-        "issue_type": "implementation",
-        "considered": ["PROJ-2", "PROJ-3"],
-        "dependencies_checked": []
+        "type": "demo-review-pending",
+        "issue_id": "ENG-1",
+        "pr_url": "u",
+        "summary": "Looks good"
       }
       ```
     MD
-    assert_nil extract(content)
+    assert_equal 'demo-review-pending', extract(content)['type']
   end
 
-  def test_triage_report_rejected_when_considered_missing
+  def test_recovery_exhausted_extracted
+    content = <<~MD
+      ```json
+      { "type": "recovery-exhausted", "details": "Timed out after 1800s" }
+      ```
+    MD
+    assert_equal 'recovery-exhausted', extract(content)['type']
+  end
+
+  def test_fenced_json_with_nested_object
     content = <<~MD
       ```json
       {
-        "type": "triage-report",
-        "next_issue": { "id": "PROJ-1", "title": "X", "summary": "Y" },
-        "issue_type": "implementation"
-      }
-      ```
-    MD
-    assert_nil extract(content)
-  end
-
-  def test_triage_report_with_null_next_issue_does_not_require_considered
-    # If no issue is ready there's nothing to attest — the consistency rule
-    # only applies when a `next_issue` is named.
-    content = <<~MD
-      ```json
-      { "type": "triage-report", "next_issue": null }
-      ```
-    MD
-    assert_equal 'triage-report', extract(content)['type']
-  end
-
-  def test_fenced_json_with_arrays
-    content = <<~MD
-      ```json
-      {
-        "type": "split-needed",
+        "type": "task-complete",
+        "task": "tasks/code.md",
         "issue_id": "PROJ-1",
-        "source_issue_id": "PROJ-1",
-        "issues": [
-          { "title": "A", "description": "x" },
-          { "title": "B", "description": "y", "depends_on": ["A"] }
-        ]
+        "pr_url": "u",
+        "summary": "done"
       }
       ```
     MD
     report = extract(content)
-    assert_equal 'split-needed', report['type']
-    assert_equal 2, report['issues'].length
-    assert_equal ['A'], report['issues'][1]['depends_on']
+    assert_equal 'task-complete', report['type']
+    assert_equal 'PROJ-1', report['issue_id']
   end
 
   def test_bare_fence_with_valid_json_still_matches
@@ -106,13 +105,12 @@ class ExtractReportTest < Minitest::Test
   end
 
   def test_yaml_style_block_returns_nil
-    # This is the exact failure mode that broke session 05aa1a35... — a fenced
-    # block with `type: foo` (YAML-ish) instead of JSON. Must NOT match.
+    # A fenced block with `type: foo` (YAML-ish) instead of JSON must NOT match.
     content = <<~MD
       ```
       type: task-failed
-      task: tasks/issue-triage.md
-      failure: The project repository does not exist
+      task: tasks/code.md
+      failure: oops
       ```
     MD
     assert_nil extract(content)
@@ -128,21 +126,21 @@ class ExtractReportTest < Minitest::Test
   end
 
   def test_no_fence_returns_nil
-    content = '{ "type": "triage-report", "next_issue": null }'
+    content = '{ "type": "task-complete", "issue_id": "1", "pr_url": "u", "summary": "s" }'
     assert_nil extract(content)
   end
 
   def test_first_valid_block_wins_when_multiple
     content = <<~MD
       ```json
-      { "type": "triage-report", "next_issue": null }
+      { "type": "task-complete", "task": "x", "issue_id": "1", "pr_url": "u", "summary": "s" }
       ```
 
       ```json
-      { "type": "task-complete", "task": "x", "issue_id": "1", "pr_url": "u", "summary": "s" }
+      { "type": "test-report", "outcome": "pass", "issue_id": "1", "pr_url": "u" }
       ```
     MD
-    assert_equal 'triage-report', extract(content)['type']
+    assert_equal 'task-complete', extract(content)['type']
   end
 
   def test_skips_unknown_type_finds_known_one_later
@@ -161,7 +159,7 @@ class ExtractReportTest < Minitest::Test
   def test_malformed_json_in_fence_returns_nil
     content = <<~MD
       ```json
-      { "type": "triage-report", malformed:
+      { "type": "task-failed", malformed:
       ```
     MD
     assert_nil extract(content)
@@ -170,177 +168,15 @@ class ExtractReportTest < Minitest::Test
   def test_non_string_input
     assert_nil extract(nil)
     assert_nil extract(123)
-    assert_nil extract({ 'type' => 'triage-report' })
+    assert_nil extract({ 'type' => 'task-complete' })
   end
 
-  # Rejection-reason path — the poller sends these strings back to the agent
-  # as corrective feedback so it actually re-runs the missing lookups.
-  def reason(content)
-    TaskRunner.report_rejection_reason(content)
-  end
-
-  def test_rejection_reason_names_the_missing_issue
-    content = <<~MD
-      ```json
-      {
-        "type": "triage-report",
-        "next_issue": { "id": "ENG-1982", "title": "X", "summary": "Y" },
-        "issue_type": "implementation",
-        "considered": ["ENG-1001", "ENG-1002"],
-        "dependencies_checked": []
-      }
-      ```
-    MD
-    msg = reason(content)
-    assert_includes msg, 'ENG-1982'
-    assert_includes msg, 'considered'
-  end
-
-  def test_rejection_reason_flags_missing_considered_array
-    content = <<~MD
-      ```json
-      {
-        "type": "triage-report",
-        "next_issue": { "id": "ENG-1", "title": "X", "summary": "Y" },
-        "issue_type": "implementation"
-      }
-      ```
-    MD
-    msg = reason(content)
-    refute_nil msg
-    assert_includes msg, '`considered`'
-  end
-
-  def test_rejection_reason_nil_when_report_valid
-    content = <<~MD
-      ```json
-      {
-        "type": "triage-report",
-        "next_issue": { "id": "ENG-1", "title": "X", "summary": "Y" },
-        "issue_type": "implementation",
-        "considered": ["ENG-1"],
-        "dependencies_checked": []
-      }
-      ```
-    MD
-    assert_nil reason(content)
-  end
-
-  def test_rejection_reason_nil_when_no_report_block
-    assert_nil reason("just some prose, no fenced block")
-  end
-
-  def test_rejection_reason_nil_for_unrelated_report_types
-    content = <<~MD
-      ```json
-      { "type": "task-complete", "task": "x", "issue_id": "1", "pr_url": "u", "summary": "s" }
-      ```
-    MD
-    assert_nil reason(content)
-  end
-
-  # Dependency-status consistency — a triage-report that names a `next_issue`
-  # while listing an In Progress / Todo / etc. dep in `dependencies_checked`
-  # has contradicted itself. The validator must catch this before the report
-  # is accepted. This is the failure mode that picked ENG-2271 while its dep
-  # ENG-2130 was still In Progress.
-  def test_extract_rejects_in_progress_dependency
-    content = <<~MD
-      ```json
-      {
-        "type": "triage-report",
-        "next_issue": { "id": "ENG-2271", "title": "X", "summary": "Y" },
-        "issue_type": "implementation",
-        "considered": ["ENG-2271", "ENG-2130"],
-        "dependencies_checked": ["ENG-2130:In Progress", "ENG-1998:Canceled"]
-      }
-      ```
-    MD
-    assert_nil extract(content)
-  end
-
-  def test_rejection_reason_names_the_blocking_dependency
-    content = <<~MD
-      ```json
-      {
-        "type": "triage-report",
-        "next_issue": { "id": "ENG-2271", "title": "X", "summary": "Y" },
-        "issue_type": "implementation",
-        "considered": ["ENG-2271", "ENG-2130"],
-        "dependencies_checked": ["ENG-2130:In Progress"]
-      }
-      ```
-    MD
-    msg = reason(content)
-    refute_nil msg
-    assert_includes msg, 'ENG-2130:In Progress'
-    assert_includes msg, 'ENG-2271'
-  end
-
-  def test_canceled_dependency_is_not_blocking
-    # Canceled is terminal — the dep will never reach Done, but it also won't
-    # change. Treat it as resolved, same as Done.
-    content = <<~MD
-      ```json
-      {
-        "type": "triage-report",
-        "next_issue": { "id": "ENG-1", "title": "X", "summary": "Y" },
-        "issue_type": "implementation",
-        "considered": ["ENG-1"],
-        "dependencies_checked": ["ENG-2:Canceled", "ENG-3:Done"]
-      }
-      ```
-    MD
-    assert_equal 'triage-report', extract(content)['type']
-    assert_nil reason(content)
-  end
-
-  def test_dependency_status_match_is_case_insensitive
-    content = <<~MD
-      ```json
-      {
-        "type": "triage-report",
-        "next_issue": { "id": "ENG-1", "title": "X", "summary": "Y" },
-        "issue_type": "implementation",
-        "considered": ["ENG-1"],
-        "dependencies_checked": ["ENG-2:DONE", "ENG-3:canceled"]
-      }
-      ```
-    MD
-    assert_equal 'triage-report', extract(content)['type']
-  end
-
-  def test_multiple_blocking_deps_all_named_in_rejection
-    content = <<~MD
-      ```json
-      {
-        "type": "triage-report",
-        "next_issue": { "id": "ENG-1", "title": "X", "summary": "Y" },
-        "issue_type": "implementation",
-        "considered": ["ENG-1"],
-        "dependencies_checked": ["ENG-2:In Progress", "ENG-3:Todo", "ENG-4:Done"]
-      }
-      ```
-    MD
-    msg = reason(content)
-    refute_nil msg
-    assert_includes msg, 'ENG-2:In Progress'
-    assert_includes msg, 'ENG-3:Todo'
-    refute_includes msg, 'ENG-4'
-  end
-
-  def test_empty_dependencies_checked_is_accepted
-    content = <<~MD
-      ```json
-      {
-        "type": "triage-report",
-        "next_issue": { "id": "ENG-1", "title": "X", "summary": "Y" },
-        "issue_type": "implementation",
-        "considered": ["ENG-1"],
-        "dependencies_checked": []
-      }
-      ```
-    MD
-    assert_equal 'triage-report', extract(content)['type']
+  def test_all_current_types_are_extractable
+    %w[task-complete test-report task-failed
+       demo-review-pending recovery-exhausted blocked].each do |type|
+      content = "```json\n{\"type\": \"#{type}\"}\n```"
+      report = extract(content)
+      assert_equal type, report['type'], "expected #{type} to be extractable"
+    end
   end
 end

@@ -8,8 +8,8 @@ Guidance for coding agents working in this repo. Humans should read
 Ruby orchestrator (`orchestrator/run.rb`, Sinatra + Puma) that dispatches
 Markdown task prompts in `tasks/` to Synthup-managed sessions, polls for
 structured JSON reports, and routes between tasks via `router.rb`. State
-persists under `data/`. Web UI at `orchestrator/ui.html` is the primary
-product surface.
+persists in SQLite (`data/orchestrator.db`). Web UI at `orchestrator/ui.html`
+is the primary product surface.
 
 - Ruby ≥ 3.0, Bundler ≥ 2.0
 - Sinatra 4.x, Puma 8.x, ActiveRecord 8.x + sqlite3, RubyLLM (OpenRouter), Ferrum (e2e)
@@ -26,19 +26,28 @@ bundle install              # install gems
 ```
 bin/start              # entrypoint — runs bundle install then boots
 orchestrator/
-  run.rb               # main loop: triage → plan → code → test → demo-review
+  run.rb               # main entry: boot, resume in-flight issues, start Puma
+  run_issue.rb         # per-issue loop: code → test → demo-review
   router.rb            # task transition table
-  server.rb            # Sinatra app (web UI + /api/projects)
+  server.rb            # Sinatra app (web UI + REST API)
   task_runner.rb       # dispatches a task to a Synthup session
   synthup.rb           # Synthup API client
   db.rb                # AR connection + auto-migration on boot
   db/migrate/*.rb      # schema migrations
-  models/*.rb          # ActiveRecord models (Project, ProjectState, ProjectHistoryEntry, ConfigEntry, Issue)
-  projects.rb, state.rb, issues.rb, config.rb, demo_review.rb
+  models/
+    issue.rb           # Issue AR model (input_text, repo_url, lifecycle_stage,
+                       #   current_task, escalation, history, ...)
+    config_entry.rb    # ConfigEntry AR model (Synthup credentials)
+  issues.rb            # Issues module — set_current_task, set_escalation, append_history
+  config.rb            # Config module — load/save Synthup credentials
+  demo_review.rb       # DemoReview.wait_for_approval — blocks thread until UI action
+  template.rb          # prompt template rendering
   ui.html              # single-page web UI (the product surface)
-tasks/*.md             # task prompts with model frontmatter
+tasks/
+  code.md              # implement the issue
+  test.md              # run tests / CI
+  demo-review.md       # summarise PR for human review
 data/orchestrator.db   # SQLite store (gitignored); auto-created on boot
-data/                  # runtime state (gitignored); see README.md
 tests/                 # see Testing below
 ```
 
@@ -46,7 +55,7 @@ tests/                 # see Testing below
 
 - Match the surrounding file. Ruby files use 2-space indent, `frozen_string_literal: true`, and small focused classes.
 - Strong typing where the language allows (keyword args, explicit returns).
-- Reuse existing helpers — `state.rb`, `projects.rb`, `config.rb`, `synthup.rb` — instead of re-implementing. Persistence goes through the AR models in `orchestrator/models/`; do not write SQL by hand outside of migrations.
+- Reuse existing helpers — `issues.rb`, `config.rb`, `synthup.rb` — instead of re-implementing. Persistence goes through the AR models in `orchestrator/models/`; do not write SQL by hand outside of migrations.
 - No comments unless the *why* is non-obvious. Identifiers should explain the *what*.
 
 ## Testing
@@ -58,13 +67,13 @@ This is the single source of truth for tests. Read it before adding one.
 ```
 tests/
 ├── test_static.rb            # structural checks on tasks/*.md (no API key)
-├── test_plan_routing.rb      # router transition table coverage
 ├── test_demo_review.rb       # approve / redirect / follow-up scenarios
-├── test_triage.rb            # triage edge cases
-├── test_discovery.rb         # discovery scenarios
-├── test_server.rb            # rack-test for POST /api/projects
-├── test_projects.rb          # projects.rb unit tests
+├── test_server.rb            # rack-test for the REST API
+├── test_issues.rb            # Issues module unit tests
 ├── test_extract_report.rb    # report extraction unit tests
+├── test_recovery.rb          # crash-recovery / resume scenarios
+├── test_template.rb          # prompt template rendering
+├── db_helper.rb              # points AR at :memory: for test isolation
 ├── eval_helper.rb            # OpenRouter / RubyLLM glue, dotenv loader
 ├── judge.rb                  # LLM-as-judge helper
 ├── run.rb                    # combined Ruby suite
@@ -90,7 +99,7 @@ tests/
 
 3. **Real services, real costs.** e2e burns Synthup credits and opens real GitHub PRs. Run against a sandbox repo, never `alysonbasilio/autonomous-product-team`. Always clean up in `ensure` / `teardown`.
 
-4. **Keep the sandbox issue tracker clean.** Triage picks the highest-priority unblocked non-PR issue. Stray issues from prior runs cause unpredictable routing. Verify before running e2e:
+4. **Keep the sandbox clean.** Before running e2e, verify the sandbox has no open issues that would confuse the test:
    ```bash
    gh api 'repos/<sandbox>/issues?state=open' --jq '.[] | select(.pull_request == null) | "#\(.number) \(.title)"'
    ```
@@ -126,7 +135,7 @@ Loaded by `Dotenv.load` from `tests/eval_helper.rb` and `tests/e2e/run.rb`. Alre
 
 - Small, focused commits. Subject in the imperative ("Add X", not "Added X"). Match the existing log style (`git log --oneline -20`).
 - Don't amend published commits. After a hook failure, fix and create a new commit.
-- Branch naming follows what `issue-triage.md` generates per issue — manual branches should mirror that style.
+- Branch naming: short kebab-case description of the change.
 
 ## Boundaries
 

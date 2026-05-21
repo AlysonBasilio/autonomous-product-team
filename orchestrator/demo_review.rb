@@ -3,9 +3,10 @@ require 'thread'
 module DemoReview
   APPROVAL_TIMEOUT = 86_400  # 24 hours
 
-  # Registers a pending approval on the project's control slot and blocks the
+  # Registers a pending approval in the project's approval queue and blocks the
   # calling thread until the user clicks Approve or Redirect in the web UI,
-  # or the timeout elapses.
+  # or the timeout elapses. Multiple issue threads can queue simultaneously;
+  # the UI presents them one at a time (first in, first shown).
   #
   # Returns:
   #   { "outcome" => "approved"|"redirect"|"timeout", "user_feedback" => ..., "follow_up_issues" => [...] }
@@ -15,13 +16,16 @@ module DemoReview
     result  = nil
     resolve = lambda { |h| mutex.synchronize { result = h; cond.signal } }
 
-    control.pending_approval = {
+    entry = {
       issue_title: issue_title,
       issue_id:    issue_id,
       pr_url:      pr_url,
       summary:     summary,
       resolve:     resolve
     }
+
+    control.pending_approvals ||= []
+    control.pending_approvals << entry
 
     deadline = Time.now + APPROVAL_TIMEOUT
     mutex.synchronize do
@@ -30,7 +34,7 @@ module DemoReview
       end
     end
 
-    control.pending_approval = nil
+    control.pending_approvals&.delete(entry)
 
     result || { 'outcome' => 'timeout',
                 'user_feedback' => "Demo review timed out after #{APPROVAL_TIMEOUT / 3600}h with no response" }

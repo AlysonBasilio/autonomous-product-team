@@ -28,11 +28,10 @@
     color: var(--text);
     line-height: 1.6;
     padding: var(--gap);
-    max-width: 760px;
+    max-width: 820px;
     margin: 0 auto;
   }
 
-  /* ── Header ── */
   header {
     display: flex;
     align-items: center;
@@ -40,9 +39,7 @@
     padding-bottom: var(--gap);
     border-bottom: 1px solid var(--border);
     margin-bottom: var(--gap);
-    gap: .75rem;
   }
-
   .title { color: var(--bright); font-size: 14px; }
 
   .badge {
@@ -58,8 +55,7 @@
   .badge-paused    { background: #451a03; color: var(--yellow); }
   .badge-done      { background: #1e3a5f; color: var(--blue); }
   .badge-escalated { background: #450a0a; color: var(--red); }
-
-  .controls { display: flex; gap: .5rem; align-items: center; }
+  .badge-awaiting  { background: #422006; color: #fcd34d; }
 
   button {
     font-family: inherit;
@@ -79,19 +75,6 @@
   button.danger { background: #7f1d1d; color: #fca5a5; border-color: #7f1d1d; }
   button.danger:hover { background: #991b1b; }
 
-  select {
-    font-family: inherit;
-    font-size: 12px;
-    background: var(--surface);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 3px 6px;
-    max-width: 220px;
-  }
-  select:disabled { opacity: .5; cursor: not-allowed; }
-
-  /* ── Sections ── */
   section {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -110,20 +93,25 @@
   }
 
   .row { display: flex; gap: .5rem; margin-bottom: .35rem; align-items: center; }
-  .label { color: var(--muted); min-width: 100px; flex-shrink: 0; }
+  .label { color: var(--muted); min-width: 90px; flex-shrink: 0; }
   .value { color: var(--bright); word-break: break-all; }
 
   a { color: var(--blue); text-decoration: none; }
   a:hover { text-decoration: underline; }
 
-  /* ── Demo-review panel ── */
-  #demo-review { border-color: #d97706; }
-  #demo-review h2 { color: var(--yellow); }
+  textarea, input[type="text"], input[type="password"], input:not([type]) {
+    font-family: inherit;
+    font-size: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    padding: .35rem .5rem;
+  }
+  textarea { resize: vertical; width: 100%; min-height: 64px; padding: .5rem; }
+  textarea:focus, input:focus { outline: 1px solid var(--blue); }
 
-  /* ── Interactive next-action panel ── */
-  #next-action { border-color: #2563eb; }
-  #next-action h2 { color: var(--blue); }
-
+  .btn-row { display: flex; gap: .5rem; margin-top: .5rem; flex-wrap: wrap; }
   .summary-box {
     background: var(--bg);
     border: 1px solid var(--border);
@@ -133,32 +121,93 @@
     color: var(--bright);
   }
 
-  textarea {
-    font-family: inherit;
-    font-size: 12px;
-    width: 100%;
-    background: var(--bg);
+  /* ── Issue cards ── */
+  .issue-card {
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 3px;
-    color: var(--text);
-    padding: .5rem;
-    resize: vertical;
-    min-height: 64px;
-    margin-top: .5rem;
+    border-radius: 4px;
+    margin-bottom: var(--gap);
+    overflow: hidden;
+  }
+  .issue-card.card-escalated { border-color: #b91c1c; }
+  .issue-card.card-awaiting  { border-color: #d97706; }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .6rem var(--gap);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  a.card-title { color: inherit; text-decoration: none; }
+a.card-title:hover { text-decoration: underline; }
+.card-title {
+    flex: 1;
+    color: var(--bright);
+    font-size: 12px;
+    word-break: break-all;
+    min-width: 0;
+  }
+  .card-delete {
+    font-size: 11px;
+    padding: 2px 7px;
+    opacity: .5;
+    flex-shrink: 0;
+  }
+  .card-delete:hover { opacity: 1; }
+
+  .card-body { padding: .75rem var(--gap); }
+  .card-row { display: flex; gap: .5rem; margin-bottom: .3rem; align-items: baseline; }
+  .card-label { color: var(--muted); min-width: 80px; flex-shrink: 0; font-size: 11px; }
+  .card-value { color: var(--text); word-break: break-all; }
+  .card-value a { color: var(--blue); }
+
+  .card-section { margin-top: .75rem; padding-top: .75rem; border-top: 1px solid var(--border); }
+  .card-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
     margin-bottom: .5rem;
   }
-  textarea:focus { outline: 1px solid var(--blue); }
 
-  input[type="text"], input[type="password"], input:not([type]) {
-    font-family: inherit;
-    font-size: 12px;
+  .escalation-detail {
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 3px;
+    padding: .6rem;
+    font-size: 11px;
     color: var(--text);
-    padding: .35rem .5rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: .5rem;
   }
-  input:focus { outline: 1px solid var(--blue); }
+
+  /* ── History ── */
+  .history-toggle {
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+  .history-toggle:hover { color: var(--text); }
+
+  .history-list { margin-top: .5rem; }
+  .history-item {
+    display: flex;
+    gap: .75rem;
+    padding: .25rem 0;
+    border-bottom: 1px solid var(--border);
+    align-items: baseline;
+    font-size: 11px;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-task { color: var(--bright); flex: 1; }
+  a.history-task { color: var(--bright); }
+  .history-meta { color: var(--muted); white-space: nowrap; }
 
   .follow-ups-toggle {
     font-size: 11px;
@@ -169,161 +218,44 @@
   }
   .follow-ups-toggle:hover { color: var(--text); }
 
-  .btn-row { display: flex; gap: .5rem; margin-top: .5rem; }
-
-  /* ── History ── */
-  .history-item {
-    display: flex;
-    gap: .75rem;
-    padding: .3rem 0;
-    border-bottom: 1px solid var(--border);
-    align-items: baseline;
-  }
-  .history-item:last-child { border-bottom: none; }
-  .history-icon { font-style: normal; }
-  .history-task { color: var(--bright); flex: 1; }
-  a.history-task { color: var(--bright); text-decoration: none; }
-  a.history-task:hover { text-decoration: underline; }
-  .history-meta { color: var(--muted); font-size: 11px; white-space: nowrap; }
-
-  /* ── Projects list ── */
-  .project-item {
-    display: flex;
-    gap: .5rem;
-    align-items: center;
-    padding: .3rem 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .project-item:last-child { border-bottom: none; }
-  .project-url { color: var(--bright); flex: 1; word-break: break-all; }
-  .project-active-marker { color: var(--green); font-weight: 600; font-size: 11px; }
-  .project-meta { color: var(--muted); font-size: 11px; }
-  .project-status {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    padding: 1px 6px;
-    border-radius: 3px;
-    background: #14532d;
-    color: var(--green);
-  }
-  .project-status.paused    { background: #451a03; color: var(--yellow); }
-  .project-status.done      { background: #1e3a5f; color: var(--blue); }
-  .project-status.escalated { background: #450a0a; color: var(--red); }
-  .project-status.awaiting  { background: #422006; color: #fcd34d; }
-
-  /* ── Escalation ── */
-  #escalation { border-color: #b91c1c; }
-  #escalation h2 { color: var(--red); }
-  .escalation-details {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: .75rem;
-    color: var(--text);
-    white-space: pre-wrap;
-    word-break: break-word;
-    margin-top: .5rem;
-  }
-
   .empty { color: var(--muted); font-style: italic; }
   .hidden { display: none !important; }
+  .error-msg { color: var(--red); font-size: 11px; margin-top: .25rem; }
 </style>
 </head>
 <body>
 
 <header>
   <span class="title">autonomous-product-team</span>
-  <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;justify-content:flex-end">
-    <select id="project-switcher" onchange="switchProject(this.value)" title="Active project"></select>
-    <span id="status-badge" class="badge badge-running">running</span>
-    <div class="controls">
-      <button id="btn-triage" onclick="triggerTriage()">Triage now</button>
-      <button id="btn-pause"  onclick="togglePause()">Pause</button>
-    </div>
-  </div>
 </header>
 
 <!-- Global config (Synthup credentials) -->
 <section id="setup-global" class="hidden">
   <h2>Global Config</h2>
-  <div style="color:var(--muted);margin-bottom:.75rem">Configure your Synthup credentials. These are shared across all projects.</div>
+  <div style="color:var(--muted);margin-bottom:.75rem">Configure your Synthup credentials.</div>
   <div class="row"><span class="label">tenant</span><input id="cfg-tenant" placeholder="your-tenant-id" style="flex:1"></div>
   <div class="row"><span class="label">api_key</span><input id="cfg-api_key" type="password" placeholder="Synthup API key" style="flex:1"></div>
-  <div id="cfg-error" style="color:var(--red);margin-top:.5rem;display:none"></div>
+  <div id="cfg-error" class="error-msg hidden"></div>
   <div class="btn-row"><button class="primary" onclick="saveConfig()">Save</button></div>
 </section>
 
-<!-- Projects -->
-<section id="projects" class="hidden">
-  <h2>Projects</h2>
-  <div id="projects-list"></div>
-  <div style="margin-top:.75rem;border-top:1px solid var(--border);padding-top:.75rem">
-    <div style="color:var(--muted);margin-bottom:.5rem">Add a project</div>
-    <div class="row"><span class="label">project_url</span><input id="proj-url" placeholder="https://linear.app/your-team/issues" style="flex:1"></div>
-    <div class="row"><span class="label">github_repo</span><input id="proj-github_repo" placeholder="owner/repo (required if project_url is not a GitHub URL)" style="flex:1"></div>
-    <div class="row"><span class="label">local_path</span><input id="proj-local_path" placeholder="/Users/you/projects/your-repo (optional)" style="flex:1"></div>
-    <div id="proj-error" style="color:var(--red);margin-top:.5rem;display:none"></div>
-    <div class="btn-row"><button class="primary" onclick="addProject()">Add project</button></div>
+<!-- Submit form -->
+<section id="submit-section" class="hidden">
+  <h2>Run Issue</h2>
+  <div class="row">
+    <span class="label">issue</span>
+    <textarea id="sub-issue" rows="3" placeholder="Describe the issue or paste a Linear URL" style="flex:1"></textarea>
   </div>
+  <div class="row">
+    <span class="label">repo</span>
+    <input id="sub-repo" placeholder="https://github.com/owner/repo" style="flex:1">
+  </div>
+  <div id="sub-error" class="error-msg hidden"></div>
+  <div class="btn-row"><button class="primary" onclick="submitIssue()">Run Issue</button></div>
 </section>
 
-<!-- Current task -->
-<section id="current-task-section">
-  <h2>Current Task</h2>
-  <div id="current-task-body">
-    <span class="empty">Idle</span>
-  </div>
-</section>
-
-<!-- Interactive next-action -->
-<section id="next-action" class="hidden">
-  <h2>Next Action — Awaiting Your Approval</h2>
-  <div id="na-summary" class="summary-box"></div>
-  <div class="btn-row">
-    <button class="primary" onclick="continueAction()">Continue</button>
-    <button class="danger" onclick="cancelTask()">Cancel</button>
-  </div>
-</section>
-
-<!-- Demo-review / test verification -->
-<section id="demo-review" class="hidden">
-  <h2 id="dr-heading">Demo Review — Awaiting Your Approval</h2>
-  <div id="dr-summary" class="summary-box"></div>
-  <div class="btn-row">
-    <button class="primary" onclick="approve()">Approve</button>
-  </div>
-  <div style="margin-top:1rem">
-    <div id="dr-feedback-label" style="color:var(--muted);font-size:11px;margin-bottom:.25rem">Request changes:</div>
-    <textarea id="dr-feedback" placeholder="Describe what needs to change…"></textarea>
-    <div id="dr-followups-row">
-      <span class="follow-ups-toggle" onclick="toggleFollowUps()">[+] Add follow-up issues</span>
-    </div>
-    <textarea id="dr-followups" class="hidden" placeholder="One follow-up issue per line: title — description"></textarea>
-    <div class="btn-row">
-      <button class="danger" onclick="redirect()">Send Redirect</button>
-    </div>
-  </div>
-</section>
-
-<!-- Escalation -->
-<section id="escalation" class="hidden">
-  <h2>Escalation</h2>
-  <div id="esc-reason" class="row"></div>
-  <div id="esc-details" class="escalation-details"></div>
-  <div class="btn-row">
-    <button id="btn-resume-polling" class="hidden" onclick="resumePolling()">Resume polling</button>
-  </div>
-</section>
-
-<!-- History -->
-<section>
-  <h2>History</h2>
-  <div id="history-list">
-    <span class="empty">No completed tasks yet</span>
-  </div>
-</section>
+<!-- Issue cards injected here -->
+<div id="issues-container"></div>
 
 <script>
   let state = {};
@@ -339,178 +271,207 @@
 
   function applyState(s) {
     state = s;
-
     const synthupOk = !!s.synthup_configured;
-    const projects = s.projects || [];
-    const projectsState = s.projects_state || {};
-    const activeId = s.active_project_id;
-    const hasActive = !!projects.find(p => p.id === activeId);
-    const ps = (activeId && projectsState[activeId]) || {};
-    const taskInFlight = !!ps.currentTask;
 
-    // Surface the active project's slot on `state` so action handlers can read
-    // it without re-traversing projects_state.
-    state.activeProjectState = ps;
-
-    // Global config form: hide once Synthup is configured.
     document.getElementById('setup-global').classList.toggle('hidden', synthupOk);
+    document.getElementById('submit-section').classList.toggle('hidden', !synthupOk);
 
-    // Projects section: show once Synthup is configured.
-    document.getElementById('projects').classList.toggle('hidden', !synthupOk);
-    renderProjects(projects, projectsState, activeId);
-
-    // Project switcher in header
-    renderSwitcher(projects, activeId);
-
-    // Status badge
-    const badge = document.getElementById('status-badge');
-    if (!hasActive) {
-      badge.textContent = 'setup';
-      badge.className = 'badge badge-paused';
-    } else {
-      badge.textContent = ps.paused ? 'paused' : (ps.status || 'running');
-      badge.className = 'badge badge-' + (ps.paused ? 'paused' : (ps.status || 'running'));
-    }
-
-    // Pause/resume button
-    const pauseBtn = document.getElementById('btn-pause');
-    pauseBtn.textContent = ps.paused ? 'Resume' : 'Pause';
-    pauseBtn.disabled = !hasActive;
-    document.getElementById('btn-triage').disabled = !hasActive;
-
-    // Current task
-    const ct = ps.currentTask;
-    const ctSection = document.getElementById('current-task-body');
-    if (ct) {
-      const elapsed = ct.started_at ? formatElapsed(ct.started_at) : '—';
-      ctSection.innerHTML = `
-        <div class="row"><span class="label">task</span><span class="value">${esc(ct.task)}</span></div>
-        ${ct.context?.issue_id ? `<div class="row"><span class="label">issue</span><span class="value">${esc(issueDisplay(ct.context.issue_id))}</span></div>` : ''}
-        ${ct.context?.pr_url   ? `<div class="row"><span class="label">PR</span><span class="value"><a href="${esc(ct.context.pr_url)}" target="_blank">${esc(ct.context.pr_url)}</a></span></div>` : ''}
-        <div class="row"><span class="label">elapsed</span><span class="value" id="elapsed-value">${elapsed}</span></div>
-        ${ct.session_id ? `<div class="row"><span class="label">session</span><span class="value">${sessionLink(ct.session_id)}</span></div>` : ''}
-        <div style="margin-top:.75rem"><button class="danger" onclick="cancelTask()">Cancel task</button></div>
-      `;
-    } else {
-      ctSection.innerHTML = '<span class="empty">Idle</span>';
-    }
-
-    // Interactive next-action gate
-    const na = document.getElementById('next-action');
-    if (ps.pending_next_action) {
-      na.classList.remove('hidden');
-      const a = ps.pending_next_action;
-      document.getElementById('na-summary').innerHTML =
-        `<strong>${esc(a.summary || a.type)}</strong>`;
-    } else {
-      na.classList.add('hidden');
-    }
-
-    // Demo review approval gate
-    const dr = document.getElementById('demo-review');
-    if (ps.pending_approval) {
-      dr.classList.remove('hidden');
-      const p = ps.pending_approval;
-      document.getElementById('dr-heading').textContent = 'Demo Review — Awaiting Your Approval';
-      document.getElementById('dr-feedback-label').textContent = 'Request changes:';
-      document.getElementById('dr-feedback').placeholder = 'Describe what needs to change…';
-      document.getElementById('dr-followups-row').classList.remove('hidden');
-      document.getElementById('dr-summary').innerHTML = `
-        ${p.issue_title ? `<strong>${esc(p.issue_title)}</strong><br>` : ''}
-        ${p.summary ? `<span>${esc(p.summary)}</span><br>` : ''}
-        ${p.pr_url ? `<a href="${esc(p.pr_url)}" target="_blank">${esc(p.pr_url)}</a>` : ''}
-      `;
-    } else {
-      dr.classList.add('hidden');
-    }
-
-    // Escalation
-    const esc_section = document.getElementById('escalation');
-    if (ps.escalation) {
-      esc_section.classList.remove('hidden');
-      document.getElementById('esc-reason').innerHTML =
-        `<span class="label">reason</span><span class="value">${esc(ps.escalation.reason)}</span>`;
-      document.getElementById('esc-details').textContent = ps.escalation.details || '';
-      const resumable = !!(ps.escalation.resumable_task && ps.escalation.resumable_task.session_id);
-      document.getElementById('btn-resume-polling').classList.toggle('hidden', !resumable);
-    } else {
-      esc_section.classList.add('hidden');
-      document.getElementById('btn-resume-polling').classList.add('hidden');
-    }
-
-    // History
-    renderHistory(ps.history || []);
+    renderIssues(s.issues || []);
   }
 
-  function renderSwitcher(projects, activeId) {
-    const sel = document.getElementById('project-switcher');
-    if (!projects.length) { sel.classList.add('hidden'); return; }
-    sel.classList.remove('hidden');
-    const opts = projects.map(p => {
-      const selected = p.id === activeId ? ' selected' : '';
-      return `<option value="${esc(p.id)}"${selected}>${esc(p.project_url)}</option>`;
+  function issueStatus(issue) {
+    if (issue.pending_approval)   return 'awaiting';
+    if (issue.escalation)         return 'escalated';
+    if (issue.current_task && !issue.paused) return 'running';
+    if (issue.paused)             return 'paused';
+    if (issue.lifecycle_stage === 'done') return 'done';
+    return 'running';
+  }
+
+  function renderIssues(issues) {
+    const container = document.getElementById('issues-container');
+    if (!issues.length) { container.innerHTML = ''; return; }
+
+    const activeEl = document.activeElement;
+
+    const existingCards = {};
+    container.querySelectorAll('.issue-card[data-id]').forEach(el => {
+      existingCards[el.dataset.id] = el;
     });
-    if (!activeId) opts.unshift('<option value="" selected>— select project —</option>');
-    sel.innerHTML = opts.join('');
-    sel.disabled = false;
-    sel.title = 'View project';
+
+    const renderedIds = new Set();
+
+    issues.forEach(issue => {
+      const id = String(issue.id);
+      renderedIds.add(id);
+
+      const tmp = document.createElement('div');
+      tmp.innerHTML = renderCard(issue);
+      const newCard = tmp.firstElementChild;
+
+      const existing = existingCards[id];
+      if (existing) {
+        // Save input values, focus, and toggle visibility state before replacing
+        const savedState = {};
+        existing.querySelectorAll('[id]').forEach(el => {
+          const isInput = el.tagName === 'TEXTAREA' || el.tagName === 'INPUT';
+          savedState[el.id] = {
+            value:   isInput ? el.value : undefined,
+            hidden:  el.classList.contains('hidden'),
+            focused: el === activeEl
+          };
+        });
+
+        existing.replaceWith(newCard);
+
+        // Restore saved state into the new card
+        let focusId = null;
+        Object.entries(savedState).forEach(([elId, data]) => {
+          const el = document.getElementById(elId);
+          if (!el) return;
+          if (data.value !== undefined) el.value = data.value;
+          if (data.hidden) el.classList.add('hidden');
+          else             el.classList.remove('hidden');
+          if (data.focused) focusId = elId;
+        });
+        if (focusId) {
+          const el = document.getElementById(focusId);
+          if (el) el.focus();
+        }
+      } else {
+        container.appendChild(newCard);
+      }
+    });
+
+    // Remove cards no longer in the list
+    Object.entries(existingCards).forEach(([id, el]) => {
+      if (!renderedIds.has(id)) el.remove();
+    });
   }
 
-  function projectStatusBadge(ps) {
-    if (!ps) return '';
-    if (ps.pending_approval || ps.pending_next_action) {
-      return '<span class="project-status awaiting">awaiting</span>';
-    }
-    if (ps.status === 'escalated') return '<span class="project-status escalated">escalated</span>';
-    if (ps.status === 'done')      return '<span class="project-status done">done</span>';
-    if (ps.paused)                 return '<span class="project-status paused">paused</span>';
-    return '<span class="project-status">running</span>';
-  }
+  function renderCard(issue) {
+    const status = issueStatus(issue);
+    const title  = issue.title || truncate(issue.input_text || issue.id, 80);
+    const repo   = issue.repo_url ? shortRepo(issue.repo_url) : '';
+    const ct     = issue.current_task || {};
 
-  function renderProjects(projects, projectsState, activeId) {
-    const el = document.getElementById('projects-list');
-    if (!projects.length) {
-      el.innerHTML = '<span class="empty">No projects yet — add one below.</span>';
-      return;
+    let cardClass = 'issue-card';
+    if (status === 'escalated') cardClass += ' card-escalated';
+    if (status === 'awaiting')  cardClass += ' card-awaiting';
+
+    const badge = `<span class="badge badge-${status}">${status}</span>`;
+
+    // Current task row
+    let taskHtml = '';
+    if (ct.task && status !== 'awaiting') {
+      const taskName = (ct.task || '').replace(/\.md$/, '');
+      const elapsed  = ct.started_at ? `<span class="card-value issue-elapsed-live" data-started="${esc(ct.started_at)}">${formatElapsed(ct.started_at)}</span>` : '';
+      const sessLink = ct.session_id ? sessionLink(ct.session_id) : '';
+      taskHtml = `<div class="card-row">
+        <span class="card-label">task</span>
+        <span class="card-value">${esc(taskName)}</span>
+        ${elapsed ? `<span style="color:var(--muted);margin-left:.25rem">·</span> ${elapsed}` : ''}
+        ${sessLink ? `<span style="color:var(--muted);margin-left:.25rem">·</span> <span class="card-value">${sessLink}</span>` : ''}
+      </div>`;
     }
-    el.innerHTML = projects.map(p => {
-      const isActive = p.id === activeId;
-      const ps = projectsState[p.id] || {};
-      const hasTask = !!ps.currentTask;
-      const activate = isActive
-        ? `<span class="project-active-marker">ACTIVE</span>`
-        : `<button onclick="activateProject('${esc(p.id)}')">View</button>`;
-      const localPath = p.local_path ? `<div class="project-meta">${esc(p.local_path)}</div>` : '';
-      return `<div class="project-item">
-        <div style="flex:1">
-          <div class="project-url">${esc(p.project_url)}</div>
-          ${localPath}
+
+    // PR URL (from current_task or last_pr_url)
+    const prUrl = ct.pr_url || issue.last_pr_url;
+    const prHtml = prUrl ? `<div class="card-row">
+      <span class="card-label">pr</span>
+      <span class="card-value"><a href="${esc(prUrl)}" target="_blank">${esc(prUrl)}</a></span>
+    </div>` : '';
+
+    // Escalation section
+    let escalationHtml = '';
+    if (issue.escalation) {
+      const e = issue.escalation;
+      const details = (e.details || '').replace(/^session_id:.*\n?/m, '').trimEnd();
+      const sessHtml = e.session_id ? `\nsession: ${sessionLinkStr(e.session_id)}` : '';
+      escalationHtml = `<div class="card-section">
+        <div class="card-section-title" style="color:var(--red)">Escalated — ${esc(e.reason || 'error')}</div>
+        <div class="escalation-detail">${esc(details)}${sessHtml}</div>
+        <div class="btn-row">
+          <button onclick='resolveEscalation(${JSON.stringify(issue.id)})'>Retry</button>
+          <button onclick='dismissEscalation(${JSON.stringify(issue.id)})'>Dismiss</button>
         </div>
-        ${projectStatusBadge(ps)}
-        ${activate}
-        <button class="danger" onclick="deleteProject('${esc(p.id)}')" ${hasTask ? 'disabled title="Cancel the running task before deleting"' : ''}>Delete</button>
       </div>`;
-    }).join('');
-  }
+    }
 
-  function renderHistory(items) {
-    const el = document.getElementById('history-list');
-    if (!items.length) { el.innerHTML = '<span class="empty">No completed tasks yet</span>'; return; }
-    el.innerHTML = [...items].reverse().map(h => {
-      const icon    = outcomeIcon(h.outcome || h.report?.type);
-      const dur     = h.duration_s ? `${h.duration_s}s` : '';
-      const taskStr = h.task ? h.task.replace(/\.md$/, '') : (h.report?.type || '?');
-      const issueId = h.report?.issue_id ? ` · ${issueDisplay(h.report.issue_id)}` : '';
-      const url     = sessionUrl(h.session_id);
-      const taskHtml = url
-        ? `<a class="history-task" href="${esc(url)}" target="_blank">${esc(taskStr)}${esc(issueId)}</a>`
-        : `<span class="history-task">${esc(taskStr)}${esc(issueId)}</span>`;
-      return `<div class="history-item">
-        <span class="history-icon">${icon}</span>
-        ${taskHtml}
-        <span class="history-meta">${esc(dur)}</span>
+    // Approval section
+    let approvalHtml = '';
+    if (issue.pending_approval) {
+      const p = issue.pending_approval;
+      approvalHtml = `<div class="card-section">
+        <div class="card-section-title" style="color:var(--yellow)">Demo Review</div>
+        <div class="summary-box">${
+          (p.issue_title ? `<strong>${esc(p.issue_title)}</strong><br>` : '') +
+          (p.summary    ? `${esc(p.summary)}<br>` : '') +
+          (p.pr_url     ? `<a href="${esc(p.pr_url)}" target="_blank">${esc(p.pr_url)}</a>` : '')
+        }</div>
+        <div class="btn-row">
+          <button class="primary" onclick='approve(${JSON.stringify(issue.id)})'>Approve</button>
+        </div>
+        <div style="margin-top:.75rem">
+          <textarea id="dr-feedback-${esc(issue.id)}" placeholder="Describe what needs to change…" rows="3"></textarea>
+          <span class="follow-ups-toggle" onclick='toggleFollowUps(${JSON.stringify(issue.id)})'>[+] Add follow-up issues</span>
+          <textarea id="dr-followups-${esc(issue.id)}" class="hidden" placeholder="One follow-up issue per line: title — description" rows="3"></textarea>
+          <div class="btn-row">
+            <button class="danger" onclick='redirect(${JSON.stringify(issue.id)})'>Send Redirect</button>
+          </div>
+        </div>
       </div>`;
-    }).join('');
+    }
+
+    // History section
+    const history = issue.history || [];
+    let historyHtml = '';
+    if (history.length) {
+      const items = [...history].reverse().slice(0, 20).map(h => {
+        const icon    = outcomeIcon(h.report?.type || h.report?.outcome);
+        const taskStr = (h.task || h.report?.type || '?').replace(/\.md$/, '');
+        const dur     = h.duration_s ? `${h.duration_s}s` : '';
+        const url     = sessionUrl(h.session_id);
+        const taskHtml = url
+          ? `<a class="history-task" href="${esc(url)}" target="_blank">${esc(taskStr)}</a>`
+          : `<span class="history-task">${esc(taskStr)}</span>`;
+        return `<div class="history-item"><span>${icon}</span>${taskHtml}<span class="history-meta">${esc(dur)}</span></div>`;
+      }).join('');
+      const histId = `hist-${esc(issue.id)}`;
+      historyHtml = `<div class="card-section">
+        <span class="history-toggle" onclick='toggleHistory(${JSON.stringify(issue.id)})'
+              id="hist-toggle-${esc(issue.id)}">▶ history (${history.length})</span>
+        <div id="${histId}" class="history-list hidden">${items}</div>
+      </div>`;
+    }
+
+    // Per-card pause/resume/cancel controls (only when running or paused)
+    let controlsHtml = '';
+    if (status === 'running' || status === 'paused') {
+      controlsHtml = `<div class="card-section">
+        <div class="btn-row">
+          <button onclick='togglePause(${JSON.stringify(issue.id)}, ${JSON.stringify(status)})'>${status === 'paused' ? 'Resume' : 'Pause'}</button>
+          <button class="danger" onclick='cancelIssue(${JSON.stringify(issue.id)})'>Cancel</button>
+        </div>
+      </div>`;
+    }
+
+    return `<div class="issue-card ${cardClass}" data-id="${esc(issue.id)}">
+      <div class="card-header">
+        ${ct.session_id ? `<a class="card-title" href="${esc(sessionUrl(ct.session_id))}" target="_blank">${esc(title)}</a>` : `<span class="card-title">${esc(title)}</span>`}
+        ${badge}
+        <button class="card-delete" onclick='deleteIssue(${JSON.stringify(issue.id)})' title="Delete issue">×</button>
+      </div>
+      <div class="card-body">
+        ${repo ? `<div class="card-row"><span class="card-label">repo</span><span class="card-value">${esc(repo)}</span></div>` : ''}
+        ${taskHtml}
+        ${prHtml}
+        ${escalationHtml}
+        ${approvalHtml}
+        ${controlsHtml}
+        ${historyHtml}
+      </div>
+    </div>`;
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -521,108 +482,91 @@
       api_key: document.getElementById('cfg-api_key').value.trim()
     };
     const err = document.getElementById('cfg-error');
-    if (Object.values(cfg).some(v => !v)) {
-      err.textContent = 'tenant and api_key are required.';
-      err.style.display = 'block';
+    if (!cfg.tenant || !cfg.api_key) {
+      showError(err, 'tenant and api_key are required.');
       return;
     }
-    err.style.display = 'none';
-    fetch('/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cfg)
-    }).then(r => r.json()).then(j => {
-      if (j.error) { err.textContent = j.error; err.style.display = 'block'; }
-      else { document.getElementById('cfg-api_key').value = ''; }
-    }).catch(() => {});
+    hideError(err);
+    fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg) })
+      .then(r => r.json()).then(j => {
+        if (j.error) showError(err, j.error);
+        else document.getElementById('cfg-api_key').value = '';
+      }).catch(() => {});
   }
 
-  function addProject() {
-    const body = {
-      project_url: document.getElementById('proj-url').value.trim(),
-      github_repo: document.getElementById('proj-github_repo').value.trim(),
-      local_path:  document.getElementById('proj-local_path').value.trim()
-    };
-    const err = document.getElementById('proj-error');
-    if (!body.project_url) {
-      err.textContent = 'project_url is required.';
-      err.style.display = 'block';
-      return;
-    }
-    err.style.display = 'none';
-    fetch('/api/projects', {
+  function submitIssue() {
+    const input_text = document.getElementById('sub-issue').value.trim();
+    const repo_url   = document.getElementById('sub-repo').value.trim();
+    const err        = document.getElementById('sub-error');
+    if (!input_text) { showError(err, 'issue is required.'); return; }
+    if (!repo_url)   { showError(err, 'repo is required.'); return; }
+    hideError(err);
+    fetch('/api/issues', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: JSON.stringify({ issue: input_text, repo_url })
     }).then(r => r.json().then(j => ({ ok: r.ok, j }))).then(({ ok, j }) => {
-      if (!ok || j.error) { err.textContent = j.error || 'Failed to add project'; err.style.display = 'block'; return; }
-      document.getElementById('proj-url').value = '';
-      document.getElementById('proj-github_repo').value = '';
-      document.getElementById('proj-local_path').value = '';
+      if (!ok || j.error) { showError(err, j.error || 'Failed to submit issue'); return; }
+      document.getElementById('sub-issue').value = '';
+      // don't clear repo — user likely submitting multiple issues to same repo
     }).catch(() => {});
   }
 
-  function activateProject(id) {
-    api('POST', `/api/projects/${encodeURIComponent(id)}/activate`);
+  function deleteIssue(issueId) {
+    if (!confirm('Delete this issue?')) return;
+    fetch(`/api/issues/${encodeURIComponent(issueId)}`, { method: 'DELETE' })
+      .then(r => r.json().then(j => ({ ok: r.ok, j }))).then(({ ok, j }) => {
+        if (!ok) alert(j.error || 'Cannot delete issue');
+      }).catch(() => {});
   }
 
-  function deleteProject(id) {
-    if (!confirm('Delete this project? Its history and state will be removed.')) return;
-    api('DELETE', `/api/projects/${encodeURIComponent(id)}`);
-  }
-
-  function switchProject(id) {
-    if (!id || id === state.active_project_id) return;
-    activateProject(id);
-  }
-
-  function activePid() {
-    return state.active_project_id;
-  }
-
-  function approve() {
-    const followUpsRaw = document.getElementById('dr-followups').value.trim();
+  function approve(issueId) {
+    const followUpsRaw = document.getElementById(`dr-followups-${issueId}`)?.value.trim() || '';
     const follow_up_issues = followUpsRaw
       ? followUpsRaw.split('\n').filter(Boolean).map(line => {
           const [title, ...rest] = line.split('—');
           return { title: title.trim(), description: rest.join('—').trim() };
         })
       : undefined;
-    api('POST', '/api/approve', { project_id: activePid(), follow_up_issues });
+    api('POST', '/api/approve', { issue_id: issueId, follow_up_issues });
   }
 
-  function redirect() {
-    const user_feedback = document.getElementById('dr-feedback').value.trim();
-    if (!user_feedback) { document.getElementById('dr-feedback').focus(); return; }
-    api('POST', '/api/redirect', { project_id: activePid(), user_feedback });
+  function redirect(issueId) {
+    const user_feedback = document.getElementById(`dr-feedback-${issueId}`)?.value.trim();
+    if (!user_feedback) {
+      document.getElementById(`dr-feedback-${issueId}`)?.focus();
+      return;
+    }
+    api('POST', '/api/redirect', { issue_id: issueId, user_feedback });
   }
 
-  function togglePause() {
-    const paused = state.activeProjectState?.paused;
-    api('POST', paused ? '/api/resume' : '/api/pause', { project_id: activePid() });
+  function resolveEscalation(issueId) {
+    api('POST', '/api/resolve-escalation', { issue_id: issueId });
   }
 
-  function triggerTriage() {
-    api('POST', '/api/triage', { project_id: activePid() });
+  function dismissEscalation(issueId) {
+    api('POST', '/api/dismiss-escalation', { issue_id: issueId });
   }
 
-  function resumePolling() {
-    api('POST', '/api/resume-polling', { project_id: activePid() });
+  function togglePause(issueId, status) {
+    api('POST', status === 'paused' ? '/api/resume' : '/api/pause', { issue_id: issueId });
   }
 
-  function cancelTask() {
-    const ps = state.activeProjectState || {};
-    if (!ps.currentTask && !ps.pending_next_action) return;
-    api('POST', '/api/cancel', { project_id: activePid() });
+  function cancelIssue(issueId) {
+    api('POST', '/api/cancel', { issue_id: issueId });
   }
 
-  function continueAction() {
-    api('POST', '/api/resume', { project_id: activePid() });
+  function toggleHistory(issueId) {
+    const el = document.getElementById(`hist-${issueId}`);
+    const toggle = document.getElementById(`hist-toggle-${issueId}`);
+    if (!el) return;
+    const collapsed = el.classList.toggle('hidden');
+    const count = el.querySelectorAll('.history-item').length;
+    toggle.textContent = (collapsed ? '▶' : '▼') + ` history (${count})`;
   }
 
-  function toggleFollowUps() {
-    const el = document.getElementById('dr-followups');
-    el.classList.toggle('hidden');
+  function toggleFollowUps(issueId) {
+    document.getElementById(`dr-followups-${issueId}`)?.classList.toggle('hidden');
   }
 
   // ── Utils ──────────────────────────────────────────────────────────────────
@@ -635,17 +579,6 @@
     }).catch(() => {});
   }
 
-  function issueDisplay(issueId) {
-    if (issueId == null) return '';
-    if (typeof issueId === 'object') {
-      // next_issue is passed as { id, title, summary } from triage-report
-      const id    = issueId.id    || '';
-      const title = issueId.title || '';
-      return title ? `${id} — ${title}` : id;
-    }
-    return String(issueId);
-  }
-
   function sessionUrl(sessionId) {
     const tenant = state.synthup?.tenant;
     if (!tenant || !sessionId) return null;
@@ -655,7 +588,23 @@
   function sessionLink(sessionId) {
     const url = sessionUrl(sessionId);
     if (!url) return `<span style="color:var(--muted)">${esc(sessionId)}</span>`;
+    return `<a href="${esc(url)}" target="_blank">${esc(sessionId.slice(0, 8))}</a>`;
+  }
+
+  function sessionLinkStr(sessionId) {
+    const url = sessionUrl(sessionId);
+    if (!url) return esc(sessionId);
     return `<a href="${esc(url)}" target="_blank">${esc(sessionId)}</a>`;
+  }
+
+  function shortRepo(url) {
+    const m = url.match(/github\.com\/([^/]+\/[^/]+)/);
+    return m ? m[1] : url;
+  }
+
+  function truncate(s, n) {
+    if (!s) return '';
+    return s.length > n ? s.slice(0, n) + '…' : s;
   }
 
   function esc(s) {
@@ -675,17 +624,20 @@
   function outcomeIcon(type) {
     if (!type) return '·';
     if (type.includes('fail') || type === 'escalate' || type === 'blocked') return '✗';
-    if (type.includes('complete') || type.includes('pass') || type.includes('approved')) return '✓';
+    if (type.includes('complete') || type.includes('pass') || type.includes('approved') || type === 'done') return '✓';
     return '·';
   }
 
+  function showError(el, msg) { el.textContent = msg; el.classList.remove('hidden'); }
+  function hideError(el)      { el.textContent = ''; el.classList.add('hidden'); }
+
   poll();
+
+  // Tick elapsed timers every second
   setInterval(() => {
-    const el = document.getElementById('elapsed-value');
-    const startedAt = state.activeProjectState?.currentTask?.started_at;
-    if (el && startedAt) {
-      el.textContent = formatElapsed(startedAt);
-    }
+    document.querySelectorAll('.issue-elapsed-live[data-started]').forEach(el => {
+      el.textContent = formatElapsed(el.dataset.started);
+    });
   }, 1000);
 </script>
 </body>

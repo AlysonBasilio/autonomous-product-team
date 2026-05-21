@@ -1,14 +1,16 @@
 ---
-model: google/gemini-3.5-flash
+model: anthropic/claude-opus-4.7
 timeout_s: 5400
 inputs:
-  required: [issue_id]
-  optional: [branch, pr_url, findings, user_feedback]
+  required: []
+  optional: [input_text, issue_id, branch, pr_url, findings, user_feedback]
 ---
 
 # Task: Code
 
-You are implementing issue **{{ issue_id }}** in the project at `{{ project_url }}`.
+You are implementing an issue in this repository.
+
+**Issue:** {{ input_text }}
 
 {{#branch}}
 The branch for this work is `{{ . }}`.
@@ -27,9 +29,18 @@ A PR is already open at `{{ . }}`. Push to the same branch — do not open a sec
 
 {{ . }}
 {{/user_feedback}}
+
 ## Issue context
 
-Fetch issue `{{ issue_id }}` from the product development management system. Read its title, description, and acceptance criteria. The issue may have been edited since this task was dispatched — always read fresh. The Phase 0 scope check and Phase 1 implementation both depend on the title and description.
+{{#input_text}}
+Determine the issue from `input_text`:
+
+- **Linear URL** (e.g. `https://linear.app/team/issue/ENG-123`): fetch the issue using the Linear MCP tool to read its title, description, and acceptance criteria. The issue may have been edited since this task was dispatched — always read fresh. Use the Linear issue ID as the `issue_id` in your reports.
+- **Plain description**: treat the text itself as the full specification. Derive a short slug as the `issue_id` for your reports (e.g. `fix-login-bug`).
+{{/input_text}}
+{{#issue_id}}
+Re-attempt on issue `{{ issue_id }}`. Fetch it fresh from the Linear MCP tool to read current title and description. Use `{{ issue_id }}` as the `issue_id` in your reports.
+{{/issue_id}}
 
 ## Phase 0 — Scope check
 
@@ -42,31 +53,18 @@ Before writing any code, decide whether this issue is too big to deliver as a si
 
 If you are **resuming work on an existing branch / open PR** (a `branch` or `pr_url` was supplied above), skip this check and proceed to Phase 1 — splitting is only for fresh starts.
 
-If the issue is too big → do **not** mark it In Progress and do **not** create a branch. Instead, propose 2–4 sub-issues (max 5), ordered so foundational work (data model, API contract) precedes consumer work (UI, integrations); use `depends_on` to encode that. Emit:
+If the issue is too big, **do not** create a branch or write any code. Instead:
 
-```json
-{
-  "type": "split-needed",
-  "issue_id": "<issue ID>",
-  "source_issue_id": "<issue ID>",
-  "issues": [
-    {
-      "title": "<sub-issue title>",
-      "description": "<what this sub-issue covers and its acceptance criteria>",
-      "depends_on": ["<title of another sub-issue in this list that must complete first>"]
-    }
-  ]
-}
-```
-
-Omit `depends_on` entirely on sub-issues that have no prerequisites; do not emit `null` or an empty array. After emitting this report, stop — the orchestrator will run `create-issue.md` and return to triage.
+1. Propose 2–4 sub-issues (max 5), ordered so foundational work precedes consumer work. Use `depends_on` to encode prerequisites.
+2. Create each sub-issue in Linear using the Linear MCP tool (or, if `input_text` was a plain description, note them as a comment on any relevant Linear issue you can find, or just document them in your report summary).
+3. Emit `task-complete` with a summary explaining that the issue was split and the sub-issues created.
 
 Otherwise, continue to Phase 1.
 
 ## Phase 1 — Implementation
 
 ### 0. Check out the branch (and rebase if necessary)
-Use `branch` from above (derive from `pr_url` if needed — see top of file). If neither was supplied, derive a branch name from the issue ID (convention: `<issue-id>-<short-description>`).
+Use `branch` from above (derive from `pr_url` if needed — see top of file). If neither was supplied, derive a branch name from the issue ID or a short slug from the description (convention: `<issue-id>-<short-description>`).
 
 If it does not yet exist on the remote:
 ```bash
@@ -113,26 +111,21 @@ Ensure the PR is reviewed. For every unresolved review thread:
 See the **GraphQL reference** below for the exact mutations and the final verification query. The verification query must return `0` before proceeding.
 
 ### 5. Identify follow-up issues
-Review the diff for any TODO comments added during this implementation. For each, note the title (TODO text) and description (file path + brief context on what is deferred and why). Do not remove the TODOs — they will be tracked as separate issues.
+Review the diff for any TODO comments added during this implementation. For each, create a follow-up issue in Linear using the Linear MCP tool (or document it in your summary if no Linear project is available). Do not remove the TODOs from the code — they serve as inline reminders until the follow-up is resolved.
 
 ### 6. Report
 
-Once CI is green on the branch and the unresolved-threads query returns `0`, emit the following object — first as a single fenced ```json block posted to the PM issue via the product development management system tool (this is the authoritative completion record; if re-running after findings, this comment supersedes any prior one), and then as your final response, again as a single fenced ```json block and nothing else:
+Once CI is green on the branch and the unresolved-threads query returns `0`, emit the following object — first as a single fenced ```json block posted to the issue in Linear via the Linear MCP tool (this is the authoritative completion record), and then as your final response, again as a single fenced ```json block and nothing else:
 
 ```json
 {
   "type": "task-complete",
   "task": "tasks/code.md",
-  "issue_id": "<issue ID>",
+  "issue_id": "<issue ID or slug>",
   "pr_url": "<PR URL>",
-  "summary": "<one sentence>",
-  "follow_up_issues": [
-    { "title": "<TODO text>", "description": "<file path — brief context on what is deferred and why>" }
-  ]
+  "summary": "<one sentence>"
 }
 ```
-
-Omit `follow_up_issues` entirely when no TODOs were added; do not emit `null` or `[]`. The PM-comment copy may omit `issue_id`, `summary`, and `follow_up_issues` if your tool integration prefers — only `type`, `task`, and `pr_url` are required there.
 
 If implementation hits an unresolvable blocker, output only:
 
@@ -140,7 +133,7 @@ If implementation hits an unresolvable blocker, output only:
 {
   "type": "task-failed",
   "task": "tasks/code.md",
-  "issue_id": "<issue ID>",
+  "issue_id": "<issue ID or slug>",
   "failure": "<exact failure details — test name, error message, unmet criterion>"
 }
 ```

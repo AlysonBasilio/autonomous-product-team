@@ -1,6 +1,6 @@
 # Autonomous Product Team
 
-An autonomous AI product team that runs on [Synthup](https://www.synthup.dev). A Ruby orchestrator picks up the highest-priority unblocked issue, implements it, tests it, and presents a PR for user approval — then loops. Synthup manages the sessions that execute each task.
+An autonomous AI product team that runs on [Synthup](https://www.synthup.dev). Submit an issue and a GitHub repo — the orchestrator implements it, tests it, and presents a PR for your approval. Multiple issues run in parallel. Synthup manages the sessions that execute each task.
 
 This repo *is* the app: clone it, run `./bin/start`, configure via the web UI. No npm, no copy-into-your-project step. Tasks live in `tasks/` and are read in place.
 
@@ -25,17 +25,17 @@ cd autonomous-product-team
 `bin/start` runs `bundle install` if needed, then boots the orchestrator. Open `http://localhost:4242`:
 
 1. Enter your Synthup `tenant` and `api_key` under **Global Config**.
-2. Add a project: paste the URL of your issues list (e.g. `https://linear.app/your-team/issues`) and optionally a `local_path`.
-3. The first project becomes active automatically. The orchestrator starts dispatching `issue-triage.md` against it.
+2. Click **New Issue**, paste a description and a GitHub repo URL, and submit.
+3. The orchestrator immediately starts working on it: code → test → demo-review.
 
-Stop with Ctrl-C; restart with `./bin/start`. State is persisted under `data/` and survives restarts.
+Stop with Ctrl-C; restart with `./bin/start`. State persists in `data/orchestrator.db` and survives restarts. In-progress sessions are resumed automatically on boot.
 
 ## Configuration
 
 | Env var | Purpose |
 |---|---|
-| `SYNTHUP_TENANT` | Override the tenant from `data/config.json`. When set, the UI hides the field. |
-| `SYNTHUP_API_KEY` | Override the api key from `data/config.json`. When set, the UI hides the field. |
+| `SYNTHUP_TENANT` | Override the tenant from the database. When set, the UI hides the field. |
+| `SYNTHUP_API_KEY` | Override the api key from the database. When set, the UI hides the field. |
 | `PORT` / `ORCHESTRATOR_PORT` | Web UI port (default `4242`). `PORT` wins if both are set. |
 | `ORCHESTRATOR_BIND` | Bind address (default `127.0.0.1`; set to `0.0.0.0` to expose). |
 | `ORCHESTRATOR_USERNAME` | HTTP Basic Auth username (default `admin`). Only used if `ORCHESTRATOR_PASSWORD` is set. |
@@ -49,125 +49,93 @@ For cloud deployment (Oracle Cloud Always Free + Cloudflare Quick Tunnel), see [
 
 ```
 data/
-├── config.json                  # global Synthup creds + active_project_id
-└── projects/<slug>.json         # one file per configured project
+└── orchestrator.db    # SQLite store — all issues, credentials, history
 ```
 
-`<slug>` is derived deterministically from `project_url` (e.g. `https://linear.app/acme/issues` → `linear-acme-issues`). Re-adding the same URL re-binds the existing state file.
+State persists in SQLite. Re-running `./bin/start` resumes any in-flight issues automatically.
 
 ## How it works
 
 ### Components
 
-- **Orchestrator** — Ruby process (`orchestrator/run.rb`) that drives the lifecycle loop. Routes between tasks based on their JSON output.
-- **Task** — A Markdown prompt file in `tasks/` defining one step of the workflow (e.g. `issue-triage.md`, `code.md`). Each task specifies a model in its frontmatter.
+- **Orchestrator** — Ruby process (`orchestrator/run.rb`) that spawns one thread per issue and drives it through the task lifecycle.
+- **Task** — A Markdown prompt file in `tasks/` defining one step of the workflow (`code.md`, `test.md`, `demo-review.md`). Each task specifies a model in its frontmatter.
 - **Session** — A Synthup-managed execution that runs a task prompt and outputs a structured JSON report. The orchestrator polls for the report and routes to the next task.
-- **Project state** — `data/projects/<slug>.json`. Tracks the active session and history per project; enables crash-safe resume.
+- **Issue** — An `Issue` row in SQLite. Carries `input_text`, `repo_url`, `lifecycle_stage`, `current_task`, `escalation`, and a `history` JSON log of completed tasks.
 
 ### Lifecycle
 
-Happy path:
-
 ```
-triage → code → test → demo-review → [user approves + merges] → triage → …
+code → test → demo-review → done
 ```
 
-The orchestrator dispatches one task at a time. Each task runs as a Synthup session and signals completion by outputting a JSON report. The orchestrator reads the report and dispatches the next task automatically.
-
-Demo review is the one human gate: the orchestrator pauses and presents the PR in the web UI. The user approves or redirects — the orchestrator never merges.
+Each issue submitted via the web UI gets its own thread. The thread drives the issue through the task chain, polling Synthup for each task's JSON report and routing to the next task. Demo review is the only human gate.
 
 Full routing graph (every transition defined in [`orchestrator/router.rb`](orchestrator/router.rb)):
 
 ```mermaid
 flowchart TD
-    Start([start / resume loop]) --> Triage
+    Submit([POST /api/issues]) --> Code
 
-    Triage["<b>issue-triage</b><br/><i>triage-report</i>"]
-    Discovery["<b>discovery</b><br/><i>discovery-complete</i>"]
-    Code["<b>code</b><br/><i>task-complete · split-needed</i>"]
+    Code["<b>code</b><br/><i>task-complete</i>"]
     Test["<b>test</b><br/><i>test-report</i>"]
     DemoReview["<b>demo-review</b><br/><i>demo-review-pending → -report</i>"]
-    CreateIssue["<b>create-issue</b><br/><i>create-issue-complete</i>"]
 
-    Done([done — no unblocked issue])
+    Done([done])
     WaitDR[/wait-approval<br/>demo-review human gate/]
     Escalate[/escalate banner<br/>task-failed · blocked · recovery-exhausted · unknown-report/]
 
-    %% triage routes directly
-    Triage -->|next_issue null| Done
-    Triage -->|next_task = discovery| Discovery
-    Triage -->|next_task = code| Code
-    Triage -->|next_task = test| Test
-    Triage -->|next_task = demo-review| DemoReview
-    Triage -.->|blocked<br/>test infra broken| Escalate
-
-    %% deterministic transitions
-    Discovery --> Triage
-    Code -->|no follow-ups| Test
-    Code -->|with follow_up_issues| CreateIssue
-    Code -->|split-needed<br/>scope too big| CreateIssue
+    Code --> Test
     Test -->|outcome pass| DemoReview
     Test -->|outcome fail| Code
 
-    %% demo-review human gate
     DemoReview --> WaitDR
-    WaitDR -->|approve · no follow-ups| Triage
-    WaitDR -->|approve · with follow_up_issues| CreateIssue
+    WaitDR -->|approve| Done
     WaitDR -->|redirect| Code
 
-    %% create-issue returns to caller
-    CreateIssue -->|return_to = triage| Triage
-    CreateIssue -->|return_to = test| Test
-
-    %% failure paths from any task
-    Triage -.->|failure| Escalate
-    Discovery -.->|failure| Escalate
     Code -.->|failure| Escalate
     Test -.->|failure| Escalate
     DemoReview -.->|failure| Escalate
-    CreateIssue -.->|failure| Escalate
-    Escalate -.->|user clicks Triage Now| Triage
+    Escalate -.->|resolve / retry| Code
+    Escalate -.->|dismiss| Done
 
     classDef task fill:#e8f0ff,stroke:#4070d0,color:#000;
     classDef gate fill:#fff4d6,stroke:#c89400,color:#000;
     classDef terminal fill:#e6f7e6,stroke:#2a8f3a,color:#000;
     classDef error fill:#fde2e2,stroke:#c0392b,color:#000;
-    class Triage,Discovery,Code,Test,DemoReview,CreateIssue task;
+    class Code,Test,DemoReview task;
     class WaitDR gate;
-    class Done,Start terminal;
+    class Done,Submit terminal;
     class Escalate error;
 ```
 
-Legend: solid arrows are normal routing on JSON reports; dashed arrows are failure paths. `issue-triage` is the central decision-maker — every loop comes back through it. The yellow `wait-approval` node is the only place the loop pauses for a human.
+Legend: solid arrows are normal routing on JSON reports; dashed arrows are failure paths. The yellow `wait-approval` node is the only place a thread pauses for a human.
 
 ### Behavior
 
-1. Works on **one issue at a time** for the active project — the highest-priority unblocked issue.
+1. **One thread per issue** — each issue runs its own task loop independently. Multiple issues make progress in parallel.
 2. **The user owns the merge.** Demo review presents the PR in the web UI and waits.
-3. **Tasks are idempotent.** Each task posts a structured JSON comment to the PM issue on completion. On restart, `issue-triage.md` reads these comments to determine what has already been done.
-4. **Sessions resume after a crash.** The active session ID is saved before polling. On restart, the orchestrator resumes polling the existing session.
-5. **A branch is created per issue and cleaned up automatically.** `issue-triage.md` derives a branch name per issue; the code task creates and pushes it. Each Synthup session checks out that branch at the start. After the PR merges, the next triage cycle deletes the local branch.
+3. **Sessions resume after a crash.** On restart, any issue whose session was active when the server stopped is automatically resumed by sending a recovery nudge.
+4. **History is per-issue.** Each issue carries a JSON log of every completed task (task name, session ID, duration, report summary).
 
-The orchestrator never `cd`s into your project on disk — all git/file work happens inside the Synthup session against the GitHub repo derived from `project_url`.
+The orchestrator never `cd`s into your project on disk — all git/file work happens inside the Synthup session against the GitHub repo from `repo_url`.
 
 ## Web UI
 
 The orchestrator UI at `http://localhost:4242` lets you:
 
-- **Switch viewed project** — header dropdown. All projects run in parallel; this only changes which one's panel you see.
-- **Pause / Resume** — stop the viewed project's loop between tasks without killing the process. Other projects keep running.
-- **Triage Now** — force an immediate re-triage on the viewed project (useful after manually resolving a blocker).
-- **Cancel** — abort the viewed project's current running task.
-- **Approve / Redirect** — the approval gate for demo review. Approve records your consent and lets the project's loop move on; Redirect sends your feedback back through the code task.
-- **Escalation banner** — shown when a task fails; includes error details and a Triage Now button to reset.
+- **Submit an issue** — New Issue button: paste a description and a GitHub repo URL.
+- **Pause / Resume** — stop an issue's loop between tasks without killing the process.
+- **Cancel** — abort an issue's current running task.
+- **Delete** — remove a completed or cancelled issue from the list.
+- **Approve / Redirect** — the approval gate for demo review. Approve marks the issue done; Redirect sends your feedback back through the code task. When multiple issues are awaiting approval, they queue — the UI shows the oldest first.
+- **Escalation banner** — shown when a task fails; includes error details and a Retry / Dismiss button.
 
-## Multiple projects
+## Parallel issues
 
-Every configured project runs **its own orchestration loop in parallel**. Add as many as you like; each project's state, history, and escalations are isolated in its own `data/projects/<slug>.json`. The header dropdown picks which project's panel the UI shows — switching the view does not pause anything.
+Every submitted issue runs **its own orchestration thread in parallel**. There is no per-project concept — issues are top-level. Each issue's state, history, and escalations are isolated in its own DB row.
 
-Per-project controls (Pause, Triage Now, Cancel, Approve/Redirect) apply only to the project you're viewing. The project list badges each row (running / paused / awaiting / escalated / done) so you can tell at a glance when an unviewed project needs attention.
-
-Synthup credentials are global: every project's loop uses the same `tenant` and `api_key`. Running N projects in parallel multiplies session creation against your Synthup quota — keep an eye on credit burn.
+Synthup credentials are global: every issue's thread uses the same `tenant` and `api_key`. Running many issues in parallel multiplies session creation against your Synthup quota — keep an eye on credit burn.
 
 ## Updating
 
@@ -229,16 +197,15 @@ echo "OPENROUTER_API_KEY=sk-or-..." > tests/.env
 | File | What to add |
 |---|---|
 | `tests/test_static.rb` | Structural checks — new fields, new task references, new report types |
-| `tests/test_triage.rb` | New triage edge cases (blocker definitions, priority rules) |
-| `tests/test_triage_routing.rb` | New routing table rows or state combinations (Phase 2 of triage) |
-| `tests/test_demo_review.rb` | New demo-review scenarios or approval/redirect edge cases |
-| `tests/test_discovery.rb` | New discovery scenarios or issue analysis edge cases |
+| `tests/test_server.rb` | API endpoint tests (rack-test) |
+| `tests/test_issues.rb` | Issue lifecycle unit tests |
+| `tests/test_demo_review.rb` | Demo-review approve / redirect / follow-up scenarios |
 
 Each LLM eval is a scenario hash with `:name`, `:description`, `:mock_context`, and `:rubric` — see any existing scenario in those files for the pattern.
 
 ### End-to-end test
 
-`tests/e2e/` boots the orchestrator in interactive mode, drives it through a real browser, and walks the full `triage → code → test → demo-review` lifecycle against a configured GitHub repo.
+`tests/e2e/` boots the orchestrator, drives it through a real browser, and walks the full `code → test → demo-review` lifecycle against a configured GitHub repo.
 
 ```bash
 bundle exec ruby tests/e2e/run.rb

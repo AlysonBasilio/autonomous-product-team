@@ -1,13 +1,15 @@
 require 'sinatra/base'
 require 'json'
-require_relative 'state'
 require_relative 'config'
-require_relative 'projects'
+require_relative 'issues'
 require_relative 'synthup'
+require_relative 'db'
 
 class OrchestratorServer < Sinatra::Base
-  set :server, :puma
-  set :logging, false
+  set :server,         :puma
+  set :logging,        false
+  set :port_value,     4242
+  set :interactive_mode, false
 
   if ENV['ORCHESTRATOR_PASSWORD'].to_s.strip != ''
     use Rack::Auth::Basic, 'Orchestrator' do |u, p|
@@ -16,12 +18,8 @@ class OrchestratorServer < Sinatra::Base
     end
   end
 
-  # Per-project control flags. One struct per project_id; the orchestration
-  # loop reads its own slot, so projects don't share pause/cancel/approval
-  # state.
-  ProjectControl = Struct.new(
-    :paused, :triage_requested, :cancel_requested,
-    :resume_polling_requested, :pending_approval, :pending_next_action,
+  IssueControl = Struct.new(
+    :paused, :cancel_requested, :pending_approvals,
     keyword_init: true
   )
 
@@ -34,51 +32,80 @@ class OrchestratorServer < Sinatra::Base
       @controls_guard ||= Mutex.new
     end
 
-    def ctl(project_id)
+    def issue_threads
+      @issue_threads ||= {}
+    end
+
+    def issue_threads_mutex
+      @issue_threads_mutex ||= Mutex.new
+    end
+
+    def ctl(issue_id)
       controls_guard.synchronize do
-        controls[project_id] ||= ProjectControl.new(
-          paused: false, triage_requested: false, cancel_requested: false,
-          resume_polling_requested: false, pending_approval: nil, pending_next_action: nil
+        controls[issue_id] ||= IssueControl.new(
+          paused: false, cancel_requested: false, pending_approvals: []
         )
       end
     end
 
-    def forget(project_id)
-      controls_guard.synchronize { controls.delete(project_id) }
+    def forget(issue_id)
+      controls_guard.synchronize { controls.delete(issue_id) }
+      issue_threads_mutex.synchronize { issue_threads.delete(issue_id) }
+    end
+
+    def thread_alive?(issue_id)
+      issue_threads_mutex.synchronize { issue_threads[issue_id]&.alive? }
+    end
+
+    def spawn_issue_thread(issue, port:, interactive:, initial_action:)
+      t = Thread.new do
+        run_issue_loop(issue.id,
+                       initial_action: initial_action,
+                       port:           port,
+                       interactive:    interactive,
+                       control:        ctl(issue.id))
+        issue_threads_mutex.synchronize { issue_threads.delete(issue.id) }
+      end
+      issue_threads_mutex.synchronize { issue_threads[issue.id] = t }
+      t
     end
   end
 
   def self.build_state_payload
-    cfg          = Config.load
-    projects     = Projects.list
-    projects_state = projects.each_with_object({}) do |p, h|
-      s = State.load(p.id) || {}
-      c = ctl(p.id)
-      approval_meta = c.pending_approval && {
-        issue_title: c.pending_approval[:issue_title],
-        issue_id:    c.pending_approval[:issue_id],
-        pr_url:      c.pending_approval[:pr_url],
-        summary:     c.pending_approval[:summary]
+    cfg    = Config.load
+    issues = Issue.order(:created_at).to_a
+
+    issues_payload = issues.map do |i|
+      c             = ctl(i.id)
+      ct            = i.current_task || {}
+      first_approval = c.pending_approvals&.first
+      approval_meta  = first_approval && {
+        issue_title: first_approval[:issue_title],
+        issue_id:    first_approval[:issue_id],
+        pr_url:      first_approval[:pr_url],
+        summary:     first_approval[:summary]
       }
-      h[p.id] = {
-        status:              s['status'],
-        paused:              c.paused,
-        currentTask:         s['currentTask'],
-        history:             (s['history'] || []).last(20),
-        escalation:          s['escalation'],
-        pending_approval:    approval_meta,
-        pending_next_action: c.pending_next_action
-      }
+
+      {
+        id:              i.id,
+        title:           i.title,
+        input_text:      i.input_text,
+        repo_url:        i.repo_url,
+        lifecycle_stage: i.lifecycle_stage,
+        paused:          c.paused,
+        current_task:    ct.empty? ? nil : ct,
+        escalation:      i.escalation,
+        pending_approval: approval_meta,
+        history:         (Array(i.history)).last(20)
+      }.compact
     end
 
     {
       synthup_configured: cfg.synthup_configured?,
-      synthup:            { tenant: cfg.tenant,
-                            tenant_from_env: Config.tenant_from_env?,
+      synthup:            { tenant:           cfg.tenant,
+                            tenant_from_env:  Config.tenant_from_env?,
                             api_key_from_env: Config.api_key_from_env? },
-      projects:           projects.map(&:to_h),
-      active_project_id:  cfg.active_project_id,
-      projects_state:     projects_state
+      issues:             issues_payload
     }
   end
 
@@ -93,146 +120,146 @@ class OrchestratorServer < Sinatra::Base
     self.class.build_state_payload.to_json
   end
 
+  post '/api/issues' do
+    body_params = JSON.parse(request.body.read) rescue {}
+    input_text  = body_params['issue'].to_s.strip
+    repo_url    = body_params['repo_url'].to_s.strip
+    return json_error(400, 'issue is required')   if input_text.empty?
+    return json_error(400, 'repo_url is required') if repo_url.empty?
+
+    warn "[server] POST /api/issues repo=#{repo_url} issue=#{input_text.slice(0, 60).inspect}"
+    issue = Issue.create!(input_text: input_text, repo_url: repo_url, lifecycle_stage: 'coding')
+    warn "[server] issue created id=#{issue.id}"
+    initial_action = { type: 'run-task', task: 'code.md', context: { input_text: input_text } }
+    self.class.spawn_issue_thread(issue,
+                                  port:           settings.port_value,
+                                  interactive:    settings.interactive_mode,
+                                  initial_action: initial_action)
+    content_type :json
+    { id: issue.id, title: issue.title || input_text }.to_json
+  end
+
+  delete '/api/issues/:id' do |id|
+    return json_error(409, 'Cancel the issue before deleting') if self.class.thread_alive?(id)
+    warn "[server] DELETE /api/issues/#{id}"
+    Issue.find_by(id: id)&.destroy
+    self.class.forget(id)
+    json_ok
+  end
+
   post '/api/approve' do
     body_params = JSON.parse(request.body.read) rescue {}
-    c = control_for(body_params)
-    return json_error(409, 'No pending approval') unless c&.pending_approval
-    c.pending_approval[:resolve].call('outcome' => 'approved', 'user_feedback' => nil,
-                                      'follow_up_issues' => body_params['follow_up_issues'])
+    c = resolve_control(body_params)
+    approval = c&.pending_approvals&.first
+    return json_error(409, 'No pending approval') unless approval
+    warn "[server] POST /api/approve issue=#{body_params['issue_id']}"
+    approval[:resolve].call('outcome'          => 'approved',
+                            'user_feedback'    => nil,
+                            'follow_up_issues' => body_params['follow_up_issues'])
     json_ok
   end
 
   post '/api/redirect' do
     body_params = JSON.parse(request.body.read) rescue {}
-    c = control_for(body_params)
-    return json_error(409, 'No pending approval') unless c&.pending_approval
-    c.pending_approval[:resolve].call('outcome' => 'redirect',
-                                      'user_feedback' => body_params['user_feedback'] || '',
-                                      'follow_up_issues' => nil)
+    c = resolve_control(body_params)
+    approval = c&.pending_approvals&.first
+    return json_error(409, 'No pending approval') unless approval
+    warn "[server] POST /api/redirect issue=#{body_params['issue_id']} feedback=#{body_params['user_feedback'].to_s.slice(0, 60).inspect}"
+    approval[:resolve].call('outcome'       => 'redirect',
+                            'user_feedback' => body_params['user_feedback'] || '',
+                            'follow_up_issues' => nil)
     json_ok
   end
 
-  # Save global Synthup credentials (tenant + api_key only).
-  post '/api/config' do
+  post '/api/reset-issue' do
     body_params = JSON.parse(request.body.read) rescue {}
-    tenant  = body_params['tenant'].to_s.strip
-    api_key = body_params['api_key'].to_s.strip
-    return json_error(400, 'tenant and api_key are required') if tenant.empty? || api_key.empty?
-    Config.save_synthup_credentials(tenant: tenant, api_key: api_key)
-    Synthup.api_key = api_key
+    issue_id    = body_params['issue_id'].to_s.strip
+    return json_error(400, 'issue_id required') if issue_id.empty?
+    issue = Issue.find_by(id: issue_id)
+    return json_error(404, 'Issue not found') unless issue
+    warn "[server] POST /api/reset-issue id=#{issue_id}"
+    Issues.clear_current_task(issue_id)
+    Issues.clear_escalation(issue_id)
+    unless self.class.thread_alive?(issue_id)
+      initial_action = { type: 'run-task', task: issue.last_task || 'code.md',
+                         context: { input_text: issue.input_text, pr_url: issue.last_pr_url }.compact }
+      warn "[server] spawning thread for reset id=#{issue_id} task=#{initial_action[:task]}"
+      self.class.spawn_issue_thread(issue,
+                                    port:           settings.port_value,
+                                    interactive:    settings.interactive_mode,
+                                    initial_action: initial_action)
+    end
     json_ok
   end
 
-  # ── Projects ───────────────────────────────────────────────────────────────
-
-  get '/api/projects' do
-    content_type :json
-    { projects: Projects.list.map(&:to_h),
-      active_project_id: Config.load.active_project_id }.to_json
-  end
-
-  post '/api/projects' do
+  post '/api/resolve-escalation' do
     body_params = JSON.parse(request.body.read) rescue {}
-    url         = body_params['project_url'].to_s.strip
-    github_repo = body_params['github_repo'].to_s.strip
-    local_path  = body_params['local_path'].to_s.strip
-    return json_error(400, 'project_url is required') if url.empty?
-    project = Projects.create(
-      project_url: url,
-      github_repo: github_repo.empty? ? nil : github_repo,
-      local_path:  local_path.empty? ? nil : local_path
-    )
-    # Set as the view default if none chosen yet — UI hint only.
-    Config.set_active_project_id(project.id) if Config.load.active_project_id.to_s.empty?
-    content_type :json
-    project.to_h.to_json
-  rescue ArgumentError => e
-    json_error(400, e.message)
-  end
-
-  delete '/api/projects/:id' do |id|
-    state = State.load(id)
-    return json_error(409, 'Cannot delete a project while a task is running') if state && state['currentTask']
-    cfg = Config.load
-    Config.set_active_project_id(nil) if cfg.active_project_id == id
-    Projects.delete(id)
-    self.class.forget(id)
+    issue_id    = body_params['issue_id'].to_s.strip
+    return json_error(400, 'issue_id required') if issue_id.empty?
+    warn "[server] POST /api/resolve-escalation id=#{issue_id}"
+    Issues.clear_escalation(issue_id)
     json_ok
   end
 
-  # Selects which project's panel the UI shows. All projects run in parallel,
-  # so this no longer gates the orchestration loop.
-  post '/api/projects/:id/activate' do |id|
-    project = Projects.find(id)
-    return json_error(404, 'Project not found') unless project
-    Config.set_active_project_id(id)
-    json_ok
-  end
-
-  post '/api/triage' do
-    c = control_for_request
-    return json_error(404, 'project_id required') unless c
-    c.triage_requested = true
-    json_ok
-  end
-
-  post '/api/resume-polling' do
+  post '/api/dismiss-escalation' do
     body_params = JSON.parse(request.body.read) rescue {}
-    pid = resolve_project_id(body_params)
-    return json_error(404, 'project_id required') unless pid
-    state = State.load(pid)
-    sid = state&.dig('escalation', 'resumable_task', 'session_id')
-    return json_error(409, 'No resumable session on the current escalation') unless sid
-    self.class.ctl(pid).resume_polling_requested = true
+    issue_id    = body_params['issue_id'].to_s.strip
+    return json_error(400, 'issue_id required') if issue_id.empty?
+    warn "[server] POST /api/dismiss-escalation id=#{issue_id}"
+    Issues.clear_escalation(issue_id)
+    Issue.find_by(id: issue_id)&.update!(lifecycle_stage: 'done')
+    c = self.class.ctl(issue_id)
+    c.cancel_requested = true if c
     json_ok
   end
 
   post '/api/cancel' do
     body_params = JSON.parse(request.body.read) rescue {}
-    pid = resolve_project_id(body_params)
-    return json_error(404, 'project_id required') unless pid
-    c = self.class.ctl(pid)
-    state = State.load(pid)
-    ct = state&.dig('currentTask')
-    return json_ok unless ct || c.pending_next_action
-
-    c.pending_approval[:resolve].call('outcome' => 'cancelled') if c.pending_approval
+    c = resolve_control(body_params)
+    return json_error(400, 'issue_id required') unless c
+    warn "[server] POST /api/cancel id=#{body_params['issue_id']}"
+    c.pending_approvals&.first&.dig(:resolve)&.call('outcome' => 'cancelled')
     c.cancel_requested = true
-    c.paused = false  # release any interactive gate
+    c.paused = false
     json_ok
   end
 
   post '/api/pause' do
-    c = control_for_request
-    return json_error(404, 'project_id required') unless c
+    body_params = JSON.parse(request.body.read) rescue {}
+    c = resolve_control(body_params)
+    return json_error(400, 'issue_id required') unless c
+    warn "[server] POST /api/pause id=#{body_params['issue_id']}"
     c.paused = true
     json_ok
   end
 
   post '/api/resume' do
-    c = control_for_request
-    return json_error(404, 'project_id required') unless c
+    body_params = JSON.parse(request.body.read) rescue {}
+    c = resolve_control(body_params)
+    return json_error(400, 'issue_id required') unless c
+    warn "[server] POST /api/resume id=#{body_params['issue_id']}"
     c.paused = false
+    json_ok
+  end
+
+  # Save global Synthup credentials.
+  post '/api/config' do
+    body_params = JSON.parse(request.body.read) rescue {}
+    tenant  = body_params['tenant'].to_s.strip
+    api_key = body_params['api_key'].to_s.strip
+    return json_error(400, 'tenant and api_key are required') if tenant.empty? || api_key.empty?
+    warn "[server] POST /api/config tenant=#{tenant}"
+    Config.save_synthup_credentials(tenant: tenant, api_key: api_key)
+    Synthup.api_key = api_key
     json_ok
   end
 
   private
 
-  def control_for_request
-    body_params = JSON.parse(request.body.read) rescue {}
-    control_for(body_params)
-  end
-
-  def control_for(body_params)
-    pid = resolve_project_id(body_params)
-    pid && self.class.ctl(pid)
-  end
-
-  def resolve_project_id(body_params)
-    pid = body_params['project_id'].to_s.strip
-    pid = Config.load.active_project_id if pid.empty?
-    pid = pid.to_s.strip
-    pid.empty? ? nil : pid
+  def resolve_control(body_params)
+    issue_id = body_params['issue_id'].to_s.strip
+    return nil if issue_id.empty?
+    self.class.ctl(issue_id)
   end
 
   def json_ok

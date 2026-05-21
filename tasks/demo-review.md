@@ -7,7 +7,7 @@ inputs:
 
 # Task: Demo Review
 
-Customer touchpoint for PR **{{ pr_url }}** (issue **{{ issue_id }}** in `{{ project_url }}`). Reached only after the tester passes. On approval, the orchestrator notifies the user the PR is ready to merge — the user owns the merge.
+Customer touchpoint for PR **{{ pr_url }}** (issue **{{ issue_id }}**). Reached only after the tester passes. On approval, the orchestrator notifies the user the PR is ready to merge — the user owns the merge.
 
 ## Workflow
 
@@ -15,7 +15,7 @@ Customer touchpoint for PR **{{ pr_url }}** (issue **{{ issue_id }}** in `{{ pro
 
 Fetch the PR title/body — you'll need them to write the `summary` field in step 4.
 
-Fetch issue `{{ issue_id }}` from the product development management system and read its current title — you must echo it as `issue_title` in the `demo-review-pending` report (step 4) so the orchestrator's approval UI can display it. Fetch fresh: the title may have changed since this task was dispatched.
+Fetch issue `{{ issue_id }}` from Linear via the Linear MCP tool and read its current title — you must echo it as `issue_title` in the `demo-review-pending` report (step 4) so the orchestrator's approval UI can display it. Fetch fresh: the title may have changed since this task was dispatched.
 
 ### 2. Check for blocking feedback
 
@@ -39,7 +39,7 @@ Among the remaining (non-minimized) comments, treat any that request changes, ra
 
 ### 3. If blocking: redirect
 
-Post a comment on issue `{{ issue_id }}` via the product development management system tool noting that demo review was blocked, the PR URL, and a one-line summary of the blocking items.
+Post a comment on issue `{{ issue_id }}` via the Linear MCP tool noting that demo review was blocked, the PR URL, and a one-line summary of the blocking items.
 
 Then output ONLY this fenced ```json block and stop. `user_feedback` MUST cite each blocking item by its `url` from the step 2 output (e.g. `- <url>: <short reason>` per line) so the redirect can be audited; do not paraphrase items that have no matching URL in your filter output.
 
@@ -55,7 +55,7 @@ Then output ONLY this fenced ```json block and stop. `user_feedback` MUST cite e
 
 ### 4. If clear: report to orchestrator
 
-Post a comment on issue `{{ issue_id }}` via the product development management system tool noting that demo review is ready for approval, the PR URL, and the one-sentence summary of what was built.
+Post a comment on issue `{{ issue_id }}` via the Linear MCP tool noting that demo review is ready for approval, the PR URL, and the one-sentence summary of what was built.
 
 Then output ONLY this fenced ```json block and exit — the orchestrator handles the approval UI:
 
@@ -74,4 +74,4 @@ Then output ONLY this fenced ```json block and exit — the orchestrator handles
 - NEVER call `AskUserQuestion` — approval is handled by the orchestrator UI.
 - NEVER post comments on the PR — report outcomes via the JSON block only.
 - NEVER merge the PR — the user owns the merge.
-- NEVER mark the issue Done — issue-triage detects the merge next cycle.
+- NEVER mark the issue Done — merging is the user's responsibility.

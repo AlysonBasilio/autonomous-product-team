@@ -94,21 +94,6 @@ class TestTemplateRender < Minitest::Test
     end
   end
 
-  def test_project_url_is_implicitly_declared
-    body = <<~MD
-      ---
-      inputs:
-        required: []
-        optional: []
-      ---
-      Project: {{ project_url }}
-    MD
-    with_task(body) do |path|
-      out = Template.render(path, project_url: 'https://x')
-      assert_includes out, 'Project: https://x'
-    end
-  end
-
   def test_optional_section_renders_when_present
     body = <<~MD
       ---
@@ -254,15 +239,11 @@ class TestTemplateOnRealTasks < Minitest::Test
 
   def test_every_task_renders_with_required_inputs
     samples = {
-      'issue-triage.md'      => {},
-      'discovery.md'         => { issue_id: 'ENG-1' },
-      'code.md'              => { issue_id: 'ENG-1' },
-      'test.md'              => { issue_id: 'ENG-1', pr_url: 'u' },
-      'demo-review.md'       => { issue_id: 'ENG-1', pr_url: 'u' },
-      'create-issue.md'      => { issues: [{ 'title' => 't' }] }
+      'code.md'        => { input_text: 'Fix the bug' },
+      'test.md'        => { issue_id: 'ENG-1', pr_url: 'u' },
+      'demo-review.md' => { issue_id: 'ENG-1', pr_url: 'u' }
     }
     samples.each do |fname, ctx|
-      ctx[:project_url] = 'https://example/p/x'
       path = File.join(REPO_ROOT, 'tasks', fname)
       out = Template.render(path, ctx)
       refute_includes out, '## Context', "#{fname}: should not have a trailing ## Context block"

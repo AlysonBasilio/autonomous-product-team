@@ -10,8 +10,6 @@ module Template
   class UnknownPlaceholderError < Error; end
   class TypeMismatchError < Error; end
 
-  IMPLICIT_KEYS = %w[project_url].freeze
-
   PLACEHOLDER_RE = /\{\{\s*(\w+|\.)\s*\}\}/.freeze
   SECTION_RE     = /\{\{#\s*(\w+)\s*\}\}(.*?)\{\{\/\s*\1\s*\}\}/m.freeze
 
@@ -24,7 +22,7 @@ module Template
     missing = spec.required.reject { |k| present?(ctx[k]) }
     raise MissingInputError, "#{task_path}: missing required input(s): #{missing.join(', ')}" unless missing.empty?
 
-    declared = (spec.required + spec.optional + IMPLICIT_KEYS).to_set
+    declared = (spec.required + spec.optional).to_set
     validate_placeholders!(spec.body, declared, task_path)
 
     expand(spec.body, ctx, task_path)

@@ -44,7 +44,4 @@ end
 DB.boot!
 
 require_relative 'models/config_entry'
-require_relative 'models/project'
-require_relative 'models/project_state'
-require_relative 'models/project_history_entry'
 require_relative 'models/issue'

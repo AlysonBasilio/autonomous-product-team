@@ -266,14 +266,15 @@ class ExtractReportExamplesTest < Minitest::Test
   end
 
   def test_extracts_indented_block_and_dedents
-    # Mirrors tasks/issue-triage.md: fenced block sits inside a numbered list.
+    # Fenced block inside a numbered list must be dedented before parsing.
     body = <<~MD
       1. **Report** — output:
 
          ```json
          {
-           "type": "triage-report",
-           "next_issue": null
+           "type": "task-failed",
+           "task": "tasks/code.md",
+           "failure": "oops"
          }
          ```
     MD
@@ -283,7 +284,7 @@ class ExtractReportExamplesTest < Minitest::Test
       # Dedented body must parse as JSON (would fail with leading 3-space indent
       # only if JSON.parse rejected it — it doesn't, but verify dedent ran).
       refute_match(/\A   /, examples[0])
-      assert_equal 'triage-report', JSON.parse(examples[0])['type']
+      assert_equal 'task-failed', JSON.parse(examples[0])['type']
     end
   end
 

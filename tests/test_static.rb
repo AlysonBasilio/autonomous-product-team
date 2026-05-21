@@ -62,74 +62,6 @@ class TestTaskFileExistence < Minitest::Test
   end
 end
 
-class TestTriageRoutingTable < Minitest::Test
-  # Triage routing table must cover every important decision branch.
-  # Removing or renaming a branch should cause one of these tests to fail.
-
-  def test_routing_covers_demo_review_approved
-    assert_match(/demo-review-complete.*approved/i, load_file('tasks/issue-triage.md'),
-                 'Triage routing table must handle demo-review-complete approved')
-  end
-
-  def test_routing_covers_demo_review_redirect
-    assert_match(/demo-review-complete.*redirect/i, load_file('tasks/issue-triage.md'),
-                 'Triage routing table must handle demo-review-complete redirect')
-  end
-
-  def test_routing_covers_test_pass
-    assert_match(/test-complete.*pass/i, load_file('tasks/issue-triage.md'),
-                 'Triage routing table must handle test-complete pass')
-  end
-
-  def test_routing_covers_test_fail
-    assert_match(/test-complete.*fail/i, load_file('tasks/issue-triage.md'),
-                 'Triage routing table must handle test-complete fail')
-  end
-
-  def test_routing_covers_stale_implementation
-    assert_includes load_file('tasks/issue-triage.md').downcase, 'stale',
-                    'Triage routing table must handle the stale-implementation case ' \
-                    '(issue updated after test passed)'
-  end
-
-  def test_routing_covers_task_complete_with_open_pr
-    assert_match(/task-complete.*exists/i, load_file('tasks/issue-triage.md'),
-                 'Triage routing table must handle task-complete with open PR')
-  end
-
-  def test_routing_covers_task_complete_with_broken_ci
-    assert_match(/CI failing|CI green/i, load_file('tasks/issue-triage.md'),
-                 'Triage routing table must distinguish CI green vs failing states')
-  end
-
-  def test_routing_covers_no_work_done
-    assert_match(/No.*task-complete|no.*task-complete/, load_file('tasks/issue-triage.md'),
-                 'Triage routing table must handle the case where no work has been done yet')
-  end
-
-  def test_routing_covers_branch_exists_no_pr
-    assert_match(/[Bb]ranch exists/, load_file('tasks/issue-triage.md'),
-                 'Triage routing table must handle branch-exists-but-no-PR state')
-  end
-
-  def test_triage_defines_next_task_values
-    content = load_file('tasks/issue-triage.md')
-    %w[code test demo-review].each do |value|
-      assert_includes content, value, "issue-triage.md must document next_task value: #{value}"
-    end
-  end
-
-  def test_routing_covers_merge_conflicts
-    assert_match(/merge.conflict/i, load_file('tasks/issue-triage.md'),
-                 'Triage routing table must handle the case where a PR has merge conflicts')
-  end
-
-  def test_triage_checks_mergeability
-    assert_includes load_file('tasks/issue-triage.md').downcase, 'mergeable',
-                    'issue-triage.md must instruct the agent to check PR mergeability ' \
-                    '(e.g. via gh pr view --json mergeable)'
-  end
-end
 
 class TestMergeConflictHandling < Minitest::Test
   # Merge conflict detection and resolution must be covered in code.md.
@@ -152,16 +84,6 @@ class TestInputOutputChain < Minitest::Test
   # Fields produced by one task must be consumed by the appropriate downstream task.
   # A missing field in the producer or consumer breaks the hand-off.
 
-  def test_triage_outputs_branch_consumed_by_implement
-    assert_includes load_file('tasks/issue-triage.md'), 'branch'
-    assert_includes load_file('tasks/code.md'), 'branch'
-  end
-
-  def test_triage_outputs_findings_consumed_by_implement
-    assert_includes load_file('tasks/issue-triage.md'), 'findings'
-    assert_includes load_file('tasks/code.md'), 'findings'
-  end
-
   def test_implement_outputs_pr_url_consumed_by_test
     assert_includes load_file('tasks/code.md'), 'pr_url'
     assert_includes load_file('tasks/test.md'), 'pr_url'
@@ -177,28 +99,21 @@ class TestInputOutputChain < Minitest::Test
     assert_includes load_file('tasks/code.md'), 'user_feedback'
   end
 
-  def test_code_fetches_issue_from_pm_system
-    assert_includes load_file('tasks/code.md'), 'product development management system'
+  def test_code_fetches_issue_from_linear
+    assert_includes load_file('tasks/code.md'), 'Linear MCP'
   end
 
-  def test_test_fetches_issue_from_pm_system
-    assert_includes load_file('tasks/test.md'), 'product development management system'
+  def test_test_fetches_issue_from_linear
+    assert_includes load_file('tasks/test.md'), 'Linear MCP'
   end
 
-  def test_demo_review_fetches_issue_from_pm_system
-    assert_includes load_file('tasks/demo-review.md'), 'product development management system'
+  def test_demo_review_fetches_issue_from_linear
+    assert_includes load_file('tasks/demo-review.md'), 'Linear MCP'
   end
 end
 
 class TestReportSchemas < Minitest::Test
   # Each task must define its complete output report schema.
-
-  def test_triage_defines_report_schema
-    content = load_file('tasks/issue-triage.md')
-    assert_includes content, 'triage-report'
-    assert_includes content, 'next_issue'
-    assert_includes content, 'next_task'
-  end
 
   def test_code_defines_task_complete
     content = load_file('tasks/code.md')
@@ -220,47 +135,10 @@ class TestReportSchemas < Minitest::Test
     assert_includes content, 'findings'
   end
 
-  def test_triage_defines_task_failed
-    content = load_file('tasks/issue-triage.md')
-    assert_includes content, 'task-failed'
-    assert_includes content, 'failure'
-  end
-
-  def test_triage_excludes_deleted_issues
-    content = load_file('tasks/issue-triage.md')
-    assert_match(/deleted|trashed/i, content,
-                 'tasks/issue-triage.md must instruct the agent to skip deleted/trashed issues')
-    assert_match(/considered/i, content,
-                 'tasks/issue-triage.md must clarify that excluded issues do not enter `considered`')
-  end
-
   def test_demo_review_defines_pending_report
     assert_includes load_file('tasks/demo-review.md'), 'demo-review-pending'
   end
 
-  def test_create_issue_supports_priority_field
-    assert_includes load_file('tasks/create-issue.md'), 'priority',
-                    'tasks/create-issue.md must support an optional priority field'
-  end
-end
-
-class TestMultiPRHandling < Minitest::Test
-  # Verify that multi-PR tracking is documented in issue-triage.md.
-
-  def test_triage_mentions_multi_pr_handling
-    assert_match(/all.*PR|associated PR|multi-PR/i, load_file('tasks/issue-triage.md'),
-                 "tasks/issue-triage.md must mention multi-PR handling (e.g., 'all PRs', 'associated PRs', or 'multi-PR')")
-  end
-
-  def test_triage_mentions_all_prs_merged_or_closed
-    assert_match(/all.*(?:PRs|associated).*(?:merged|closed)/i, load_file('tasks/issue-triage.md'),
-                 'tasks/issue-triage.md routing table must require all associated PRs to be merged or closed')
-  end
-
-  def test_triage_handles_remaining_open_prs
-    assert_match(/other.*PR.*open|remaining.*PR|associated PRs still open/i, load_file('tasks/issue-triage.md'),
-                 'tasks/issue-triage.md routing table must handle the case where some associated PRs are still open')
-  end
 end
 
 class TestDemoReviewApprovalGate < Minitest::Test
@@ -312,11 +190,10 @@ class TestSessionPersistence < Minitest::Test
     end
   end
 
-  def test_server_exposes_project_endpoints
+  def test_server_exposes_issues_endpoint
     content = load_file('orchestrator/server.rb')
-    %w[/api/projects /activate].each do |route|
-      assert_includes content, route, "orchestrator/server.rb must expose #{route}"
-    end
+    assert_includes content, '/api/issues',
+                    'orchestrator/server.rb must expose /api/issues'
   end
 
   def test_config_persists_via_storage
@@ -327,13 +204,6 @@ class TestSessionPersistence < Minitest::Test
                     'Config.set_active_project_id must persist the active project'
   end
 
-  def test_run_waits_for_setup_before_dispatch
-    content = load_file('orchestrator/run.rb')
-    assert_includes content, 'wait_for_setup',
-                    'orchestrator/run.rb must gate task dispatch on wait_for_setup (creds + active project)'
-    assert_includes content, 'synthup_configured?',
-                    'orchestrator/run.rb must check synthup_configured? before dispatching'
-  end
 end
 
 class TestQABlockedDelegation < Minitest::Test
@@ -359,100 +229,36 @@ class TestQABlockedDelegation < Minitest::Test
   end
 end
 
-class TestSplitReport < Minitest::Test
-  # Splitting an oversized issue is now expressed by the code task emitting a
-  # `split-needed` report. The router translates that into a create-issue.md
-  # dispatch with split_context: true and return_to: "triage".
-
-  def test_code_defines_split_needed
-    content = load_file('tasks/code.md')
-    assert_includes content, 'split-needed',
-                    'code.md must document the split-needed report type used when an issue is too big for a single PR'
-  end
+class TestScopeAssessment < Minitest::Test
+  # code.md must describe when an issue is too big and what to do.
 
   def test_code_defines_scope_assessment
     assert_match(/scope|too big|single PR/i, load_file('tasks/code.md'),
-                 'code.md must include a scope assessment step explaining when an issue is too big for a single PR')
+                 'code.md must include a scope assessment step')
   end
 
-  def test_code_split_report_has_required_fields
+  def test_code_instructs_sub_issue_creation_via_mcp
     content = load_file('tasks/code.md')
-    %w[source_issue_id issues depends_on].each do |field|
-      assert_includes content, field, "code.md split-needed schema is missing field: #{field}"
-    end
-  end
-
-  def test_create_issue_accepts_and_echoes_context
-    assert_includes load_file('tasks/create-issue.md'), 'context',
-                    'create-issue.md must accept and echo the optional context field'
-  end
-
-  def test_router_forwards_source_issue_id_on_split
-    # The router must propagate `source_issue_id` from a `split-needed` report
-    # into the create-issue.md context, so create-issue.md knows which issue
-    # to close after the sub-issues are created.
-    report = {
-      'type'            => 'split-needed',
-      'issue_id'        => 'ENG-1987',
-      'source_issue_id' => 'ENG-1987',
-      'issues'          => [{ 'title' => 'sub' }]
-    }
-    action = Router.route(report)
-    assert_equal 'run-task', action[:type]
-    assert_equal 'create-issue.md', action[:task]
-    assert_equal 'ENG-1987', action[:context][:source_issue_id],
-                 'router must forward source_issue_id so create-issue.md can mark the parent Done'
-    assert_equal true, action[:context][:split_context]
-    assert_equal 'triage', action[:context][:return_to]
-  end
-
-  def test_create_issue_marks_source_done_when_split_context
-    # When invoked from a split, create-issue.md must instruct the agent to
-    # mark the source issue Done — the source's goal is now tracked by the
-    # newly created sub-issues, so it shouldn't remain open.
-    path = File.join(REPO_ROOT, 'tasks/create-issue.md')
-    rendered = Template.render(path, {
-      'project_url'     => 'https://example/p/x',
-      'issues'          => [{ 'title' => 'sub' }],
-      'source_issue_id' => 'ENG-1987',
-      'split_context'   => true
-    })
-    assert_match(/mark .*source issue.*\bDone\b/i, rendered,
-                 'create-issue.md must instruct the agent to mark the source issue Done when split_context is set')
-    assert_includes rendered, 'ENG-1987',
-                    'create-issue.md must echo the source issue ID into the rendered prompt'
-  end
-
-  def test_create_issue_does_not_mark_source_done_without_split_context
-    # The split-context "mark Done" instruction is a carve-out from the
-    # general rule against modifying the source issue's status. Without
-    # split_context the instruction must NOT appear.
-    path = File.join(REPO_ROOT, 'tasks/create-issue.md')
-    rendered = Template.render(path, {
-      'project_url'     => 'https://example/p/x',
-      'issues'          => [{ 'title' => 'sub' }],
-      'source_issue_id' => 'ENG-1987'
-    })
-    refute_match(/source issue is being .*split/i, rendered,
-                 'create-issue.md must not render the split-context "mark Done" block when split_context is absent')
+    assert_match(/Linear MCP|MCP tool|sub-issue/i, content,
+                 'code.md must instruct agent to create sub-issues via Linear MCP when splitting')
   end
 end
 
 # Mirrored from orchestrator/task_runner.rb — keep in sync.
 KNOWN_REPORT_TYPES = %w[
-  triage-report task-complete split-needed test-report
-  demo-review-pending demo-review-report discovery-complete
-  create-issue-complete
-  task-failed blocked
+  task-complete test-report
+  demo-review-pending demo-review-report
+  task-failed blocked recovery-exhausted
 ].to_set
 
 # Report types that agents author in task specs. demo-review-report is
-# constructed by orchestrator/run.rb after UI approval, never by an agent —
+# constructed by the orchestrator after UI approval, never by an agent —
 # so it isn't expected to appear as a fenced JSON example in any task spec.
 EXPECTED_AGENT_REPORT_TYPES = KNOWN_REPORT_TYPES - ['demo-review-report'].to_set
 
-# Types not authored in any task spec today (router-only handlers).
-TYPES_NOT_IN_TASK_SPECS = ['blocked'].to_set
+# Types not authored as fenced JSON examples in any task spec today.
+# blocked: mentioned in text but no example block; recovery-exhausted: orchestrator-generated.
+TYPES_NOT_IN_TASK_SPECS = %w[blocked recovery-exhausted].to_set
 
 # Return every fenced ```json block in content that successfully JSON-parses.
 def fenced_json_blocks(content)
@@ -557,10 +363,10 @@ class TestTaskInputsFrontmatter < Minitest::Test
 
   def test_no_undeclared_placeholders
     # Every {{ key }} reference in a task body must be declared in inputs
-    # (required or optional) or be an implicit key like project_url.
+    # (required or optional).
     TASK_FILES.each do |path|
       spec = Template.parse(File.join(REPO_ROOT, path))
-      declared = (spec.required + spec.optional + Template::IMPLICIT_KEYS).to_set
+      declared = (spec.required + spec.optional).to_set
       placeholders = spec.body.scan(/\{\{\s*(\w+|\.)\s*\}\}/).map(&:first)
       sections    = spec.body.scan(/\{\{#\s*(\w+)\s*\}\}/).map(&:first)
       (placeholders + sections).uniq.each do |k|
@@ -583,42 +389,15 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
   # `next_issue` is a `{id, title, summary}` object, not a bare ID string —
   # so that the rendered prompt picks up dispatch-time type bugs.
   ROUTER_FIXTURES = [
-    { 'type' => 'triage-report',
-      'next_issue' => nil },
-    { 'type' => 'triage-report', 'next_task' => 'discovery',
-      'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' } },
-    { 'type' => 'triage-report', 'next_task' => 'code',
-      'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
-      'branch' => 'b' },
-    { 'type' => 'triage-report', 'next_task' => 'test',
-      'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
-      'pr_url' => 'u' },
-    { 'type' => 'triage-report', 'next_task' => 'demo-review',
-      'next_issue' => { 'id' => 'ENG-1', 'title' => 't', 'summary' => 's' },
-      'pr_url' => 'u' },
-    { 'type' => 'split-needed', 'issue_id' => 'ENG-1',
-      'source_issue_id' => 'ENG-1',
-      'issues' => [{ 'title' => 't' }] },
     { 'type' => 'task-complete',
       'issue_id' => 'ENG-1', 'pr_url' => 'u' },
-    { 'type' => 'task-complete',
-      'issue_id' => 'ENG-1', 'pr_url' => 'u',
-      'follow_up_issues' => [{ 'title' => 't' }] },
-    { 'type' => 'discovery-complete' },
     { 'type' => 'test-report', 'outcome' => 'pass',
       'issue_id' => 'ENG-1', 'pr_url' => 'u' },
     { 'type' => 'test-report', 'outcome' => 'fail',
       'issue_id' => 'ENG-1', 'pr_url' => 'u',
       'findings' => [{ 'description' => 'd', 'severity' => 'critical' }] },
-    { 'type' => 'create-issue-complete', 'return_to' => 'test',
-      'source_issue_id' => 'ENG-1', 'pr_url' => 'u' },
-    { 'type' => 'create-issue-complete', 'return_to' => 'triage',
-      'source_issue_id' => 'ENG-1' },
     { 'type' => 'demo-review-report', 'outcome' => 'approved',
       'issue_id' => 'ENG-1', 'pr_url' => 'u' },
-    { 'type' => 'demo-review-report', 'outcome' => 'approved',
-      'issue_id' => 'ENG-1', 'pr_url' => 'u',
-      'follow_up_issues' => [{ 'title' => 't' }] },
     { 'type' => 'demo-review-report', 'outcome' => 'redirect',
       'issue_id' => 'ENG-1', 'pr_url' => 'u', 'user_feedback' => 'f' }
   ].freeze
@@ -655,8 +434,7 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
       action = Router.route(report)
       each_dispatched_task(action) do |task, context|
         path = File.join(REPO_ROOT, 'tasks', task)
-        full_ctx = { 'project_url' => 'https://example/p/x' }
-          .merge(context.each_with_object({}) { |(k, v), h| h[k.to_s] = v })
+        full_ctx = context.each_with_object({}) { |(k, v), h| h[k.to_s] = v }
         Template.render(path, full_ctx)
       rescue Template::Error => e
         flunk "Router.route(#{report['type']}, outcome=#{report['outcome'].inspect}) " \
@@ -667,8 +445,7 @@ class TestRouterSuppliesRequiredInputs < Minitest::Test
 
   def test_router_does_not_pass_unknown_keys
     # Every key the router supplies must be declared in inputs (required
-    # or optional). project_url is added by dispatch_task, not the router,
-    # so it doesn't appear in router branches.
+    # or optional).
     ROUTER_FIXTURES.each do |report|
       action = Router.route(report)
       each_dispatched_task(action) do |task, context|
