@@ -152,6 +152,7 @@ If implementation hits an unresolvable blocker, output only:
 
 - Only work on your assigned issue — do not touch files outside its scope.
 - Always read files before editing them.
+- **Write no comments by default.** Only add a comment when the *why* is non-obvious — a hidden constraint, a subtle invariant, or a workaround for a specific bug. Never write multi-line or multi-paragraph comment blocks. Never reference issue IDs, PR context, or ticket numbers in code comments (that context belongs in the PR description and commit message, not the source file). Do not explain *what* the code does — well-named identifiers already do that.
 - **Do not run the test suite, linter, static analysis, or build locally at any point** (implementation, post-CI-failure, or post-rebase). CI runs all of these on every push; diagnose from CI logs and push fixes.
 - Do not skip CI or commit hooks.
 - Do not merge the PR — merging is handled after QA and demo review. Never merge directly to `main`.
