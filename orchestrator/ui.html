@@ -53,6 +53,7 @@
   }
   .badge-running   { background: #14532d; color: var(--green); }
   .badge-paused    { background: #451a03; color: var(--yellow); }
+  .badge-idle      { background: #1c1c1c; color: #9ca3af; }
   .badge-done      { background: #1e3a5f; color: var(--blue); }
   .badge-escalated { background: #450a0a; color: var(--red); }
   .badge-awaiting  { background: #422006; color: #fcd34d; }
@@ -285,7 +286,7 @@ a.card-title:hover { text-decoration: underline; }
     if (issue.current_task && !issue.paused) return 'running';
     if (issue.paused)             return 'paused';
     if (issue.lifecycle_stage === 'done') return 'done';
-    return 'running';
+    return issue.thread_alive ? 'running' : 'idle';
   }
 
   function renderIssues(issues) {
@@ -445,13 +446,19 @@ a.card-title:hover { text-decoration: underline; }
       </div>`;
     }
 
-    // Per-card pause/resume/cancel controls (only when running or paused)
+    // Per-card pause/resume/cancel controls
     let controlsHtml = '';
     if (status === 'running' || status === 'paused') {
       controlsHtml = `<div class="card-section">
         <div class="btn-row">
           <button onclick='togglePause(${JSON.stringify(issue.id)}, ${JSON.stringify(status)})'>${status === 'paused' ? 'Resume' : 'Pause'}</button>
           <button class="danger" onclick='cancelIssue(${JSON.stringify(issue.id)})'>Cancel</button>
+        </div>
+      </div>`;
+    } else if (status === 'idle') {
+      controlsHtml = `<div class="card-section">
+        <div class="btn-row">
+          <button onclick='resumeIssue(${JSON.stringify(issue.id)})'>Resume</button>
         </div>
       </div>`;
     }
@@ -554,6 +561,10 @@ a.card-title:hover { text-decoration: underline; }
 
   function cancelIssue(issueId) {
     api('POST', '/api/cancel', { issue_id: issueId });
+  }
+
+  function resumeIssue(issueId) {
+    api('POST', '/api/reset-issue', { issue_id: issueId });
   }
 
   function toggleHistory(issueId) {

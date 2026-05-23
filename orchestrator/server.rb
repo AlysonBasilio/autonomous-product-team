@@ -93,6 +93,7 @@ class OrchestratorServer < Sinatra::Base
         repo_url:        i.repo_url,
         lifecycle_stage: i.lifecycle_stage,
         paused:          c.paused,
+        thread_alive:    thread_alive?(i.id),
         current_task:    ct.empty? ? nil : ct,
         escalation:      i.escalation,
         pending_approval: approval_meta,
@@ -182,7 +183,8 @@ class OrchestratorServer < Sinatra::Base
     Issues.clear_escalation(issue_id)
     unless self.class.thread_alive?(issue_id)
       initial_action = { type: 'run-task', task: issue.last_task || 'code.md',
-                         context: { input_text: issue.input_text, pr_url: issue.last_pr_url }.compact }
+                         context: { input_text: issue.input_text, pr_url: issue.last_pr_url,
+                                    issue_id: Issues.last_issue_id(issue) }.compact }
       warn "[server] spawning thread for reset id=#{issue_id} task=#{initial_action[:task]}"
       self.class.spawn_issue_thread(issue,
                                     port:           settings.port_value,

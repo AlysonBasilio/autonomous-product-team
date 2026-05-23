@@ -35,4 +35,12 @@ module Issues
     history = Array(issue.history) + [entry]
     issue.update!(history: history)
   end
+
+  def self.last_issue_id(issue)
+    Array(issue.history).reverse.each do |entry|
+      id = entry.dig('report', 'issue_id')
+      return id if id
+    end
+    issue.external_id
+  end
 end
